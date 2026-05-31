@@ -1,0 +1,38 @@
+# ---- Java / Maven ----
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+hs_err_pid*
+
+# ---- Node / Frontend ----
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+coverage/
+
+# ---- Env / Secrets ----
+.env
+.env.*
+!.env.example
+*.pem
+
+# ---- IDE ----
+.idea/
+*.iml
+.vscode/
+*.swp
+.DS_Store
+
+# ---- Logs ----
+logs/
+*.log
+
+# ---- Docker ----
+docker-data/
+
+# ---- Uploads (POC local storage) ----
+backend/uploads/
