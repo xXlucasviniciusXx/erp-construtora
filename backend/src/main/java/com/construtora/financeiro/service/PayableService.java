@@ -1,0 +1,63 @@
+package com.construtora.financeiro.service;
+
+import com.construtora.financeiro.dto.payable.PayableRequest;
+import com.construtora.financeiro.dto.payable.PayableResponse;
+import com.construtora.financeiro.exception.ResourceNotFoundException;
+import com.construtora.financeiro.mapper.PayableMapper;
+import com.construtora.financeiro.model.AccountPayable;
+import com.construtora.financeiro.model.enums.PayableStatus;
+import com.construtora.financeiro.repository.AccountPayableRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.UUID;
+
+@Service
+@Transactional
+public class PayableService {
+
+    private final AccountPayableRepository repository;
+    private final PayableMapper mapper;
+
+    public PayableService(AccountPayableRepository repository, PayableMapper mapper) {
+        this.repository = repository;
+        this.mapper = mapper;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PayableResponse> findAll(Pageable pageable) {
+        return repository.findAll(pageable).map(mapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public PayableResponse findById(UUID id) {
+        return mapper.toResponse(getEntity(id));
+    }
+
+    public PayableResponse create(PayableRequest request) {
+        return mapper.toResponse(repository.save(mapper.toEntity(request, null)));
+    }
+
+    public PayableResponse update(UUID id, PayableRequest request) {
+        return mapper.toResponse(repository.save(mapper.toEntity(request, getEntity(id))));
+    }
+
+    public PayableResponse confirmPayment(UUID id, LocalDate paymentDate) {
+        AccountPayable a = getEntity(id);
+        a.setStatus(PayableStatus.PAID);
+        a.setPaymentDate(paymentDate != null ? paymentDate : LocalDate.now());
+        return mapper.toResponse(repository.save(a));
+    }
+
+    public void delete(UUID id) {
+        repository.delete(getEntity(id));
+    }
+
+    public AccountPayable getEntity(UUID id) {
+        return repository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Conta a pagar", id));
+    }
+}
