@@ -10,8 +10,11 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * Monta o XHTML do contrato a partir dos dados de venda, cliente, imóvel,
- * parcelas e da empresa. Produz XHTML bem-formado para também servir de
- * entrada ao gerador de PDF.
+ * parcelas e da empresa. Produz XHTML BEM-FORMADO (XML) — toda saída usada pelo
+ * gerador de PDF (Flying Saucer) precisa ser XML válido:
+ *  - valores injetados são escapados ({@link #esc}) para neutralizar &amp; &lt; &gt;
+ *  - espaços não separáveis usam a referência numérica &amp;#160; (e NÃO &amp;nbsp;,
+ *    que é entidade HTML e quebra o parser XML).
  *
  * TODO: suportar múltiplos modelos de contrato persistidos em banco
  *       (tabela contract_templates) e edição pelo COMERCIAL/ADMIN.
@@ -24,7 +27,7 @@ public class ContractTemplateService {
     public String render(PropertySale sale, SystemSettings settings) {
         var client = sale.getClient();
         var property = sale.getProperty();
-        String company = settings.getCompanyName() != null ? settings.getCompanyName() : settings.getSystemName();
+        String company = esc(settings.getCompanyName() != null ? settings.getCompanyName() : settings.getSystemName());
 
         StringBuilder installments = new StringBuilder();
         for (Installment i : sale.getInstallments()) {
@@ -46,40 +49,40 @@ public class ContractTemplateService {
                   .sig { display: inline-block; width: 45%%; text-align: center; border-top: 1px solid #000; }
                 </style></head>
                 <body>
-                  <h1>CONTRATO DE COMPRA E VENDA DE IMÓVEL</h1>
+                  <h1>CONTRATO DE COMPRA E VENDA DE IM&#211;VEL</h1>
                   <p>Por este instrumento particular, <strong>%s</strong> (VENDEDORA) e o(a) comprador(a)
-                     abaixo qualificado(a) ajustam a compra e venda do imóvel descrito a seguir.</p>
+                     abaixo qualificado(a) ajustam a compra e venda do im&#243;vel descrito a seguir.</p>
 
                   <div class="section">
                     <strong>COMPRADOR(A)</strong><br/>
-                    Nome/Razão Social: %s<br/>
-                    CPF/CNPJ: %s &nbsp;&nbsp; RG/IE: %s<br/>
-                    Endereço: %s<br/>
-                    Estado civil: %s &nbsp;&nbsp; Profissão: %s<br/>
-                    E-mail: %s &nbsp;&nbsp; Telefone: %s
+                    Nome/Raz&#227;o Social: %s<br/>
+                    CPF/CNPJ: %s &#160;&#160; RG/IE: %s<br/>
+                    Endere&#231;o: %s<br/>
+                    Estado civil: %s &#160;&#160; Profiss&#227;o: %s<br/>
+                    E-mail: %s &#160;&#160; Telefone: %s
                   </div>
 
                   <div class="section">
-                    <strong>IMÓVEL</strong><br/>
+                    <strong>IM&#211;VEL</strong><br/>
                     Empreendimento: %s<br/>
-                    Quadra: %s &nbsp; Lote: %s &nbsp; Unidade: %s<br/>
-                    Matrícula: %s<br/>
-                    Endereço: %s<br/>
-                    Área total: %s m&#178; &nbsp; Área construída: %s m&#178;
+                    Quadra: %s &#160; Lote: %s &#160; Unidade: %s<br/>
+                    Matr&#237;cula: %s<br/>
+                    Endere&#231;o: %s<br/>
+                    &#193;rea total: %s m&#178; &#160; &#193;rea constru&#237;da: %s m&#178;
                   </div>
 
                   <div class="section">
-                    <strong>CONDIÇÕES DE PAGAMENTO</strong><br/>
+                    <strong>CONDI&#199;&#213;ES DE PAGAMENTO</strong><br/>
                     Valor total: R$ %s<br/>
                     Entrada: R$ %s<br/>
-                    Parcelas: %s &nbsp; Primeiro vencimento: %s<br/>
-                    Forma de pagamento: %s &nbsp; Índice de correção: %s
+                    Parcelas: %s &#160; Primeiro vencimento: %s<br/>
+                    Forma de pagamento: %s &#160; &#205;ndice de corre&#231;&#227;o: %s
                   </div>
 
                   <div class="section">
                     <strong>PARCELAS</strong>
                     <table>
-                      <tr><th>Nº</th><th>Valor</th><th>Vencimento</th></tr>
+                      <tr><th>N&#186;</th><th>Valor</th><th>Vencimento</th></tr>
                       %s
                     </table>
                   </div>
@@ -90,27 +93,34 @@ public class ContractTemplateService {
 
                   <div class="signatures">
                     <span class="sig">VENDEDORA<br/>%s</span>
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    &#160;&#160;&#160;&#160;&#160;&#160;
                     <span class="sig">COMPRADOR(A)<br/>%s</span>
                   </div>
                 </body></html>
                 """.formatted(
                 company,
-                nz(client.getName()), nz(client.getDocument()), nz(client.getStateRegistration()),
-                nz(client.getAddress()), nz(client.getMaritalStatus()), nz(client.getOccupation()),
-                nz(client.getEmail()), nz(client.getPhone()),
-                nz(property.getDevelopment()), nz(property.getBlock()), nz(property.getLot()),
-                nz(property.getUnit()), nz(property.getRegistration()), nz(property.getAddress()),
-                nz(property.getTotalArea()), nz(property.getBuiltArea()),
+                esc(client.getName()), esc(client.getDocument()), esc(client.getStateRegistration()),
+                esc(client.getAddress()), esc(client.getMaritalStatus()), esc(client.getOccupation()),
+                esc(client.getEmail()), esc(client.getPhone()),
+                esc(property.getDevelopment()), esc(property.getBlock()), esc(property.getLot()),
+                esc(property.getUnit()), esc(property.getRegistration()), esc(property.getAddress()),
+                esc(property.getTotalArea()), esc(property.getBuiltArea()),
                 sale.getTotalValue(), sale.getDownPayment(), sale.getInstallmentsCount(),
-                sale.getFirstDueDate().format(DATE), nz(sale.getPaymentMethod()), nz(sale.getCorrectionIndex()),
+                sale.getFirstDueDate().format(DATE), esc(sale.getPaymentMethod()), esc(sale.getCorrectionIndex()),
                 installments.toString(),
-                nz(property.getContractExtra()),
+                esc(property.getContractExtra()),
                 LocalDate.now().format(DATE),
-                company, nz(client.getName()));
+                company, esc(client.getName()));
     }
 
-    private String nz(Object v) {
-        return v == null ? "-" : v.toString();
+    /** Null-safe + escape de caracteres especiais para XML bem-formado. */
+    private String esc(Object v) {
+        if (v == null) return "-";
+        String s = v.toString();
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }
