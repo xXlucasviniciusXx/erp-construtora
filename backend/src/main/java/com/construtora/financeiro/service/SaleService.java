@@ -7,10 +7,11 @@ import com.construtora.financeiro.exception.ResourceNotFoundException;
 import com.construtora.financeiro.mapper.SaleMapper;
 import com.construtora.financeiro.model.Client;
 import com.construtora.financeiro.model.Installment;
-import com.construtora.financeiro.model.Property;
+import com.construtora.financeiro.model.Lot;
 import com.construtora.financeiro.model.PropertySale;
+import com.construtora.financeiro.model.enums.InstallmentStatus;
 import com.construtora.financeiro.model.enums.PropertyStatus;
-import com.construtora.financeiro.repository.PropertyRepository;
+import com.construtora.financeiro.repository.LotRepository;
 import com.construtora.financeiro.repository.PropertySaleRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,20 +25,23 @@ import java.util.UUID;
 @Transactional
 public class SaleService {
 
+    /** Forma de compra que habilita o campo de entrada. */
+    public static final String PURCHASE_WITH_DOWNPAYMENT = "Entrada + parcelas";
+
     private final PropertySaleRepository saleRepository;
-    private final PropertyRepository propertyRepository;
+    private final LotRepository lotRepository;
     private final ClientService clientService;
-    private final PropertyService propertyService;
+    private final LotService lotService;
     private final NotificationService notificationService;
     private final SaleMapper mapper;
 
-    public SaleService(PropertySaleRepository saleRepository, PropertyRepository propertyRepository,
-                       ClientService clientService, PropertyService propertyService,
+    public SaleService(PropertySaleRepository saleRepository, LotRepository lotRepository,
+                       ClientService clientService, LotService lotService,
                        NotificationService notificationService, SaleMapper mapper) {
         this.saleRepository = saleRepository;
-        this.propertyRepository = propertyRepository;
+        this.lotRepository = lotRepository;
         this.clientService = clientService;
-        this.propertyService = propertyService;
+        this.lotService = lotService;
         this.notificationService = notificationService;
         this.mapper = mapper;
     }
@@ -59,20 +63,20 @@ public class SaleService {
 
     public SaleResponse create(SaleRequest request) {
         Client client = clientService.getEntity(request.clientId());
-        Property property = propertyService.getEntity(request.propertyId());
+        Lot lot = lotService.getEntity(request.lotId());
 
-        if (property.getStatus() == PropertyStatus.SOLD) {
-            throw new BusinessException("Imóvel já está vendido");
+        if (lot.getStatus() == PropertyStatus.SOLD) {
+            throw new BusinessException("Lote já está vendido");
         }
-        BigDecimal down = request.downPayment() != null ? request.downPayment() : BigDecimal.ZERO;
+        BigDecimal down = resolveDownPayment(request);
         if (down.compareTo(request.totalValue()) > 0) {
-            throw new BusinessException("Entrada não pode ser maior que o valor total");
+            throw new BusinessException("Entrada não pode ser maior que o valor vendido");
         }
 
         PropertySale sale = new PropertySale();
         sale.setClient(client);
-        sale.setProperty(property);
-        sale.setTotalValue(request.totalValue());
+        sale.setLot(lot);
+        sale.setTotalValue(request.totalValue());     // valor que foi vendido
         sale.setDownPayment(down);
         sale.setInstallmentsCount(request.installmentsCount());
         sale.setFirstDueDate(request.firstDueDate());
@@ -85,8 +89,10 @@ public class SaleService {
 
         generateInstallments(sale);
 
-        property.setStatus(PropertyStatus.SOLD);
-        propertyRepository.save(property);
+        // Integração: grava o valor vendido no lote e marca como vendido.
+        lot.setSaleValue(request.totalValue());
+        lot.setStatus(PropertyStatus.SOLD);
+        lotRepository.save(lot);
 
         PropertySale saved = saleRepository.save(sale);
         notificationService.notifySaleCreated(saved);
@@ -94,7 +100,66 @@ public class SaleService {
     }
 
     /**
-     * Gera as parcelas dividindo (valor total - entrada) pela quantidade.
+     * Edita uma venda. Se o valor vendido ou a quantidade de parcelas mudar, as
+     * parcelas são regeradas — porém SOMENTE se nenhuma parcela tiver sido paga.
+     * Havendo parcela paga, bloqueia a alteração de valor/quantidade (os demais
+     * campos seguem editáveis). O valor vendido reflete no lote/empreendimento.
+     */
+    public SaleResponse update(UUID id, SaleRequest request) {
+        PropertySale sale = getEntity(id);
+        Lot lot = sale.getLot();
+
+        BigDecimal down = resolveDownPayment(request);
+        if (down.compareTo(request.totalValue()) > 0) {
+            throw new BusinessException("Entrada não pode ser maior que o valor vendido");
+        }
+
+        boolean valueOrCountChanged =
+                sale.getTotalValue().compareTo(request.totalValue()) != 0
+                || sale.getDownPayment().compareTo(down) != 0
+                || !sale.getInstallmentsCount().equals(request.installmentsCount())
+                || !sale.getFirstDueDate().equals(request.firstDueDate());
+
+        boolean anyPaid = sale.getInstallments().stream()
+                .anyMatch(i -> i.getStatus() == InstallmentStatus.PAID);
+
+        if (valueOrCountChanged && anyPaid) {
+            throw new BusinessException(
+                    "Já existem parcelas pagas: não é possível alterar valor/entrada/quantidade. "
+                    + "Ajuste manualmente as parcelas em aberto.");
+        }
+
+        // Campos sempre editáveis
+        sale.setPurchaseType(request.purchaseType());
+        sale.setPaymentMethod(request.paymentMethod());
+        sale.setCorrectionIndex(request.correctionIndex());
+        sale.setInterestRate(orZero(request.interestRate()));
+        sale.setPenaltyRate(orZero(request.penaltyRate()));
+        sale.setNotes(request.notes());
+
+        if (valueOrCountChanged) {
+            sale.setTotalValue(request.totalValue());
+            sale.setDownPayment(down);
+            sale.setInstallmentsCount(request.installmentsCount());
+            sale.setFirstDueDate(request.firstDueDate());
+            sale.getInstallments().clear();   // orphanRemoval apaga as antigas
+            generateInstallments(sale);
+            lot.setSaleValue(request.totalValue());
+            lotRepository.save(lot);
+        }
+
+        return mapper.toResponse(saleRepository.save(sale));
+    }
+
+    private BigDecimal resolveDownPayment(SaleRequest request) {
+        // Entrada só vale para "Entrada + parcelas"; nas demais formas é zerada.
+        boolean allowsDown = PURCHASE_WITH_DOWNPAYMENT.equalsIgnoreCase(request.purchaseType());
+        if (!allowsDown) return BigDecimal.ZERO;
+        return request.downPayment() != null ? request.downPayment() : BigDecimal.ZERO;
+    }
+
+    /**
+     * Gera as parcelas dividindo (valor vendido - entrada) pela quantidade.
      * O resíduo de arredondamento é somado à última parcela para fechar o total.
      */
     private void generateInstallments(PropertySale sale) {
@@ -121,9 +186,10 @@ public class SaleService {
 
     public void delete(UUID id) {
         PropertySale sale = getEntity(id);
-        Property property = sale.getProperty();
-        property.setStatus(PropertyStatus.AVAILABLE);
-        propertyRepository.save(property);
+        Lot lot = sale.getLot();
+        lot.setStatus(PropertyStatus.AVAILABLE);
+        lot.setSaleValue(null);
+        lotRepository.save(lot);
         saleRepository.delete(sale);
     }
 

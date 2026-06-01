@@ -4,7 +4,7 @@ import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ClientsPage } from '@/pages/ClientsPage'
-import { PropertiesPage } from '@/pages/PropertiesPage'
+import { DevelopmentsPage } from '@/pages/DevelopmentsPage'
 import { SalesPage } from '@/pages/SalesPage'
 import { PayablePage } from '@/pages/PayablePage'
 import { ReceivablePage } from '@/pages/ReceivablePage'
@@ -23,7 +23,7 @@ export function App() {
         <Route element={<Layout />}>
           <Route index element={<DashboardPage />} />
           <Route path="clients" element={<ClientsPage />} />
-          <Route path="properties" element={<PropertiesPage />} />
+          <Route path="properties" element={<DevelopmentsPage />} />
           <Route path="sales" element={<SalesPage />} />
           <Route path="payable" element={<PayablePage />} />
           <Route path="receivable" element={<ReceivablePage />} />

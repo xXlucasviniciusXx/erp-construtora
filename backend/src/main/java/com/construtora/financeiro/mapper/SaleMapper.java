@@ -5,10 +5,12 @@ import com.construtora.financeiro.dto.sale.InstallmentResponse;
 import com.construtora.financeiro.dto.sale.SaleResponse;
 import com.construtora.financeiro.model.Client;
 import com.construtora.financeiro.model.Installment;
-import com.construtora.financeiro.model.Property;
+import com.construtora.financeiro.model.Lot;
 import com.construtora.financeiro.model.PropertySale;
+import com.construtora.financeiro.model.enums.InstallmentStatus;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,11 +26,12 @@ public class SaleMapper {
     public InstallmentDetailResponse toDetailResponse(Installment i) {
         PropertySale s = i.getSale();
         Client c = s.getClient();
+        Lot lot = s.getLot();
         return new InstallmentDetailResponse(
                 i.getId(), s.getId(), i.getNumber(), i.getAmount(), i.getDueDate(),
                 i.getPaymentDate(), i.getStatus(),
                 c.getId(), c.getName(), c.getDocument(), c.getPhone(),
-                s.getProperty().getDevelopment(), propertyLabel(s.getProperty()));
+                lot.getBlock().getDevelopment().getName(), LotMapper.label(lot));
     }
 
     public SaleResponse toResponse(PropertySale s) {
@@ -37,33 +40,26 @@ public class SaleMapper {
                 .collect(Collectors.toList());
 
         int paidCount = 0;
-        java.math.BigDecimal paidAmount = java.math.BigDecimal.ZERO;
-        java.math.BigDecimal openAmount = java.math.BigDecimal.ZERO;
+        BigDecimal paidAmount = BigDecimal.ZERO;
+        BigDecimal openAmount = BigDecimal.ZERO;
         for (var i : s.getInstallments()) {
-            if (i.getStatus() == com.construtora.financeiro.model.enums.InstallmentStatus.PAID) {
+            if (i.getStatus() == InstallmentStatus.PAID) {
                 paidCount++;
                 paidAmount = paidAmount.add(i.getAmount());
-            } else if (i.getStatus() != com.construtora.financeiro.model.enums.InstallmentStatus.CANCELLED) {
+            } else if (i.getStatus() != InstallmentStatus.CANCELLED) {
                 openAmount = openAmount.add(i.getAmount());
             }
         }
 
+        Lot lot = s.getLot();
         return new SaleResponse(
                 s.getId(),
                 s.getClient().getId(), s.getClient().getName(),
-                s.getProperty().getId(), propertyLabel(s.getProperty()),
+                lot.getId(), LotMapper.label(lot), lot.getPlannedValue(),
                 s.getTotalValue(), s.getDownPayment(), s.getInstallmentsCount(), s.getFirstDueDate(),
                 s.getPurchaseType(), s.getPaymentMethod(), s.getCorrectionIndex(),
                 s.getInterestRate(), s.getPenaltyRate(),
                 s.getStatus(), s.getSaleDate(), s.getNotes(),
                 paidCount, paidAmount, openAmount, installments);
-    }
-
-    private String propertyLabel(Property p) {
-        StringBuilder sb = new StringBuilder(p.getDevelopment());
-        if (p.getBlock() != null) sb.append(" / Q").append(p.getBlock());
-        if (p.getLot() != null) sb.append(" / L").append(p.getLot());
-        if (p.getUnit() != null) sb.append(" / Un.").append(p.getUnit());
-        return sb.toString();
     }
 }

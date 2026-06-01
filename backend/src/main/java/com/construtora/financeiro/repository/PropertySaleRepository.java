@@ -12,11 +12,11 @@ public interface PropertySaleRepository extends JpaRepository<PropertySale, UUID
     List<PropertySale> findByClientId(UUID clientId);
 
     @Query("""
-            select s.property.development as development,
+            select s.lot.block.development.name as development,
                    count(s) as total,
                    coalesce(sum(s.totalValue), 0) as amount
             from PropertySale s
-            group by s.property.development
+            group by s.lot.block.development.name
             """)
     List<Object[]> salesByDevelopment();
 }

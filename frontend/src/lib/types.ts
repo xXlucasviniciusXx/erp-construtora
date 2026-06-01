@@ -38,20 +38,54 @@ export interface Client {
   status: 'ACTIVE' | 'INACTIVE'
 }
 
-export interface Property {
+export type LotStatus = 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'CANCELLED'
+
+export interface Development {
   id: string
-  development: string
-  block?: string
-  lot?: string
-  unit?: string
+  name: string
+  internalCode: string
+  blocksCount?: number
+  lotsCount?: number
+  expectedValue: number
+  plannedTotal: number
+  receivedTotal: number
+  actualBlocks: number
+  actualLots: number
+  address?: string
+  status?: string
+  dimensions?: string
+}
+
+export interface Block {
+  id: string
+  developmentId: string
+  developmentName: string
+  name: string
+  internalCode: string
   registration?: string
+  area?: number
+  lotsCount: number
+}
+
+export interface Lot {
+  id: string
+  blockId: string
+  blockName: string
+  developmentId: string
+  developmentName: string
+  name: string
+  internalCode: string
+  registration?: string
+  unit?: string
   address?: string
   totalArea?: number
   builtArea?: number
+  plannedValue?: number
   saleValue?: number
-  status: 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'CANCELLED'
+  status: LotStatus
   contractExtra?: string
   notes?: string
+  label: string
 }
 
 export interface Installment {
@@ -71,8 +105,9 @@ export interface Sale {
   id: string
   clientId: string
   clientName: string
-  propertyId: string
+  lotId: string
   propertyLabel: string
+  expectedValue?: number
   totalValue: number
   downPayment: number
   installmentsCount: number

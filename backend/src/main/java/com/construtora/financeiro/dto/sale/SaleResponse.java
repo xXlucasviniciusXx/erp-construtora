@@ -11,9 +11,10 @@ public record SaleResponse(
         UUID id,
         UUID clientId,
         String clientName,
-        UUID propertyId,
+        UUID lotId,
         String propertyLabel,
-        BigDecimal totalValue,
+        BigDecimal expectedValue,     // valor previsto do lote (read-only)
+        BigDecimal totalValue,        // valor que foi vendido
         BigDecimal downPayment,
         Integer installmentsCount,
         LocalDate firstDueDate,

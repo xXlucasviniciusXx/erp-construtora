@@ -46,8 +46,8 @@ public class DashboardAnalyticsService {
         }
         if (propertyId != null) {
             p.addValue("propertyId", propertyId);
-            instF += " and s.property_id = :propertyId";
-            saleF += " and ps.property_id = :propertyId";
+            instF += " and s.lot_id = :propertyId";
+            saleF += " and ps.lot_id = :propertyId";
         }
 
         // ---- Cards ----
@@ -73,8 +73,8 @@ public class DashboardAnalyticsService {
         // Retrato de carteira (não filtrado por período)
         long active = lng("select count(*) from clients where status='ACTIVE'", p);
         long inactive = lng("select count(*) from clients where status='INACTIVE'", p);
-        long lotsSold = lng("select count(*) from properties where status='SOLD'", p);
-        long lotsAvailable = lng("select count(*) from properties where status='AVAILABLE'", p);
+        long lotsSold = lng("select count(*) from lots where status='SOLD'", p);
+        long lotsAvailable = lng("select count(*) from lots where status='AVAILABLE'", p);
 
         // ---- Séries ----
         List<Point> received = points("""
@@ -94,12 +94,14 @@ public class DashboardAnalyticsService {
                 where i.status in ('OPEN','OVERDUE') and i.due_date < current_date""" + instF
                 + " group by 1 order by 1", p);
         List<Point> delinquencyByDev = points("""
-                select pr.development as label, sum(i.amount) as value
+                select dv.name as label, sum(i.amount) as value
                 from installments i
                   join property_sales s on s.id = i.sale_id
-                  join properties pr on pr.id = s.property_id
+                  join lots lt on lt.id = s.lot_id
+                  join blocks bk on bk.id = lt.block_id
+                  join developments dv on dv.id = bk.development_id
                 where i.status in ('OPEN','OVERDUE') and i.due_date < current_date""" + instF
-                + " group by pr.development order by 2 desc", p);
+                + " group by dv.name order by 2 desc", p);
         List<Point> salesByMonth = points("""
                 select to_char(ps.sale_date,'YYYY-MM') as label, sum(ps.total_value) as value
                 from property_sales ps where ps.sale_date between :from and :to""" + saleF

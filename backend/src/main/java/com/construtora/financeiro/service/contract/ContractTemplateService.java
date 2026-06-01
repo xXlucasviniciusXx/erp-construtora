@@ -26,7 +26,9 @@ public class ContractTemplateService {
 
     public String render(PropertySale sale, SystemSettings settings) {
         var client = sale.getClient();
-        var property = sale.getProperty();
+        var lot = sale.getLot();
+        var block = lot.getBlock();
+        var development = block.getDevelopment();
         String company = esc(settings.getCompanyName() != null ? settings.getCompanyName() : settings.getSystemName());
 
         StringBuilder installments = new StringBuilder();
@@ -102,13 +104,13 @@ public class ContractTemplateService {
                 esc(client.getName()), esc(client.getDocument()), esc(client.getStateRegistration()),
                 esc(client.getAddress()), esc(client.getMaritalStatus()), esc(client.getOccupation()),
                 esc(client.getEmail()), esc(client.getPhone()),
-                esc(property.getDevelopment()), esc(property.getBlock()), esc(property.getLot()),
-                esc(property.getUnit()), esc(property.getRegistration()), esc(property.getAddress()),
-                esc(property.getTotalArea()), esc(property.getBuiltArea()),
+                esc(development.getName()), esc(block.getName()), esc(lot.getName()),
+                esc(lot.getUnit()), esc(lot.getRegistration()), esc(lot.getAddress()),
+                esc(lot.getTotalArea()), esc(lot.getBuiltArea()),
                 sale.getTotalValue(), sale.getDownPayment(), sale.getInstallmentsCount(),
                 sale.getFirstDueDate().format(DATE), esc(sale.getPaymentMethod()), esc(sale.getCorrectionIndex()),
                 installments.toString(),
-                esc(property.getContractExtra()),
+                esc(lot.getContractExtra()),
                 LocalDate.now().format(DATE),
                 company, esc(client.getName()));
     }

@@ -1,20 +1,20 @@
-package com.construtora.financeiro.dto.property;
+package com.construtora.financeiro.dto.lot;
 
 import com.construtora.financeiro.model.enums.PropertyStatus;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 
-public record PropertyRequest(
-        @NotBlank String development,
-        String block,
-        String lot,
+public record LotRequest(
+        @NotNull java.util.UUID blockId,
+        @NotBlank String name,
+        String registration,        // matrícula (manual, opcional)
         String unit,
-        String registration,
         String address,
         BigDecimal totalArea,
         BigDecimal builtArea,
-        BigDecimal saleValue,
+        BigDecimal plannedValue,    // valor previsto
         PropertyStatus status,
         String contractExtra,
         String notes

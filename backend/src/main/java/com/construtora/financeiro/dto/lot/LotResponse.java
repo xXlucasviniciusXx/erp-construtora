@@ -1,24 +1,27 @@
-package com.construtora.financeiro.dto.property;
+package com.construtora.financeiro.dto.lot;
 
 import com.construtora.financeiro.model.enums.PropertyStatus;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
-public record PropertyResponse(
+public record LotResponse(
         UUID id,
-        String development,
-        String block,
-        String lot,
-        String unit,
+        UUID blockId,
+        String blockName,
+        UUID developmentId,
+        String developmentName,
+        String name,
+        String internalCode,
         String registration,
+        String unit,
         String address,
         BigDecimal totalArea,
         BigDecimal builtArea,
+        BigDecimal plannedValue,
         BigDecimal saleValue,
         PropertyStatus status,
         String contractExtra,
         String notes,
-        OffsetDateTime createdAt
+        String label                // "Empreendimento / Quadra / Lote"
 ) {}

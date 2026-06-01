@@ -10,8 +10,8 @@ import java.util.UUID;
 
 public record SaleRequest(
         @NotNull UUID clientId,
-        @NotNull UUID propertyId,
-        @NotNull @Positive BigDecimal totalValue,
+        @NotNull UUID lotId,
+        @NotNull @Positive BigDecimal totalValue,   // valor que foi vendido
         @PositiveOrZero BigDecimal downPayment,
         @NotNull @PositiveOrZero Integer installmentsCount,
         @NotNull LocalDate firstDueDate,

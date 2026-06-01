@@ -11,23 +11,32 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+/** Lote — vinculado a uma Quadra. Substitui a antiga entidade plana Property. */
 @Entity
-@Table(name = "properties")
+@Table(name = "lots")
 @Getter
 @Setter
-public class Property {
+public class Lot {
 
     @Id
     @GeneratedValue
     private UUID id;
 
-    @Column(nullable = false)
-    private String development;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "block_id")
+    private Block block;
 
-    private String block;
-    private String lot;
-    private String unit;
+    @Column(nullable = false)
+    private String name;
+
+    /** Código interno gerado pelo sistema (ex.: E001-Q01-L001). */
+    @Column(name = "internal_code", nullable = false, unique = true)
+    private String internalCode;
+
+    /** Matrícula do cartório (manual; pode ficar vazia). */
     private String registration;
+
+    private String unit;
     private String address;
 
     @Column(name = "total_area")
@@ -36,6 +45,11 @@ public class Property {
     @Column(name = "built_area")
     private BigDecimal builtArea;
 
+    /** Valor previsto de venda do lote. */
+    @Column(name = "planned_value")
+    private BigDecimal plannedValue;
+
+    /** Valor pelo qual o lote foi realmente vendido (alimentado pela venda). */
     @Column(name = "sale_value")
     private BigDecimal saleValue;
 

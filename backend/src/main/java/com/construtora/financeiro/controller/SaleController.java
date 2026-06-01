@@ -57,6 +57,13 @@ public class SaleController {
         return saleService.create(request);
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Edita venda (regenera parcelas se valor/qtd mudar e nenhuma estiver paga)")
+    @PreAuthorize("hasAuthority('SALES_WRITE')")
+    public SaleResponse update(@PathVariable UUID id, @Valid @RequestBody SaleRequest request) {
+        return saleService.update(id, request);
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Cancela/remove venda (libera o imóvel)")
     @PreAuthorize("hasAuthority('SALES_WRITE')")

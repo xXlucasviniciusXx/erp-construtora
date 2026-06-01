@@ -17,18 +17,18 @@ public class DashboardService {
     private final AccountReceivableRepository receivableRepository;
     private final AccountPayableRepository payableRepository;
     private final BankTransactionRepository transactionRepository;
-    private final PropertyRepository propertyRepository;
+    private final LotRepository lotRepository;
 
     public DashboardService(InstallmentRepository installmentRepository,
                             AccountReceivableRepository receivableRepository,
                             AccountPayableRepository payableRepository,
                             BankTransactionRepository transactionRepository,
-                            PropertyRepository propertyRepository) {
+                            LotRepository lotRepository) {
         this.installmentRepository = installmentRepository;
         this.receivableRepository = receivableRepository;
         this.payableRepository = payableRepository;
         this.transactionRepository = transactionRepository;
-        this.propertyRepository = propertyRepository;
+        this.lotRepository = lotRepository;
     }
 
     public DashboardResponse summary() {
@@ -49,8 +49,8 @@ public class DashboardService {
         long upcoming = installmentRepository.findByStatusAndDueDateBefore(InstallmentStatus.OPEN, monthEnd.plusDays(1))
                 .stream().filter(i -> !i.getDueDate().isBefore(today)).count();
         long pendingTxn = transactionRepository.countByStatus(TransactionStatus.PENDING);
-        long available = propertyRepository.countByStatus(PropertyStatus.AVAILABLE);
-        long sold = propertyRepository.countByStatus(PropertyStatus.SOLD);
+        long available = lotRepository.countByStatus(PropertyStatus.AVAILABLE);
+        long sold = lotRepository.countByStatus(PropertyStatus.SOLD);
 
         return new DashboardResponse(
                 totalReceivable, totalPayable, totalReceivable.subtract(totalPayable),

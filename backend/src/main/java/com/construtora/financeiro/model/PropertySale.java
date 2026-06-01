@@ -29,8 +29,8 @@ public class PropertySale {
     private Client client;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "property_id")
-    private Property property;
+    @JoinColumn(name = "lot_id")
+    private Lot lot;
 
     @Column(name = "total_value", nullable = false)
     private BigDecimal totalValue;

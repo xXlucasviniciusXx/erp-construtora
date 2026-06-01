@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { api } from '@/lib/api'
-import type { Client, DashboardAnalytics, Page, Point, Property } from '@/lib/types'
+import type { Client, DashboardAnalytics, Lot, Page, Point } from '@/lib/types'
 import { Button, Card, Field, Input, PageHeader, Select } from '@/components/ui'
 import { formatCurrency } from '@/lib/utils'
 
@@ -44,8 +44,8 @@ export function DashboardPage() {
     queryFn: async () => (await api.get<Page<Client>>('/clients', { params: { size: 200 } })).data.content,
   })
   const properties = useQuery({
-    queryKey: ['properties-all'],
-    queryFn: async () => (await api.get<Page<Property>>('/properties', { params: { size: 200 } })).data.content,
+    queryKey: ['lots-all'],
+    queryFn: async () => (await api.get<Lot[]>('/lots')).data,
   })
 
   const { data, isLoading } = useQuery({
@@ -82,10 +82,10 @@ export function DashboardPage() {
               {clients.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </Field>
-          <Field label="Imóvel">
+          <Field label="Lote">
             <Select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>
               <option value="">Todos</option>
-              {properties.data?.map((p) => <option key={p.id} value={p.id}>{p.development} — {[p.block, p.lot, p.unit].filter(Boolean).join('/')}</option>)}
+              {properties.data?.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
             </Select>
           </Field>
           <div className="flex items-end">
