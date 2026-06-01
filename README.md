@@ -1,13 +1,19 @@
-# Construtora Financeiro
+# ERP Construtora — Controle Financeiro
 
 Aplicação web (POC) de **controle financeiro e conciliação bancária** para uma
 contabilidade que atende uma construtora. Cobre conciliação bancária (módulo
-principal), contas a pagar/receber, vendas de imóveis com geração de parcelas,
-cadastro de clientes e imóveis, geração de contratos, notificações por e-mail,
-controle de acesso por perfil e personalização visual.
+principal), contas a pagar/receber, gestão hierárquica de imóveis
+(Empreendimento → Quadra → Lote), vendas com geração automática de parcelas,
+cadastro de clientes, fornecedores e centros de custo, geração de contratos
+PDF/HTML, relatórios CSV, controle de acesso por perfil (RBAC) e personalização
+visual com dark mode.
 
-> **Status:** POC funcional. Os módulos essenciais estão implementados de ponta a
-> ponta; itens avançados estão marcados como `TODO` neste README e no código.
+> **Status:** POC funcional — todos os módulos essenciais implementados de ponta
+> a ponta. Itens avançados estão no backlog em [`docs/TODO.md`](docs/TODO.md).
+
+URLs de produção (POC):
+- **Frontend:** https://erp-construtora-three.vercel.app
+- **Backend / Swagger:** https://erp-construtora-backend.onrender.com/swagger-ui.html
 
 ---
 
@@ -15,24 +21,24 @@ controle de acesso por perfil e personalização visual.
 
 | Camada     | Tecnologia |
 |------------|------------|
-| Frontend   | React + TypeScript + Vite + Tailwind + TanStack Query |
-| Backend    | Java 21 + Spring Boot 3 (Web, Security, Data JPA, Validation, Mail) |
+| Frontend   | React 18 + TypeScript + Vite + Tailwind CSS (dark mode) + TanStack Query + Recharts |
+| Backend    | Java 21 + Spring Boot 3.3.4 (Web, Security, Data JPA, Validation, Mail) |
 | Auth       | JWT (stateless) + RBAC por perfil/permissão |
-| Banco      | PostgreSQL (Supabase no POC) + Flyway (migrations) |
+| Banco      | PostgreSQL 15+ (Supabase no POC) + Flyway V1–V8 |
 | Docs API   | Swagger / OpenAPI (springdoc) |
-| Contêineres| Docker Compose (db + backend + frontend) |
+| Contêineres| Docker (Render blueprint) |
 
 A comunicação é 100% via **API REST**, de forma que o frontend pode ser trocado
 ou expandido sem alterar a regra de negócio do backend.
 
 ```
-construtora-financeiro/
+erp-construtora/
 ├── backend/      # Spring Boot (Controller/Service/Repository/DTO/Entity/Mapper/...)
 ├── frontend/     # React + Vite + TS
 ├── database/     # README de modelagem + arquivos de exemplo (CSV/OFX)
-├── docs/         # Documentação técnica (arquitetura, API, deploy)
+├── docs/         # Documentação técnica (API, arquitetura, deploy, git, backlog)
 ├── .env.example  # Variáveis de ambiente de referência
-├── docker-compose.yml
+├── render.yaml   # Blueprint de deploy no Render
 └── README.md
 ```
 
@@ -40,194 +46,216 @@ construtora-financeiro/
 
 ## 2. Tecnologias usadas
 
-**Backend:** Spring Boot, Spring Security, JWT (jjwt), Spring Data JPA + JdbcTemplate
-(agregações do dashboard), Bean Validation, Flyway, springdoc-openapi,
-Flying Saucer (PDF), Lombok.
+**Backend:** Spring Boot 3.3.4, Spring Security 6, JWT (jjwt), Spring Data JPA +
+JdbcTemplate (agregações do dashboard via SQL nativo), Bean Validation, Flyway,
+springdoc-openapi, Flying Saucer / OpenPDF (geração de contrato PDF), Lombok 1.18.38.
 
-**Frontend:** React 18, TypeScript, Vite, Tailwind CSS, React Router, TanStack
-Query, React Hook Form, Zod, Axios, lucide-react, **Recharts** (gráficos).
+**Frontend:** React 18, TypeScript, Vite, Tailwind CSS (dark mode via `class`),
+React Router 6, TanStack Query, React Hook Form + Zod, Axios, lucide-react,
+**Recharts** (10 gráficos analíticos).
 
-**Integrações:** **BrasilAPI** (consulta automática de CEP e CNPJ no cadastro de clientes).
+**Integrações:** **BrasilAPI** — consulta automática de CEP e CNPJ no cadastro de
+clientes (frontend-only, fallback manual se falhar).
 
-**Infra:** PostgreSQL 16+ (testado no 18), Docker, Nginx (serve o build do frontend).
+**Infra:** PostgreSQL 15+ (testado no 18), Docker (Render), Vercel (SPA), Supabase.
+
+> **JDK 25:** o `pom.xml` já força `lombok.version=1.18.38` para compatibilidade.
+> Nenhuma ação extra necessária.
 
 ---
 
-## 3. Como rodar localmente
+## 3. Módulos implementados
 
-### Opção A — Docker Compose (recomendado)
+| Módulo | Tela | Destaque |
+|--------|------|----------|
+| **Dashboard** | `/` | 8 cards + 10 gráficos (Recharts) com filtros de período/cliente/lote |
+| **Clientes** | `/clients` | Cadastro PF/PJ, CEP/CNPJ automático (BrasilAPI), inativação com bloqueio por débitos, menu ⋮ |
+| **Imóveis / Lotes** | `/properties` | Hierarquia 3 níveis: Empreendimento → Quadra → Lote; códigos automáticos (E001-Q01-L001); valores derivados; limites em cascata |
+| **Vendas** | `/sales` | Combobox pesquisável (CMDK) para Cliente e Lote; valor esperado read-only; entrada condicional; edição de venda; contrato PDF/HTML |
+| **Contas a Pagar** | `/payable` | Lançamentos manuais, confirmar pagamento, cancelar, filtros, fornecedor e centro de custo |
+| **Contas a Receber** | `/receivable` | Lançamentos manuais, confirmar recebimento, filtros |
+| **Parcelas** | (aba em Contas a Receber) | Dados do cliente, baixa de parcela, filtros por status/vencimento/nome |
+| **Fornecedores** | `/suppliers` | CRUD com busca textual |
+| **Conciliação** | `/reconciliation` | Sugestão por score, conciliação manual/automática, desfazer, histórico |
+| **Importar Extrato** | `/import` | Upload CSV/OFX; parsers plugáveis |
+| **Relatórios** | `/reports` | 7 relatórios exportáveis em CSV |
+| **Usuários** | `/users` | CRUD de usuários com perfis RBAC (ADMIN only) |
+| **Configurações** | `/settings` | Branding (nome, logo, cores), dados da empresa, dark/light mode |
 
-```bash
-cp .env.example .env          # ajuste o que quiser; os defaults já funcionam
-docker compose up --build
+---
+
+## 4. Hierarquia de imóveis (Empreendimento → Quadra → Lote)
+
+A migration **V8** transformou a tabela plana `properties` em uma estrutura em
+3 níveis com códigos internos gerados automaticamente:
+
+```
+Empreendimento  E001  (ex.: Parque das Águas)
+└── Quadra      E001-Q01  (ex.: Quadra A)
+    ├── Lote    E001-Q01-L001  (ex.: Lote 01)
+    └── Lote    E001-Q01-L002
 ```
 
-- Frontend: http://localhost:5173
-- Backend:  http://localhost:8080
-- Swagger:  http://localhost:8080/swagger-ui.html
-- Banco:    localhost:5432 (user/senha do `.env`)
+**Regras de negócio:**
+- O empreendimento define os limites máximos de quadras e lotes.
+- Tentar criar além dos limites retorna HTTP 400 (BusinessException).
+- Os campos **previsto total** e **recebido** são calculados automaticamente dos
+  lotes (não é possível editá-los diretamente).
+- Ao registrar uma venda, `lot.saleValue` e `lot.status = SOLD` são atualizados
+  automaticamente; ao excluir a venda, o lote volta para `AVAILABLE`.
 
-### Opção B — Sem Docker
+---
 
-**Pré-requisitos:** JDK 21+ (testado também no **JDK 25**), Maven 3.9+, Node 20+,
-PostgreSQL 16+ (testado no **PG 18**).
+## 5. Perfis de acesso (RBAC)
+
+| Perfil | Permissões |
+|--------|-----------|
+| `ADMIN` | Todas as permissões + `USERS_MANAGE` + `SETTINGS_MANAGE` |
+| `FINANCEIRO` | `PAYABLE_WRITE`, `RECEIVABLE_WRITE`, `RECONCILIATION_WRITE`, `REPORTS_EXPORT` |
+| `CONTABILIDADE` | `RECONCILIATION_VALIDATE`, `REPORTS_EXPORT`, `READ` |
+| `COMERCIAL` | `CLIENTS_WRITE`, `PROPERTIES_WRITE`, `SALES_WRITE`, `CONTRACTS_GENERATE` |
+| `VISUALIZADOR` | `READ` |
+
+---
+
+## 6. Como rodar localmente
+
+### Sem Docker
+
+**Pré-requisitos:** JDK 21+ (testado com OpenJDK 25), Maven 3.9+, Node 20+,
+PostgreSQL 15+ (testado no 18).
 
 ```bash
-# 1) Banco — cria role/banco/pgcrypto de uma vez (rode como superusuário postgres)
+# 1) Banco local (rode como superusuário postgres)
 psql -U postgres -h localhost -f database/init-local.sql
+# Cria role construtora / banco construtora / extension pgcrypto
 
-# 2) Backend (os defaults já apontam para construtora/construtora @ localhost:5432)
+# 2) Backend
 cd backend
+# Windows PowerShell: $env:JWT_SECRET = (openssl rand -base64 48)
 export JWT_SECRET=$(openssl rand -base64 48)
-mvn spring-boot:run        # roda Flyway e cria o admin inicial
+mvn spring-boot:run
+# Flyway aplica V1–V8 automaticamente.
+# API: http://localhost:8080 | Swagger: http://localhost:8080/swagger-ui.html
 
 # 3) Frontend (outro terminal)
 cd frontend
-cp .env.example .env        # confira VITE_API_BASE_URL
-npm install
-npm run dev
+cp .env.example .env.local    # VITE_API_BASE_URL=http://localhost:8080/api
+npm install && npm run dev
+# App: http://localhost:5173
 ```
-
-> **Windows (PowerShell):** use `$env:VAR = "valor"` em vez de `export`. O `psql`
-> fica em `C:\Program Files\PostgreSQL\<versão>\bin`.
->
-> **JDK 25:** o `pom.xml` já força `lombok.version=1.18.38` (a versão padrão do
-> Spring Boot 3.3.4 não compila no JDK 25). Nenhuma ação extra necessária.
 
 ### Login inicial
 
-O usuário ADMIN é criado no primeiro start a partir das variáveis
-`APP_ADMIN_EMAIL` / `APP_ADMIN_PASSWORD` (default `admin@construtora.com.br` /
-`Admin@123`). A migration `V3` ainda popula dados de demonstração (clientes,
-imóveis, contas) para o dashboard e a conciliação já nascerem com conteúdo.
+| Campo | Valor padrão |
+|-------|-------------|
+| E-mail | `admin@construtora.com.br` |
+| Senha | `Admin@123` |
+
+O usuário ADMIN é criado idempotente no primeiro start pelas variáveis
+`APP_ADMIN_EMAIL` / `APP_ADMIN_PASSWORD`. A migration V3/V5 popula dados de
+demonstração (clientes, empreendimentos, vendas, contas, extrato bancário).
 
 ---
 
-## 4. Variáveis de ambiente
-
-Veja [`.env.example`](.env.example) (raiz) e
-[`frontend/.env.example`](frontend/.env.example). Principais:
+## 7. Variáveis de ambiente
 
 | Variável | Descrição |
 |----------|-----------|
-| `SPRING_DATASOURCE_URL/USERNAME/PASSWORD` | Conexão PostgreSQL/Supabase |
-| `JWT_SECRET` | Segredo HMAC ≥ 256 bits (gere com `openssl rand -base64 48`) |
-| `JWT_EXPIRATION_MS` | Validade do token (default 24h) |
-| `APP_CORS_ALLOWED_ORIGINS` | Origens liberadas (frontend local + Vercel) |
-| `APP_ADMIN_EMAIL/PASSWORD` | Admin inicial (seed idempotente) |
-| `MAIL_*` / `MAIL_ENABLED` | SMTP das notificações (desligado no POC: apenas loga) |
-| `VITE_API_BASE_URL` | URL da API consumida pelo frontend |
+| `SPRING_DATASOURCE_URL` | JDBC URL do PostgreSQL (Supabase: Session pooler porta 5432) |
+| `SPRING_DATASOURCE_USERNAME` | Usuário do banco |
+| `SPRING_DATASOURCE_PASSWORD` | Senha do banco |
+| `JWT_SECRET` | Segredo HMAC ≥ 256 bits (`openssl rand -base64 48`) |
+| `JWT_EXPIRATION_MS` | Validade do token em ms (default 86400000 = 24h) |
+| `APP_CORS_ALLOWED_ORIGINS` | Origens permitidas (frontend local + Vercel, separadas por vírgula) |
+| `APP_ADMIN_EMAIL` | E-mail do admin inicial |
+| `APP_ADMIN_PASSWORD` | Senha do admin inicial |
+| `MAIL_HOST/PORT/USERNAME/PASSWORD` | Configuração SMTP |
+| `MAIL_ENABLED` | `true` para enviar e-mails; `false` apenas loga (default no POC) |
+| `VITE_API_BASE_URL` | URL base da API consumida pelo frontend |
 
 ---
 
-## 5. Como fazer deploy (POC gratuito)
+## 8. Deploy (POC gratuito)
 
 Detalhes em [`docs/DEPLOY.md`](docs/DEPLOY.md). Resumo:
 
-- **Banco → Supabase:** crie o projeto, pegue a connection string e aponte
-  `SPRING_DATASOURCE_*`. O Flyway cria todo o schema no primeiro start.
-- **Backend → Render:** já existe um [`render.yaml`](render.yaml) na raiz (Blueprint).
-  No painel: *New → Blueprint* apontando para o repo; preencha as variáveis
-  `sync: false` (conexão do banco, CORS, senha do admin). Vale igualmente para
-  Railway/Fly.io usando o `backend/Dockerfile`.
-- **Frontend → Vercel:** root directory `frontend/`. O [`frontend/vercel.json`](frontend/vercel.json)
-  já define build (`npm run build`), output (`dist`) e o *rewrite* de SPA para o
-  React Router. Defina `VITE_API_BASE_URL` apontando para o backend público e
-  inclua o domínio da Vercel em `APP_CORS_ALLOWED_ORIGINS` no backend.
+- **Banco → Supabase:** use a connection string do **Session pooler** (IPv4 compatível,
+  porta 5432). O Flyway cria todo o schema no primeiro start.
+- **Backend → Render:** existe um [`render.yaml`](render.yaml) na raiz (Blueprint).
+  *New → Blueprint* apontando para o repo; preencha as variáveis `sync: false`.
+- **Frontend → Vercel:** root `frontend/`. O [`frontend/vercel.json`](frontend/vercel.json)
+  define build/output e o rewrite de SPA. Defina `VITE_API_BASE_URL` e adicione o
+  domínio Vercel em `APP_CORS_ALLOWED_ORIGINS` no backend.
 
 ---
 
-## 6. Estrutura de pastas (backend)
+## 9. Estrutura de pastas (backend)
 
 ```
 backend/src/main/java/com/construtora/financeiro/
 ├── config/        # OpenAPI, scheduling
 ├── security/      # JWT, filtro, SecurityConfig, UserDetails
 ├── exception/     # GlobalExceptionHandler + exceções de domínio
-├── model/         # @Entity + enums
+├── model/         # @Entity + enums (Development, Block, Lot, PropertySale…)
 ├── repository/    # Spring Data JPA
 ├── dto/           # Records de entrada/saída por módulo
 ├── mapper/        # Conversão entity <-> DTO
-├── service/       # Regra de negócio (inclui reconciliation/, contract/, report/)
+├── service/       # Regra de negócio (reconciliation/, contract/, report/, dashboard/)
 ├── parser/        # Parsers de extrato (CSV, OFX) — extensível
-├── scheduler/     # Job de parcelas em atraso
-├── controller/    # Endpoints REST
+├── scheduler/     # Job de atualização de parcelas em atraso
+├── controller/    # 20 REST controllers
 └── bootstrap/     # Seed do admin inicial
 ```
 
 ---
 
-## 7. Módulos e prioridade de implementação
+## 10. Migrações de banco (Flyway)
 
-Implementados de ponta a ponta (prioridade do POC):
-
-1. ✅ Login e perfis (JWT, 5 perfis, RBAC por permissão)
-2. ✅ Clientes (CRUD + busca)
-3. ✅ Imóveis / lotes (CRUD + status)
-4. ✅ Vendas e parcelas (gera parcelas automaticamente)
-5. ✅ Contas a pagar / receber (CRUD + baixa)
-6. ✅ Importação CSV (+ **OFX** já funcional)
-7. ✅ Conciliação bancária — sugestão com score, **conciliação manual** (qualquer
-   lançamento, mesmo com valor diferente), abas por status, reverter, motivo de
-   divergência, desfazer e histórico
-8. ✅ Dashboard — 8 cards + **9 gráficos** (Recharts): recebido/a receber/atraso por
-   mês, fluxo de caixa previsto, vendas por mês/forma de pagamento, inadimplência
-   por empreendimento, faixas de atraso (1-30/31-60/61-90/90+), pagas×abertas, clientes
-9. ✅ Configurações de tema/logo/empresa
-10. ✅ Contratos (HTML + PDF), Notificações (registro + SMTP), Relatórios (CSV)
-
-**Funcionalidades adicionais já entregues:**
-
-- **Clientes** — menu de ações (⋮): visualizar (somente leitura), editar, **inativar**
-  (soft delete bloqueado se houver débitos) e visualizar lotes; **consulta automática
-  de CEP e CNPJ** (BrasilAPI) com fallback manual.
-- **Parcelas** — listagem com dados do cliente (nome, CPF/CNPJ, telefone) e **filtros**
-  (cliente, status, período de vencimento); menu de ações com pagamento e geração de contrato.
-- **Contas a pagar** — ações por **ícones** (✅ confirmar pagamento / ❌ cancelar) com
-  tooltip e confirmação.
-- **Vendas** — forma de pagamento e índice de correção como **listas de seleção**.
-- **Auditoria** (`audit_logs`) gravando ações financeiras (pagamento, cancelamento,
-  inativação de cliente, criação/edição).
-
-Veja o backlog de evolução em [`docs/TODO.md`](docs/TODO.md).
+| Versão | Conteúdo |
+|--------|----------|
+| V1 | Schema inicial completo |
+| V2 | Seed: perfis, permissões, usuário admin |
+| V3 | Seed: dados de demonstração básicos |
+| V4 | Coluna `notes` em `bank_transactions` |
+| V5 | Seed: dados de demonstração ampliados (vendas, parcelas, contas) |
+| V6 | Tabelas `suppliers` e `cost_centers` |
+| V7 | Coluna `purchase_type` em `property_sales` |
+| V8 | Hierarquia de imóveis: cria `developments` e `blocks`; renomeia `properties` → `lots`; gera códigos internos hierárquicos (E001-Q01-L001); vincula vendas ao novo campo `lot_id` |
 
 ---
 
-## 8. Documentação da API (Swagger)
+## 11. Boas práticas
 
-Com o backend rodando: **http://localhost:8080/swagger-ui.html**
-(JSON em `/v3/api-docs`). Autentique em `POST /api/auth/login`, copie o `token` e
-use o botão **Authorize** (Bearer).
-
-Lista de endpoints e exemplos em [`docs/API.md`](docs/API.md).
-
----
-
-## 9. Boas práticas utilizadas
-
-- Camadas separadas (Controller → Service → Repository) e DTOs isolando entidades.
-- Senhas com **BCrypt**; **JWT** com expiração; CORS restrito por configuração.
-- **Bean Validation** nas entradas; tratamento global de exceções com payload padrão.
+- Camadas separadas (Controller → Service → Repository) com DTOs isolando entidades.
+- Senhas com **BCrypt**; **JWT** com expiração configurável; CORS restrito.
+- **Bean Validation** nas entradas; `GlobalExceptionHandler` com payload padrão.
 - Schema versionado por **Flyway** (`ddl-auto: validate`, nunca `update`).
-- Segredos fora do código (`.env` / variáveis de ambiente).
+- Segredos fora do código (`.env` / variáveis de ambiente no Render).
 - RBAC no backend (`@PreAuthorize`) **e** proteção de rotas no frontend.
-- Camada de **parser plugável** para novos formatos de extrato.
-- Logs estruturados e auditoria preparada (`audit_logs`).
+- Agregações analíticas em **SQL nativo** (PostgreSQL) isoladas em `DashboardAnalyticsService`.
+- Camada de **parser plugável** para novos formatos de extrato (`@Component` + `BankStatementParser`).
+- Auditoria financeira em `audit_logs`.
 
 ---
 
-## 10. Fluxo de demonstração sugerido
+## 12. Fluxo de demonstração sugerido
 
-1. Login como admin.
-2. **Importar Extrato** → conta "Conta Movimento" → suba `database/samples/extrato-exemplo.csv`.
-3. **Conciliação** → veja as transações pendentes → clique **Sugestões** → **Conciliar**
-   o crédito de R$ 5.000 com a conta a receber "Sinal de reserva".
-4. **Vendas** → crie uma venda usando um imóvel disponível → veja as parcelas geradas → baixe o contrato.
-5. **Configurações** → troque a cor primária e veja o tema mudar.
+1. Login como admin em https://erp-construtora-three.vercel.app.
+2. **Imóveis / Lotes** → veja os 3 empreendimentos demo com quadras e lotes;
+   crie um novo empreendimento e adicione quadras/lotes respeitando os limites.
+3. **Vendas** → clique em "Nova venda", use o combobox para buscar um lote disponível;
+   confira o "Valor esperado" preenchido automaticamente; gere o contrato PDF.
+4. **Importar Extrato** → conta "Conta Movimento" → suba `database/samples/extrato-exemplo.csv`.
+5. **Conciliação** → veja sugestões com score → **Conciliar** o crédito de R$ 5.000.
+6. **Dashboard** → aplique filtro de período e veja os gráficos atualizarem.
+7. **Configurações** → troque a cor primária e alterne dark/light mode.
 
 ---
 
-## 11. Versionamento / GitHub
+## 13. Versionamento / GitHub
 
 - Branches sugeridas: `main` (estável), `develop` (integração), `feature/*`.
-- Sugestão de commits iniciais em [`docs/GIT.md`](docs/GIT.md).
+- Estratégia de commits em [`docs/GIT.md`](docs/GIT.md).
+- API REST completa em [`docs/API.md`](docs/API.md).
+- Arquitetura detalhada em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).

@@ -1,61 +1,106 @@
 # Backlog de evolução (pós-POC)
 
-Itens deixados como `TODO` propositalmente, para outro desenvolvedor continuar.
+Itens deixados como `TODO` propositalmente para continuação futura.
 
-## ✅ Concluído após o scaffold inicial
+---
+
+## ✅ Concluído (histórico)
+
+### Funcionalidades base
 - Conciliação manual (qualquer lançamento, valor diferente), abas por status,
-  reverter status, motivo de divergência.
-- Clientes: menu de ações, inativação (soft delete + bloqueio por débitos),
-  visualizar/lotes, consulta automática de CEP/CNPJ (BrasilAPI).
-- Parcelas: dados do cliente + filtros; geração de contrato pelo menu.
-- Contas a pagar: ícones confirmar/cancelar; auditoria em `audit_logs`.
-- Dashboard analítico com 9 gráficos (Recharts) + cards.
-- Vendas: forma de pagamento e índice de correção como listas.
-- Migration V5 com dados de demonstração ampliados.
+  reverter status, motivo de divergência, desfazer e histórico.
+- Clientes: menu de ações ⋮ (visualizar/editar/inativar), consulta automática
+  de CEP e CNPJ (BrasilAPI) com fallback manual, bloqueio de inativação com débitos.
+- Parcelas: dados do cliente (nome, CPF/CNPJ, telefone) + filtros (q, status,
+  período de vencimento); menu de ações com pagamento e geração de contrato.
+- Contas a pagar: ícones confirmar/cancelar (✅/❌) com tooltip e confirmação;
+  associação a fornecedor e centro de custo.
+- Dashboard analítico: 8 cards + 10 gráficos Recharts; filtros de período/cliente/lote;
+  totalizador de recebíveis.
+- Vendas: forma de compra (`purchaseType`) e índice de correção como listas;
+  entrada condicional (só "Entrada + parcelas"); edição de venda (PUT /sales/{id}).
+- Fornecedores: CRUD completo (migration V6).
+- Centros de custo: CRUD completo (migration V6).
+- Auditoria (`audit_logs`) gravando ações financeiras.
+- Dark mode completo em todas as telas.
+- Menu lateral retrátil (collapsed/expanded) + mobile drawer.
+
+### Hierarquia de imóveis (Empreendimento → Quadra → Lote) — migration V8
+- Modelo em 3 níveis substituindo a tabela plana `properties`.
+- Códigos internos automáticos e hierárquicos (`E001-Q01-L001`).
+- Valores derivados calculados (plannedTotal, receivedTotal, actualBlocks, actualLots).
+- Limites em cascata (blocksCount, lotsCount) com bloqueio na criação.
+- Integração com vendas: `lot.saleValue` e `lot.status` atualizados automaticamente.
+- Tela de cadastro em cascata no frontend (DevelopmentsPage).
+- Combobox CMDK pesquisável para Cliente e Lote na tela de Vendas.
+
+---
 
 ## Conciliação
+
 - [ ] Conciliação parcial / 1 transação ↔ N lançamentos.
-- [ ] Persistir `mode=AUTO` quando o score ultrapassar um limiar configurável.
+- [ ] Auto-conciliar quando score ultrapassa limiar configurável.
 - [ ] Tolerância de valor configurável (centavos) além de match exato.
-- [ ] Match por intervalo de datas e por similaridade textual da descrição.
+- [ ] Match por similaridade textual da descrição do extrato.
 - [ ] Suporte a múltiplas contas no mesmo arquivo OFX (`BANKACCTFROM`).
+- [ ] CNAB 240/400 como novos parsers.
 
 ## Importação
-- [ ] Validação do cabeçalho/charset do OFX e CNAB (240/400) como novos parsers.
+
+- [ ] Validação de charset/encoding do arquivo antes do parse.
 - [ ] Processamento assíncrono para arquivos grandes (fila + status).
-- [ ] Armazenar o arquivo original (S3/Supabase Storage) além dos metadados.
+- [ ] Armazenar o arquivo original (Supabase Storage/S3) além dos metadados.
 
 ## Contratos
-- [ ] Modelos personalizáveis por empreendimento (tabela `contract_templates`).
+
+- [ ] Modelos personalizáveis por empreendimento (`contract_templates`).
 - [ ] Editor de template no frontend (ADMIN/COMERCIAL).
-- [ ] Versionamento e assinatura eletrônica.
+- [ ] Versionamento de templates e assinatura eletrônica.
 
 ## Notificações
-- [ ] Templates HTML (Thymeleaf) e fila de envio com retry.
+
+- [ ] Templates HTML (Thymeleaf) para os e-mails.
+- [ ] Fila de envio com retry e dead-letter.
 - [ ] Preferências de notificação por cliente.
 
 ## Financeiro
-- [ ] Aplicar juros/multa automáticos no atraso (já há campos na venda).
-- [ ] Correção monetária por índice (INCC/IGPM) nas parcelas.
-- [ ] Centros de custo como entidade.
+
+- [ ] Aplicar juros/multa automaticamente no atraso (campos já existem na venda).
+- [ ] Correção monetária por índice (INCC/IGPM) nas parcelas — hoje é apenas informativo.
+- [ ] Relatório de DRE simplificado (receitas − despesas por centro de custo).
 
 ## Cadastros de referência
-- [ ] Tornar **forma de pagamento** e **índice de correção** configuráveis
-      (tabela de referência) em vez de listas fixas no frontend.
+
+- [ ] Tornar formas de pagamento e índices de correção configuráveis via tabela
+      em vez de listas fixas no frontend.
+- [ ] Categorias de fornecedor configuráveis.
 
 ## Dashboard
-- [ ] Filtro de período (intervalo de datas) nos gráficos.
-- [ ] Drill-down (clicar no gráfico → lista detalhada).
-- [ ] Cache leve das agregações (consultas pesadas em bases grandes).
+
+- [ ] Drill-down: clicar no gráfico → lista detalhada filtrada.
+- [ ] Cache leve das agregações pesadas (Redis ou Caffeine) para bases grandes.
+- [ ] Exportar gráfico como imagem (PNG).
+
+## Imóveis / Lotes
+
+- [ ] Upload de planta/foto do lote (Supabase Storage).
+- [ ] Mapa interativo dos lotes por quadra (grid visual com status por cor).
+- [ ] Reserva temporária de lote com expiração automática.
 
 ## Plataforma
-- [ ] Auditoria automática (preencher `audit_logs` via AOP/listener) — hoje é manual
-      nos pontos financeiros principais.
-- [ ] Refresh token + revogação.
-- [ ] Upload de logo/comprovantes (storage) em vez de URL.
+
+- [ ] Refresh token + revogação (blacklist de JTI).
+- [ ] Auditoria automática via AOP em vez de chamadas manuais.
+- [ ] Upload de logo/comprovantes via storage em vez de URL externa.
 - [ ] CEP/CNPJ via proxy no backend (cache + resiliência) em vez de chamada direta.
-- [ ] Testes: cobertura de serviços (reconciliação, geração de parcelas, parsers, dashboard).
-- [ ] Geração de tipos do frontend a partir do OpenAPI.
-- [ ] Paginação e filtros server-side em todas as listagens.
-- [ ] Code-splitting do bundle (Recharts deixou o JS grande).
-- [ ] Dark mode completo nas telas (infra de tema já existe).
+- [ ] Paginação e filtros server-side em todas as listagens grandes.
+- [ ] Code-splitting do bundle (Recharts e React Router lazy loading).
+
+## Qualidade / DevOps
+
+- [ ] Testes de integração: cobertura dos serviços críticos (reconciliação,
+      geração de parcelas, parsers, dashboard, cascade hierarchy).
+- [ ] Geração de tipos TypeScript do frontend a partir do OpenAPI
+      (`openapi-typescript` + `npm run gen-types`).
+- [ ] Pipeline CI/CD (GitHub Actions: build + test + deploy no push a `main`).
+- [ ] Health check dedicado em `/actuator/health` com detalhe de banco.
