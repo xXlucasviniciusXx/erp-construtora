@@ -40,13 +40,16 @@ construtora-financeiro/
 
 ## 2. Tecnologias usadas
 
-**Backend:** Spring Boot, Spring Security, JWT (jjwt), Spring Data JPA, Bean
-Validation, Flyway, springdoc-openapi, Flying Saucer (PDF), Lombok.
+**Backend:** Spring Boot, Spring Security, JWT (jjwt), Spring Data JPA + JdbcTemplate
+(agregações do dashboard), Bean Validation, Flyway, springdoc-openapi,
+Flying Saucer (PDF), Lombok.
 
 **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, React Router, TanStack
-Query, React Hook Form, Zod, Axios, lucide-react.
+Query, React Hook Form, Zod, Axios, lucide-react, **Recharts** (gráficos).
 
-**Infra:** PostgreSQL 16, Docker, Nginx (serve o build do frontend).
+**Integrações:** **BrasilAPI** (consulta automática de CEP e CNPJ no cadastro de clientes).
+
+**Infra:** PostgreSQL 16+ (testado no 18), Docker, Nginx (serve o build do frontend).
 
 ---
 
@@ -164,10 +167,27 @@ Implementados de ponta a ponta (prioridade do POC):
 4. ✅ Vendas e parcelas (gera parcelas automaticamente)
 5. ✅ Contas a pagar / receber (CRUD + baixa)
 6. ✅ Importação CSV (+ **OFX** já funcional)
-7. ✅ Conciliação bancária (sugestão automática com score, manual, desfazer, histórico)
-8. ✅ Dashboard (indicadores do mês)
+7. ✅ Conciliação bancária — sugestão com score, **conciliação manual** (qualquer
+   lançamento, mesmo com valor diferente), abas por status, reverter, motivo de
+   divergência, desfazer e histórico
+8. ✅ Dashboard — 8 cards + **9 gráficos** (Recharts): recebido/a receber/atraso por
+   mês, fluxo de caixa previsto, vendas por mês/forma de pagamento, inadimplência
+   por empreendimento, faixas de atraso (1-30/31-60/61-90/90+), pagas×abertas, clientes
 9. ✅ Configurações de tema/logo/empresa
 10. ✅ Contratos (HTML + PDF), Notificações (registro + SMTP), Relatórios (CSV)
+
+**Funcionalidades adicionais já entregues:**
+
+- **Clientes** — menu de ações (⋮): visualizar (somente leitura), editar, **inativar**
+  (soft delete bloqueado se houver débitos) e visualizar lotes; **consulta automática
+  de CEP e CNPJ** (BrasilAPI) com fallback manual.
+- **Parcelas** — listagem com dados do cliente (nome, CPF/CNPJ, telefone) e **filtros**
+  (cliente, status, período de vencimento); menu de ações com pagamento e geração de contrato.
+- **Contas a pagar** — ações por **ícones** (✅ confirmar pagamento / ❌ cancelar) com
+  tooltip e confirmação.
+- **Vendas** — forma de pagamento e índice de correção como **listas de seleção**.
+- **Auditoria** (`audit_logs`) gravando ações financeiras (pagamento, cancelamento,
+  inativação de cliente, criação/edição).
 
 Veja o backlog de evolução em [`docs/TODO.md`](docs/TODO.md).
 

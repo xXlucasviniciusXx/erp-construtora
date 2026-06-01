@@ -2,6 +2,17 @@
 
 Itens deixados como `TODO` propositalmente, para outro desenvolvedor continuar.
 
+## ✅ Concluído após o scaffold inicial
+- Conciliação manual (qualquer lançamento, valor diferente), abas por status,
+  reverter status, motivo de divergência.
+- Clientes: menu de ações, inativação (soft delete + bloqueio por débitos),
+  visualizar/lotes, consulta automática de CEP/CNPJ (BrasilAPI).
+- Parcelas: dados do cliente + filtros; geração de contrato pelo menu.
+- Contas a pagar: ícones confirmar/cancelar; auditoria em `audit_logs`.
+- Dashboard analítico com 9 gráficos (Recharts) + cards.
+- Vendas: forma de pagamento e índice de correção como listas.
+- Migration V5 com dados de demonstração ampliados.
+
 ## Conciliação
 - [ ] Conciliação parcial / 1 transação ↔ N lançamentos.
 - [ ] Persistir `mode=AUTO` quando o score ultrapassar um limiar configurável.
@@ -28,11 +39,23 @@ Itens deixados como `TODO` propositalmente, para outro desenvolvedor continuar.
 - [ ] Correção monetária por índice (INCC/IGPM) nas parcelas.
 - [ ] Centros de custo como entidade.
 
+## Cadastros de referência
+- [ ] Tornar **forma de pagamento** e **índice de correção** configuráveis
+      (tabela de referência) em vez de listas fixas no frontend.
+
+## Dashboard
+- [ ] Filtro de período (intervalo de datas) nos gráficos.
+- [ ] Drill-down (clicar no gráfico → lista detalhada).
+- [ ] Cache leve das agregações (consultas pesadas em bases grandes).
+
 ## Plataforma
-- [ ] Auditoria automática (preencher `audit_logs` via AOP/listener).
+- [ ] Auditoria automática (preencher `audit_logs` via AOP/listener) — hoje é manual
+      nos pontos financeiros principais.
 - [ ] Refresh token + revogação.
 - [ ] Upload de logo/comprovantes (storage) em vez de URL.
-- [ ] Testes: cobertura de serviços (reconciliação, geração de parcelas, parsers).
+- [ ] CEP/CNPJ via proxy no backend (cache + resiliência) em vez de chamada direta.
+- [ ] Testes: cobertura de serviços (reconciliação, geração de parcelas, parsers, dashboard).
 - [ ] Geração de tipos do frontend a partir do OpenAPI.
 - [ ] Paginação e filtros server-side em todas as listagens.
+- [ ] Code-splitting do bundle (Recharts deixou o JS grande).
 - [ ] Dark mode completo nas telas (infra de tema já existe).

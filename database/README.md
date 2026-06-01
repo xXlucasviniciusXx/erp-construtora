@@ -7,7 +7,9 @@ PostgreSQL 16. O schema é **versionado pelo Flyway** em
 |-----------|----------|
 | `V1__init_schema.sql` | Todas as tabelas, índices e constraints |
 | `V2__seed_roles_permissions.sql` | Perfis, permissões e configuração padrão |
-| `V3__seed_demo_data.sql` | Dados de demonstração (remova em produção) |
+| `V3__seed_demo_data.sql` | Dados de demonstração básicos (remova em produção) |
+| `V4__bank_transaction_notes.sql` | Coluna `notes` em `bank_transactions` (motivo de divergência) |
+| `V5__seed_demo_extended.sql` | Demo ampliada: clientes em várias situações, empreendimentos, lotes, vendas, parcelas, contas (remova em produção) |
 
 O Hibernate roda com `ddl-auto: validate` — o banco **nunca** é alterado pela
 aplicação, apenas pelas migrations.

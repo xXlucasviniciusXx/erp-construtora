@@ -70,4 +70,27 @@ camada precisa mudar.
 `SaleService` divide `(valor total − entrada)` pela quantidade de parcelas,
 arredondando para baixo e somando o resíduo à última parcela (fecha o total
 exato). Vencimentos mensais a partir do primeiro vencimento informado.
+
+## Conciliação manual
+
+Além das sugestões automáticas (match por valor exato), o endpoint
+`/reconciliation/transactions/{id}/targets` lista **todos** os lançamentos em
+aberto compatíveis com o tipo da transação (crédito → contas a receber/parcelas;
+débito → contas a pagar). A conciliação aceita alvo de **valor diferente**,
+registrando `matched_amount` = valor do extrato. Status manuais (`IGNORED`,
+`DIVERGENT`, voltar para `PENDING`) gravam um motivo opcional em `bank_transactions.notes`.
+
+## Dashboard analítico
+
+As agregações dos gráficos (`/dashboard/analytics`) usam **SQL nativo (PostgreSQL)**
+via `JdbcTemplate` em `DashboardAnalyticsService` — agrupamentos por mês
+(`to_char`/`date_trunc`), faixas de atraso (`CURRENT_DATE - due_date`) e fluxo de
+caixa previsto (a receber − a pagar). A complexidade analítica fica isolada nessa
+camada, mantendo entidades e repositórios JPA simples.
+
+## Consulta CEP/CNPJ
+
+O cadastro de clientes consulta a **BrasilAPI** diretamente do frontend
+(`lib/brasilapi.ts`) ao sair dos campos CEP/CNPJ, preenchendo endereço e razão
+social. Em qualquer falha, retorna `null` e o preenchimento manual segue normal.
 ```
