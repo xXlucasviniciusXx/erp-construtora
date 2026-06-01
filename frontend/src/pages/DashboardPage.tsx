@@ -12,17 +12,17 @@ const COLORS = ['#1e40af', '#0f766e', '#b45309', '#be123c', '#7c3aed', '#0891b2'
 
 function Metric({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
-    <Card>
-      <div className="text-xs uppercase tracking-wide text-gray-500">{label}</div>
-      <div className={`mt-2 text-xl font-semibold ${accent ?? 'text-gray-800'}`}>{value}</div>
+    <Card className="cursor-default transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/30">
+      <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
+      <div className={`mt-2 text-xl font-semibold ${accent ?? 'text-gray-800 dark:text-gray-100'}`}>{value}</div>
     </Card>
   )
 }
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <Card>
-      <h3 className="mb-3 text-sm font-semibold text-gray-700">{title}</h3>
+    <Card className="transition-all duration-150 hover:shadow-md">
+      <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</h3>
       <div style={{ width: '100%', height: 240 }}>
         <ResponsiveContainer>{children as any}</ResponsiveContainer>
       </div>

@@ -23,3 +23,9 @@ body {
 .btn-primary {
   background-color: var(--color-primary);
 }
+
+/* No tema escuro, o hover das linhas de tabela usa um cinza escuro
+   (sobrepõe o utilitário hover:bg-gray-50 das páginas). */
+.dark tbody tr:hover {
+  background-color: rgb(55 65 81 / 0.4) !important; /* gray-700/40 */
+}
