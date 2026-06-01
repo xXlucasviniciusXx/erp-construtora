@@ -73,7 +73,7 @@ export function ImportPage() {
 
       {bankAccountId && (
         <Card>
-          <h2 className="mb-3 text-sm font-semibold text-gray-700">Histórico de importações</h2>
+          <h2 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">Histórico de importações</h2>
           <Table headers={['Arquivo', 'Formato', 'Status', 'Linhas', 'Importadas', 'Data']}>
             {history.data?.map((h) => (
               <tr key={h.id} className="hover:bg-gray-50">

@@ -130,7 +130,7 @@ export function ReconciliationPage() {
                           <p className="text-xs text-gray-400">Nenhuma sugestão automática — use "Manual".</p>
                         )}
                         {suggestions[t.id]?.map((s) => (
-                          <div key={s.targetId} className="flex items-center justify-between rounded border border-gray-200 bg-white px-2 py-1 text-xs">
+                          <div key={s.targetId} className="flex items-center justify-between rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
                             <div><span className="font-medium">{s.label}</span><span className="ml-2 text-gray-400">{s.reason}</span></div>
                             <div className="flex items-center gap-2">
                               <Badge color={s.score >= 80 ? 'green' : s.score >= 60 ? 'yellow' : 'gray'}>{Math.round(s.score)}%</Badge>
@@ -233,7 +233,7 @@ function ReconciliationHistory() {
 
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-semibold text-gray-700">Histórico de conciliações</h2>
+      <h2 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">Histórico de conciliações</h2>
       <Table headers={['Valor', 'Alvo', 'Modo', 'Data', '']}>
         {history.data?.map((r) => (
           <tr key={r.id} className="hover:bg-gray-50">

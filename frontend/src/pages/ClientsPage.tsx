@@ -226,7 +226,7 @@ function Info({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
       <div className="text-xs text-gray-400">{label}</div>
-      <div className="text-sm text-gray-800">{value || '—'}</div>
+      <div className="text-sm text-gray-800 dark:text-gray-100">{value || '—'}</div>
     </div>
   )
 }
@@ -253,7 +253,7 @@ function ClientView({ client }: { client: Client }) {
       {client.notes && <Info label="Observações" value={client.notes} />}
 
       <div>
-        <div className="mb-1 text-sm font-semibold text-gray-700">Compras / Parcelas</div>
+        <div className="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-200">Compras / Parcelas</div>
         {sales.isLoading ? (
           <p className="text-xs text-gray-400">Carregando…</p>
         ) : sales.data?.length ? (
@@ -261,9 +261,9 @@ function ClientView({ client }: { client: Client }) {
             {sales.data.map((s) => {
               const paid = s.installments.filter((i) => i.status === 'PAID').length
               return (
-                <div key={s.id} className="rounded border border-gray-200 px-3 py-2 text-xs">
+                <div key={s.id} className="rounded border border-gray-200 px-3 py-2 text-xs dark:border-gray-700">
                   <div className="font-medium">{s.propertyLabel}</div>
-                  <div className="text-gray-500">
+                  <div className="text-gray-500 dark:text-gray-400">
                     {formatCurrency(s.totalValue)} · {paid}/{s.installmentsCount} parcelas pagas · venda {formatDate(s.saleDate)}
                   </div>
                 </div>

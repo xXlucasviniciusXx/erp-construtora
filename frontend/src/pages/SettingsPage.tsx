@@ -52,7 +52,7 @@ export function SettingsPage() {
             </Field>
           </div>
 
-          <h3 className="border-t pt-3 text-sm font-semibold text-gray-700">Dados da empresa</h3>
+          <h3 className="border-t pt-3 text-sm font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200">Dados da empresa</h3>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Razão social"><Input value={form.companyName ?? ''} onChange={(e) => setForm({ ...form, companyName: e.target.value })} /></Field>
             <Field label="CNPJ"><Input value={form.companyDocument ?? ''} onChange={(e) => setForm({ ...form, companyDocument: e.target.value })} /></Field>

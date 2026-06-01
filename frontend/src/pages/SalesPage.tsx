@@ -101,10 +101,10 @@ export function SalesPage() {
               </tr>
               {expanded === s.id && (
                 <tr>
-                  <td colSpan={6} className="bg-gray-50 px-4 py-3">
+                  <td colSpan={6} className="bg-gray-50 px-4 py-3 dark:bg-gray-900/40">
                     <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-3">
                       {s.installments.map((i) => (
-                        <div key={i.id} className="flex justify-between rounded border border-gray-200 bg-white px-3 py-1 text-xs">
+                        <div key={i.id} className="flex items-center justify-between gap-2 rounded border border-gray-200 bg-white px-3 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
                           <span>#{i.number} — {formatDate(i.dueDate)}</span>
                           <span className="font-medium">{formatCurrency(i.amount)}</span>
                           <Badge color={i.status === 'PAID' ? 'green' : i.status === 'OVERDUE' ? 'red' : 'gray'}>{i.status}</Badge>

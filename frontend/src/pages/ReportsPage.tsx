@@ -30,7 +30,7 @@ export function ReportsPage() {
       <PageHeader title="Relatórios" />
 
       <Card className="space-y-4">
-        <h2 className="text-sm font-semibold text-gray-700">Relatórios por período</h2>
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Relatórios por período</h2>
         <div className="flex flex-wrap items-end gap-3">
           <Field label="Início"><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
           <Field label="Fim"><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></Field>
@@ -40,7 +40,7 @@ export function ReportsPage() {
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-sm font-semibold text-gray-700">Outros relatórios (CSV)</h2>
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Outros relatórios (CSV)</h2>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => download('/reports/overdue-installments', 'parcelas-em-atraso.csv')}>Parcelas em atraso</Button>
           <Button variant="outline" onClick={() => download('/reports/reconciliations', 'conciliacoes.csv')}>Conciliações realizadas</Button>
