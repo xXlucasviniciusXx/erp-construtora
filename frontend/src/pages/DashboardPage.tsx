@@ -1,14 +1,16 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { api } from '@/lib/api'
-import type { DashboardAnalytics, Point } from '@/lib/types'
-import { Card, PageHeader } from '@/components/ui'
+import type { Client, DashboardAnalytics, Page, Point, Property } from '@/lib/types'
+import { Button, Card, Field, Input, PageHeader, Select } from '@/components/ui'
 import { formatCurrency } from '@/lib/utils'
 
 const COLORS = ['#1e40af', '#0f766e', '#b45309', '#be123c', '#7c3aed', '#0891b2', '#65a30d', '#db2777']
+const brl = (v: number) => formatCurrency(v)
 
 function Metric({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
@@ -19,131 +21,190 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
   )
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({ title, footer, children }: { title: string; footer?: React.ReactNode; children: React.ReactNode }) {
   return (
     <Card className="transition-all duration-150 hover:shadow-md">
       <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</h3>
-      <div style={{ width: '100%', height: 240 }}>
+      <div style={{ width: '100%', height: 220 }}>
         <ResponsiveContainer>{children as any}</ResponsiveContainer>
       </div>
+      {footer}
     </Card>
   )
 }
 
-const brl = (v: number) => formatCurrency(v)
-const empty = (d?: Point[]) => !d || d.length === 0
-
 export function DashboardPage() {
-  const { data, isLoading } = useQuery({
-    queryKey: ['dashboard-analytics'],
-    queryFn: async () => (await api.get<DashboardAnalytics>('/dashboard/analytics')).data,
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [clientId, setClientId] = useState('')
+  const [propertyId, setPropertyId] = useState('')
+
+  const clients = useQuery({
+    queryKey: ['clients-all'],
+    queryFn: async () => (await api.get<Page<Client>>('/clients', { params: { size: 200 } })).data.content,
+  })
+  const properties = useQuery({
+    queryKey: ['properties-all'],
+    queryFn: async () => (await api.get<Page<Property>>('/properties', { params: { size: 200 } })).data.content,
   })
 
-  if (isLoading) return <p className="text-gray-500">Carregando indicadores…</p>
-  if (!data) return <p className="text-gray-500">Sem dados.</p>
+  const { data, isLoading } = useQuery({
+    queryKey: ['dashboard-analytics', from, to, clientId, propertyId],
+    queryFn: async () =>
+      (await api.get<DashboardAnalytics>('/dashboard/analytics', {
+        params: {
+          from: from || undefined, to: to || undefined,
+          clientId: clientId || undefined, propertyId: propertyId || undefined,
+        },
+      })).data,
+  })
 
-  const clientPie: Point[] = [
+  function clearFilters() { setFrom(''); setTo(''); setClientId(''); setPropertyId('') }
+
+  const clientPie: Point[] = data ? [
     { label: 'Ativos', value: data.activeClients },
     { label: 'Inativos', value: data.inactiveClients },
     { label: 'Inadimplentes', value: data.delinquentClients },
-  ]
+  ] : []
 
   return (
     <div className="space-y-6">
       <PageHeader title="Dashboard" />
 
-      {/* Cards resumidos */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Metric label="Total vendido" value={brl(data.totalSold)} accent="text-blue-700" />
-        <Metric label="Total recebido" value={brl(data.totalReceived)} accent="text-green-600" />
-        <Metric label="Total em aberto" value={brl(data.totalOpen)} accent="text-amber-600" />
-        <Metric label="Total em atraso" value={brl(data.totalOverdue)} accent="text-red-600" />
-        <Metric label="Clientes inadimplentes" value={String(data.delinquentClients)} accent="text-red-600" />
-        <Metric label="Lotes vendidos" value={String(data.lotsSold)} accent="text-blue-700" />
-        <Metric label="Lotes disponíveis" value={String(data.lotsAvailable)} accent="text-green-600" />
-        <Metric label="Clientes ativos" value={String(data.activeClients)} />
-      </div>
+      {/* Filtros */}
+      <Card>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Field label="Período de"><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+          <Field label="até"><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+          <Field label="Cliente">
+            <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>
+              <option value="">Todos</option>
+              {clients.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Imóvel">
+            <Select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>
+              <option value="">Todos</option>
+              {properties.data?.map((p) => <option key={p.id} value={p.id}>{p.development} — {[p.block, p.lot, p.unit].filter(Boolean).join('/')}</option>)}
+            </Select>
+          </Field>
+          <div className="flex items-end">
+            <Button variant="outline" onClick={clearFilters}>Limpar filtros</Button>
+          </div>
+        </div>
+      </Card>
 
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title="Recebido por mês">
-          <BarChart data={data.receivedByMonth}>
-            <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
-            <Tooltip formatter={(v: number) => brl(v)} />
-            <Bar dataKey="value" fill="#0f766e" name="Recebido" />
-          </BarChart>
-        </ChartCard>
+      {isLoading || !data ? <p className="text-gray-500">Carregando indicadores…</p> : (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Metric label="Total vendido" value={brl(data.totalSold)} accent="text-blue-700" />
+            <Metric label="Total recebido" value={brl(data.totalReceived)} accent="text-green-600" />
+            <Metric label="Total em aberto" value={brl(data.totalOpen)} accent="text-amber-600" />
+            <Metric label="Total em atraso" value={brl(data.totalOverdue)} accent="text-red-600" />
+            <Metric label="Clientes inadimplentes" value={String(data.delinquentClients)} accent="text-red-600" />
+            <Metric label="Lotes vendidos" value={String(data.lotsSold)} accent="text-blue-700" />
+            <Metric label="Lotes disponíveis" value={String(data.lotsAvailable)} accent="text-green-600" />
+            <Metric label="Clientes ativos" value={String(data.activeClients)} />
+          </div>
 
-        <ChartCard title="A receber por mês (próximos meses)">
-          <BarChart data={data.toReceiveByMonth}>
-            <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
-            <Tooltip formatter={(v: number) => brl(v)} />
-            <Bar dataKey="value" fill="#1e40af" name="A receber" />
-          </BarChart>
-        </ChartCard>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ChartCard title="Recebido por mês">
+              <BarChart data={data.receivedByMonth}>
+                <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
+                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#0f766e" name="Recebido" />
+              </BarChart>
+            </ChartCard>
 
-        <ChartCard title="Fluxo de caixa previsto (a receber − a pagar)">
-          <LineChart data={data.cashFlowForecast}>
-            <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
-            <Tooltip formatter={(v: number) => brl(v)} />
-            <Line type="monotone" dataKey="value" stroke="#7c3aed" strokeWidth={2} name="Saldo previsto" />
-          </LineChart>
-        </ChartCard>
+            <ChartCard title="A receber por mês (próximos meses)">
+              <BarChart data={data.toReceiveByMonth}>
+                <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
+                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#1e40af" name="A receber" />
+              </BarChart>
+            </ChartCard>
 
-        <ChartCard title="Vendas por mês">
-          <BarChart data={data.salesByMonth}>
-            <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
-            <Tooltip formatter={(v: number) => brl(v)} />
-            <Bar dataKey="value" fill="#0891b2" name="Vendas" />
-          </BarChart>
-        </ChartCard>
+            <ChartCard title="Fluxo de caixa previsto (a receber − a pagar)">
+              <LineChart data={data.cashFlowForecast}>
+                <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
+                <Tooltip formatter={(v: number) => brl(v)} /><Line type="monotone" dataKey="value" stroke="#7c3aed" strokeWidth={2} name="Saldo previsto" />
+              </LineChart>
+            </ChartCard>
 
-        <ChartCard title="Parcelas vencidas por faixa de atraso">
-          <BarChart data={data.overdueByAging}>
-            <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={10} /><YAxis fontSize={11} />
-            <Tooltip formatter={(v: number) => brl(v)} />
-            <Bar dataKey="value" fill="#be123c" name="Em atraso" />
-          </BarChart>
-        </ChartCard>
+            <ChartCard title="Vendas por mês">
+              <BarChart data={data.salesByMonth}>
+                <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
+                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#0891b2" name="Vendas" />
+              </BarChart>
+            </ChartCard>
 
-        <ChartCard title="Inadimplência por empreendimento">
-          <BarChart data={data.delinquencyByDevelopment} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
-            <Tooltip formatter={(v: number) => brl(v)} />
-            <Bar dataKey="value" fill="#b45309" name="Inadimplência" />
-          </BarChart>
-        </ChartCard>
+            <ChartCard title="Parcelas vencidas por faixa de atraso">
+              <BarChart data={data.overdueByAging}>
+                <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={10} /><YAxis fontSize={11} />
+                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#be123c" name="Em atraso" />
+              </BarChart>
+            </ChartCard>
 
-        <ChartCard title="Vendas por forma de pagamento">
-          <PieChart>
-            <Pie data={data.salesByPaymentMethod} dataKey="value" nameKey="label" outerRadius={80} label>
-              {data.salesByPaymentMethod.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-            </Pie>
-            <Tooltip formatter={(v: number) => brl(v)} /><Legend />
-          </PieChart>
-        </ChartCard>
+            <ChartCard title="Inadimplência por empreendimento">
+              <BarChart data={data.delinquencyByDevelopment} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
+                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#b45309" name="Inadimplência" />
+              </BarChart>
+            </ChartCard>
 
-        <ChartCard title="Contas a pagar: pagas × em aberto">
-          <PieChart>
-            <Pie data={data.payablesPaidVsOpen} dataKey="value" nameKey="label" outerRadius={80} label>
-              {data.payablesPaidVsOpen.map((_, i) => <Cell key={i} fill={[ '#0f766e', '#b45309'][i % 2]} />)}
-            </Pie>
-            <Tooltip formatter={(v: number) => brl(v)} /><Legend />
-          </PieChart>
-        </ChartCard>
+            <ChartCard title="Vendas por forma de compra">
+              <PieChart>
+                <Pie data={data.salesByPurchaseType} dataKey="value" nameKey="label" outerRadius={80} label>
+                  {data.salesByPurchaseType.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v: number) => brl(v)} /><Legend />
+              </PieChart>
+            </ChartCard>
 
-        <ChartCard title="Clientes (ativos / inativos / inadimplentes)">
-          <PieChart>
-            <Pie data={clientPie} dataKey="value" nameKey="label" outerRadius={80} label>
-              {clientPie.map((_, i) => <Cell key={i} fill={['#0f766e', '#6b7280', '#be123c'][i]} />)}
-            </Pie>
-            <Tooltip /><Legend />
-          </PieChart>
-        </ChartCard>
-      </div>
-      {empty(data.salesByMonth) && empty(data.receivedByMonth) && (
-        <p className="text-center text-xs text-gray-400">Importe/registre dados para ver os gráficos populados.</p>
+            <ChartCard
+              title="Contas a Receber — recebido × a receber"
+              footer={<ReceivablesTotalizer data={data.receivablesReceivedVsOpen} />}
+            >
+              <PieChart>
+                <Pie data={data.receivablesReceivedVsOpen} dataKey="value" nameKey="label" outerRadius={80} label>
+                  {data.receivablesReceivedVsOpen.map((_, i) => <Cell key={i} fill={['#0f766e', '#b45309'][i % 2]} />)}
+                </Pie>
+                <Tooltip formatter={(v: number) => brl(v)} /><Legend />
+              </PieChart>
+            </ChartCard>
+
+            <ChartCard title="Contas a Pagar — pagas × em aberto">
+              <PieChart>
+                <Pie data={data.payablesPaidVsOpen} dataKey="value" nameKey="label" outerRadius={80} label>
+                  {data.payablesPaidVsOpen.map((_, i) => <Cell key={i} fill={['#0f766e', '#be123c'][i % 2]} />)}
+                </Pie>
+                <Tooltip formatter={(v: number) => brl(v)} /><Legend />
+              </PieChart>
+            </ChartCard>
+
+            <ChartCard title="Clientes (ativos / inativos / inadimplentes)">
+              <PieChart>
+                <Pie data={clientPie} dataKey="value" nameKey="label" outerRadius={80} label>
+                  {clientPie.map((_, i) => <Cell key={i} fill={['#0f766e', '#6b7280', '#be123c'][i]} />)}
+                </Pie>
+                <Tooltip /><Legend />
+              </PieChart>
+            </ChartCard>
+          </div>
+        </>
       )}
+    </div>
+  )
+}
+
+function ReceivablesTotalizer({ data }: { data: Point[] }) {
+  const received = data.find((d) => d.label === 'Recebido')?.value ?? 0
+  const toReceive = data.find((d) => d.label === 'A receber')?.value ?? 0
+  const total = received + toReceive
+  const pct = (v: number) => (total > 0 ? Math.round((v / total) * 100) : 0)
+  return (
+    <div className="mt-2 grid grid-cols-3 gap-2 border-t border-gray-100 pt-2 text-center text-xs dark:border-gray-700">
+      <div><div className="text-gray-400">Total</div><div className="font-semibold">{brl(total)}</div></div>
+      <div><div className="text-gray-400">Recebido</div><div className="font-semibold text-teal-600">{brl(received)} ({pct(received)}%)</div></div>
+      <div><div className="text-gray-400">A receber</div><div className="font-semibold text-amber-600">{brl(toReceive)} ({pct(toReceive)}%)</div></div>
     </div>
   )
 }

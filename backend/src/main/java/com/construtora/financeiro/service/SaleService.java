@@ -76,6 +76,7 @@ public class SaleService {
         sale.setDownPayment(down);
         sale.setInstallmentsCount(request.installmentsCount());
         sale.setFirstDueDate(request.firstDueDate());
+        sale.setPurchaseType(request.purchaseType());
         sale.setPaymentMethod(request.paymentMethod());
         sale.setCorrectionIndex(request.correctionIndex());
         sale.setInterestRate(orZero(request.interestRate()));

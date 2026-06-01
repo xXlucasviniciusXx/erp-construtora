@@ -15,6 +15,7 @@ public record SaleRequest(
         @PositiveOrZero BigDecimal downPayment,
         @NotNull @PositiveOrZero Integer installmentsCount,
         @NotNull LocalDate firstDueDate,
+        String purchaseType,
         String paymentMethod,
         String correctionIndex,
         BigDecimal interestRate,

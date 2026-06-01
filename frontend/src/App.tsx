@@ -6,7 +6,6 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { ClientsPage } from '@/pages/ClientsPage'
 import { PropertiesPage } from '@/pages/PropertiesPage'
 import { SalesPage } from '@/pages/SalesPage'
-import { InstallmentsPage } from '@/pages/InstallmentsPage'
 import { PayablePage } from '@/pages/PayablePage'
 import { ReceivablePage } from '@/pages/ReceivablePage'
 import { SuppliersPage } from '@/pages/SuppliersPage'
@@ -26,7 +25,6 @@ export function App() {
           <Route path="clients" element={<ClientsPage />} />
           <Route path="properties" element={<PropertiesPage />} />
           <Route path="sales" element={<SalesPage />} />
-          <Route path="installments" element={<InstallmentsPage />} />
           <Route path="payable" element={<PayablePage />} />
           <Route path="receivable" element={<ReceivablePage />} />
           <Route path="suppliers" element={<SuppliersPage />} />

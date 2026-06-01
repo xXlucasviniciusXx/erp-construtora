@@ -77,6 +77,7 @@ export interface Sale {
   downPayment: number
   installmentsCount: number
   firstDueDate: string
+  purchaseType?: string
   paymentMethod?: string
   correctionIndex?: string
   interestRate?: number
@@ -84,6 +85,9 @@ export interface Sale {
   status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
   saleDate: string
   notes?: string
+  paidInstallments?: number
+  paidAmount?: number
+  openAmount?: number
   installments: Installment[]
 }
 
@@ -160,9 +164,10 @@ export interface DashboardAnalytics {
   overdueByMonth: Point[]
   delinquencyByDevelopment: Point[]
   salesByMonth: Point[]
-  salesByPaymentMethod: Point[]
+  salesByPurchaseType: Point[]
   cashFlowForecast: Point[]
   payablesPaidVsOpen: Point[]
+  receivablesReceivedVsOpen: Point[]
   overdueByAging: Point[]
 }
 

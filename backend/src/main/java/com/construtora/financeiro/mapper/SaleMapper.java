@@ -35,13 +35,28 @@ public class SaleMapper {
         List<InstallmentResponse> installments = s.getInstallments().stream()
                 .map(this::toInstallmentResponse)
                 .collect(Collectors.toList());
+
+        int paidCount = 0;
+        java.math.BigDecimal paidAmount = java.math.BigDecimal.ZERO;
+        java.math.BigDecimal openAmount = java.math.BigDecimal.ZERO;
+        for (var i : s.getInstallments()) {
+            if (i.getStatus() == com.construtora.financeiro.model.enums.InstallmentStatus.PAID) {
+                paidCount++;
+                paidAmount = paidAmount.add(i.getAmount());
+            } else if (i.getStatus() != com.construtora.financeiro.model.enums.InstallmentStatus.CANCELLED) {
+                openAmount = openAmount.add(i.getAmount());
+            }
+        }
+
         return new SaleResponse(
                 s.getId(),
                 s.getClient().getId(), s.getClient().getName(),
                 s.getProperty().getId(), propertyLabel(s.getProperty()),
                 s.getTotalValue(), s.getDownPayment(), s.getInstallmentsCount(), s.getFirstDueDate(),
-                s.getPaymentMethod(), s.getCorrectionIndex(), s.getInterestRate(), s.getPenaltyRate(),
-                s.getStatus(), s.getSaleDate(), s.getNotes(), installments);
+                s.getPurchaseType(), s.getPaymentMethod(), s.getCorrectionIndex(),
+                s.getInterestRate(), s.getPenaltyRate(),
+                s.getStatus(), s.getSaleDate(), s.getNotes(),
+                paidCount, paidAmount, openAmount, installments);
     }
 
     private String propertyLabel(Property p) {

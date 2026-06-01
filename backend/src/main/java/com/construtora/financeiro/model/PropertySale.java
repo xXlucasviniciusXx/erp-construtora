@@ -47,6 +47,10 @@ public class PropertySale {
     @Column(name = "payment_method")
     private String paymentMethod;
 
+    /** Forma de compra: À vista / Entrada + parcelas / Financiamento próprio. */
+    @Column(name = "purchase_type")
+    private String purchaseType;
+
     @Column(name = "correction_index")
     private String correctionIndex;
 

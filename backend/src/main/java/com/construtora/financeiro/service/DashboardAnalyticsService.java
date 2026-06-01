@@ -2,107 +2,148 @@ package com.construtora.financeiro.service;
 
 import com.construtora.financeiro.dto.dashboard.DashboardAnalyticsResponse;
 import com.construtora.financeiro.dto.dashboard.Point;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
- * Agregações para o dashboard. Usa SQL nativo (PostgreSQL) por serem consultas
- * analíticas com agrupamento por mês/categoria. Concentra a complexidade aqui,
- * mantendo entidades/repos limpos.
+ * Agregações do dashboard (SQL nativo PostgreSQL), com filtros opcionais de
+ * período, cliente e imóvel. Os filtros incidem sobre as métricas financeiras e
+ * de vendas; os totais de carteira (lotes, contagem de clientes) permanecem
+ * como retrato atual.
  */
 @Service
 @Transactional(readOnly = true)
 public class DashboardAnalyticsService {
 
-    private final JdbcTemplate jdbc;
+    private final NamedParameterJdbcTemplate jdbc;
 
-    public DashboardAnalyticsService(JdbcTemplate jdbc) {
+    public DashboardAnalyticsService(NamedParameterJdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
 
-    public DashboardAnalyticsResponse analytics() {
-        BigDecimal totalSold = big("select coalesce(sum(total_value),0) from property_sales");
-        BigDecimal totalReceived = big("""
-                select coalesce((select sum(amount) from installments where status='PAID'),0)
-                     + coalesce((select sum(amount) from accounts_receivable where status='RECEIVED'),0)""");
-        BigDecimal totalOpen = big("""
-                select coalesce((select sum(amount) from installments where status in ('OPEN','OVERDUE')),0)
-                     + coalesce((select sum(amount) from accounts_receivable where status='OPEN'),0)""");
-        BigDecimal totalOverdue = big("""
-                select coalesce(sum(amount),0) from installments
-                where status in ('OPEN','OVERDUE') and due_date < current_date""");
+    public DashboardAnalyticsResponse analytics(LocalDate from, LocalDate to, UUID clientId, UUID propertyId) {
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("from", from != null ? from : LocalDate.of(1900, 1, 1))
+                .addValue("to", to != null ? to : LocalDate.of(2999, 12, 31));
 
+        // Filtros opcionais, montados como fragmentos de SQL (evita params nulos tipados)
+        String instF = "";   // para queries de installments com alias i + join s (property_sales)
+        String saleF = "";   // para queries de property_sales com alias ps
+        if (clientId != null) {
+            p.addValue("clientId", clientId);
+            instF += " and s.client_id = :clientId";
+            saleF += " and ps.client_id = :clientId";
+        }
+        if (propertyId != null) {
+            p.addValue("propertyId", propertyId);
+            instF += " and s.property_id = :propertyId";
+            saleF += " and ps.property_id = :propertyId";
+        }
+
+        // ---- Cards ----
+        BigDecimal totalSold = big("select coalesce(sum(ps.total_value),0) from property_sales ps "
+                + "where ps.sale_date between :from and :to" + saleF, p);
+        BigDecimal totalReceived = big("""
+                select coalesce(sum(i.amount),0) from installments i
+                  join property_sales s on s.id = i.sale_id
+                 where i.status='PAID' and i.payment_date between :from and :to""" + instF, p);
+        BigDecimal totalOpen = big("""
+                select coalesce(sum(i.amount),0) from installments i
+                  join property_sales s on s.id = i.sale_id
+                 where i.status in ('OPEN','OVERDUE')""" + instF, p);
+        BigDecimal totalOverdue = big("""
+                select coalesce(sum(i.amount),0) from installments i
+                  join property_sales s on s.id = i.sale_id
+                 where i.status in ('OPEN','OVERDUE') and i.due_date < current_date""" + instF, p);
         long delinquent = lng("""
                 select count(distinct s.client_id) from installments i
-                join property_sales s on s.id = i.sale_id
-                where i.status in ('OPEN','OVERDUE') and i.due_date < current_date""");
-        long active = lng("select count(*) from clients where status='ACTIVE'");
-        long inactive = lng("select count(*) from clients where status='INACTIVE'");
-        long lotsSold = lng("select count(*) from properties where status='SOLD'");
-        long lotsAvailable = lng("select count(*) from properties where status='AVAILABLE'");
+                  join property_sales s on s.id = i.sale_id
+                 where i.status in ('OPEN','OVERDUE') and i.due_date < current_date""" + instF, p);
 
+        // Retrato de carteira (não filtrado por período)
+        long active = lng("select count(*) from clients where status='ACTIVE'", p);
+        long inactive = lng("select count(*) from clients where status='INACTIVE'", p);
+        long lotsSold = lng("select count(*) from properties where status='SOLD'", p);
+        long lotsAvailable = lng("select count(*) from properties where status='AVAILABLE'", p);
+
+        // ---- Séries ----
         List<Point> received = points("""
-                select to_char(payment_date,'YYYY-MM') as label, sum(amount) as value
-                from installments
-                where status='PAID' and payment_date >= (date_trunc('month', current_date) - interval '5 months')
-                group by 1 order by 1""");
+                select to_char(i.payment_date,'YYYY-MM') as label, sum(i.amount) as value
+                from installments i join property_sales s on s.id = i.sale_id
+                where i.status='PAID' and i.payment_date between :from and :to""" + instF
+                + " group by 1 order by 1", p);
         List<Point> toReceive = points("""
-                select to_char(due_date,'YYYY-MM') as label, sum(amount) as value
-                from installments
-                where status in ('OPEN','OVERDUE')
-                  and due_date >= date_trunc('month', current_date)
-                  and due_date <  date_trunc('month', current_date) + interval '6 months'
-                group by 1 order by 1""");
+                select to_char(i.due_date,'YYYY-MM') as label, sum(i.amount) as value
+                from installments i join property_sales s on s.id = i.sale_id
+                where i.status in ('OPEN','OVERDUE') and i.due_date >= date_trunc('month', current_date)
+                  and i.due_date < date_trunc('month', current_date) + interval '6 months'""" + instF
+                + " group by 1 order by 1", p);
         List<Point> overdueMonth = points("""
-                select to_char(due_date,'YYYY-MM') as label, sum(amount) as value
-                from installments
-                where status in ('OPEN','OVERDUE') and due_date < current_date
-                group by 1 order by 1""");
+                select to_char(i.due_date,'YYYY-MM') as label, sum(i.amount) as value
+                from installments i join property_sales s on s.id = i.sale_id
+                where i.status in ('OPEN','OVERDUE') and i.due_date < current_date""" + instF
+                + " group by 1 order by 1", p);
         List<Point> delinquencyByDev = points("""
-                select p.development as label, sum(i.amount) as value
+                select pr.development as label, sum(i.amount) as value
                 from installments i
-                join property_sales s on s.id = i.sale_id
-                join properties p on p.id = s.property_id
-                where i.status in ('OPEN','OVERDUE') and i.due_date < current_date
-                group by p.development order by 2 desc""");
+                  join property_sales s on s.id = i.sale_id
+                  join properties pr on pr.id = s.property_id
+                where i.status in ('OPEN','OVERDUE') and i.due_date < current_date""" + instF
+                + " group by pr.development order by 2 desc", p);
         List<Point> salesByMonth = points("""
-                select to_char(sale_date,'YYYY-MM') as label, sum(total_value) as value
-                from property_sales group by 1 order by 1""");
-        List<Point> salesByPayment = points("""
-                select coalesce(payment_method,'Não informado') as label, sum(total_value) as value
-                from property_sales group by 1 order by 2 desc""");
-        List<Point> payablesPaidVsOpen = List.of(
-                new Point("Pagas", big("select coalesce(sum(amount),0) from accounts_payable where status='PAID'").doubleValue()),
-                new Point("Em aberto", big("select coalesce(sum(amount),0) from accounts_payable where status in ('OPEN','OVERDUE')").doubleValue()));
+                select to_char(ps.sale_date,'YYYY-MM') as label, sum(ps.total_value) as value
+                from property_sales ps where ps.sale_date between :from and :to""" + saleF
+                + " group by 1 order by 1", p);
+        List<Point> salesByPurchaseType = points("""
+                select coalesce(ps.purchase_type,'Não informado') as label, sum(ps.total_value) as value
+                from property_sales ps where ps.sale_date between :from and :to""" + saleF
+                + " group by 1 order by 2 desc", p);
         List<Point> aging = points("""
                 select case
-                         when current_date - due_date between 1 and 30 then '1-30 dias'
-                         when current_date - due_date between 31 and 60 then '31-60 dias'
-                         when current_date - due_date between 61 and 90 then '61-90 dias'
-                         else 'Acima de 90 dias'
-                       end as label,
-                       sum(amount) as value
-                from installments
-                where status in ('OPEN','OVERDUE') and due_date < current_date
-                group by 1
-                order by min(current_date - due_date)""");
+                         when current_date - i.due_date between 1 and 30 then '1-30 dias'
+                         when current_date - i.due_date between 31 and 60 then '31-60 dias'
+                         when current_date - i.due_date between 61 and 90 then '61-90 dias'
+                         else 'Acima de 90 dias' end as label,
+                       sum(i.amount) as value
+                from installments i join property_sales s on s.id = i.sale_id
+                where i.status in ('OPEN','OVERDUE') and i.due_date < current_date""" + instF
+                + " group by 1 order by min(current_date - i.due_date)", p);
 
-        // Fluxo de caixa previsto (próximos 6 meses) = a receber - a pagar
+        // Contas a pagar: pagas x em aberto (sem filtro de cliente/imóvel)
+        List<Point> payablesPaidVsOpen = List.of(
+                new Point("Pagas", big("select coalesce(sum(amount),0) from accounts_payable where status='PAID'", p).doubleValue()),
+                new Point("Em aberto", big("select coalesce(sum(amount),0) from accounts_payable where status in ('OPEN','OVERDUE')", p).doubleValue()));
+
+        // Contas a receber: recebido x a receber (parcelas + receivables avulsas, com filtro de cliente)
+        String recvClientF = clientId != null ? " and client_id = :clientId" : "";
+        double receivedTotal = big("""
+                select coalesce(sum(i.amount),0) from installments i join property_sales s on s.id=i.sale_id
+                 where i.status='PAID'""" + instF, p).doubleValue()
+                + big("select coalesce(sum(amount),0) from accounts_receivable where status='RECEIVED'" + recvClientF, p).doubleValue();
+        double toReceiveTotal = totalOpen.doubleValue()
+                + big("select coalesce(sum(amount),0) from accounts_receivable where status in ('OPEN','OVERDUE')" + recvClientF, p).doubleValue();
+        List<Point> receivablesReceivedVsOpen = List.of(
+                new Point("Recebido", receivedTotal),
+                new Point("A receber", toReceiveTotal));
+
+        // Fluxo de caixa previsto = a receber - a pagar (próximos 6 meses)
         Map<String, Double> recv = toMap(toReceive);
         Map<String, Double> pay = toMap(points("""
                 select to_char(due_date,'YYYY-MM') as label, sum(amount) as value
                 from accounts_payable
-                where status in ('OPEN','OVERDUE')
-                  and due_date >= date_trunc('month', current_date)
-                  and due_date <  date_trunc('month', current_date) + interval '6 months'
-                group by 1 order by 1"""));
+                where status in ('OPEN','OVERDUE') and due_date >= date_trunc('month', current_date)
+                  and due_date < date_trunc('month', current_date) + interval '6 months'
+                group by 1 order by 1""", p));
         List<Point> cashFlow = new ArrayList<>();
         java.util.TreeSet<String> months = new java.util.TreeSet<>();
         months.addAll(recv.keySet());
@@ -115,28 +156,28 @@ public class DashboardAnalyticsService {
                 totalSold, totalReceived, totalOpen, totalOverdue,
                 delinquent, active, inactive, lotsSold, lotsAvailable,
                 received, toReceive, overdueMonth, delinquencyByDev, salesByMonth,
-                salesByPayment, cashFlow, payablesPaidVsOpen, aging);
+                salesByPurchaseType, cashFlow, payablesPaidVsOpen, receivablesReceivedVsOpen, aging);
     }
 
     // ---- helpers ----
 
-    private BigDecimal big(String sql) {
-        BigDecimal v = jdbc.queryForObject(sql, BigDecimal.class);
+    private BigDecimal big(String sql, MapSqlParameterSource p) {
+        BigDecimal v = jdbc.queryForObject(sql, p, BigDecimal.class);
         return v != null ? v : BigDecimal.ZERO;
     }
 
-    private long lng(String sql) {
-        Long v = jdbc.queryForObject(sql, Long.class);
+    private long lng(String sql, MapSqlParameterSource p) {
+        Long v = jdbc.queryForObject(sql, p, Long.class);
         return v != null ? v : 0L;
     }
 
-    private List<Point> points(String sql) {
-        return jdbc.query(sql, (rs, i) -> new Point(rs.getString("label"), rs.getDouble("value")));
+    private List<Point> points(String sql, MapSqlParameterSource p) {
+        return jdbc.query(sql, p, (rs, i) -> new Point(rs.getString("label"), rs.getDouble("value")));
     }
 
     private Map<String, Double> toMap(List<Point> points) {
         Map<String, Double> m = new LinkedHashMap<>();
-        points.forEach(p -> m.put(p.label(), p.value()));
+        points.forEach(x -> m.put(x.label(), x.value()));
         return m;
     }
 }

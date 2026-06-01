@@ -17,6 +17,7 @@ public record SaleResponse(
         BigDecimal downPayment,
         Integer installmentsCount,
         LocalDate firstDueDate,
+        String purchaseType,
         String paymentMethod,
         String correctionIndex,
         BigDecimal interestRate,
@@ -24,5 +25,9 @@ public record SaleResponse(
         SaleStatus status,
         LocalDate saleDate,
         String notes,
+        // Indicadores derivados das parcelas
+        Integer paidInstallments,
+        BigDecimal paidAmount,
+        BigDecimal openAmount,
         List<InstallmentResponse> installments
 ) {}

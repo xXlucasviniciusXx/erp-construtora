@@ -21,7 +21,6 @@ const NAV: NavItem[] = [
   { to: '/clients', label: 'Clientes', icon: Users, permission: 'READ' },
   { to: '/properties', label: 'Imóveis / Lotes', icon: Building2, permission: 'READ' },
   { to: '/sales', label: 'Vendas', icon: FileSignature, permission: 'READ' },
-  { to: '/installments', label: 'Parcelas', icon: Wallet, permission: 'READ' },
   { to: '/payable', label: 'Contas a Pagar', icon: ArrowUpCircle, permission: 'READ' },
   { to: '/receivable', label: 'Contas a Receber', icon: ArrowDownCircle, permission: 'READ' },
   { to: '/suppliers', label: 'Fornecedores', icon: Truck, permission: 'READ' },

@@ -21,8 +21,9 @@ public record DashboardAnalyticsResponse(
         List<Point> overdueByMonth,
         List<Point> delinquencyByDevelopment,
         List<Point> salesByMonth,
-        List<Point> salesByPaymentMethod,
+        List<Point> salesByPurchaseType,
         List<Point> cashFlowForecast,
         List<Point> payablesPaidVsOpen,
+        List<Point> receivablesReceivedVsOpen,
         List<Point> overdueByAging
 ) {}

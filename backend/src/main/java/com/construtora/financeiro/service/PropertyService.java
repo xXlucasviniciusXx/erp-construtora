@@ -44,6 +44,12 @@ public class PropertyService {
         return mapper.toResponse(repository.save(mapper.toEntity(request, property)));
     }
 
+    public PropertyResponse cancel(UUID id) {
+        Property property = getEntity(id);
+        property.setStatus(com.construtora.financeiro.model.enums.PropertyStatus.CANCELLED);
+        return mapper.toResponse(repository.save(property));
+    }
+
     public void delete(UUID id) {
         repository.delete(getEntity(id));
     }

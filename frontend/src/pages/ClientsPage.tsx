@@ -14,12 +14,12 @@ export function ClientsPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
   const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [form, setForm] = useState<Partial<Client>>(EMPTY)
   const [error, setError] = useState<string | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
   const [viewClient, setViewClient] = useState<Client | null>(null)
-  const [lotsClient, setLotsClient] = useState<Client | null>(null)
   const [lookupMsg, setLookupMsg] = useState<string | null>(null)
 
   const canWrite = hasPermission('CLIENTS_WRITE')
@@ -96,15 +96,20 @@ export function ClientsPage() {
         </div>
       )}
 
-      <div className="mb-4 max-w-sm">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Input placeholder="Buscar por nome ou documento…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="">Todos os status</option>
+          <option value="ACTIVE">Ativos</option>
+          <option value="INACTIVE">Inativos</option>
+        </Select>
       </div>
 
       {isLoading ? (
         <p className="text-gray-500">Carregando…</p>
       ) : (
         <Table headers={['Nome', 'Documento', 'Tipo', 'E-mail', 'Status', 'Ações']}>
-          {data?.content.map((c) => (
+          {data?.content.filter((c) => !statusFilter || c.status === statusFilter).map((c) => (
             <tr key={c.id} className="hover:bg-gray-50">
               <td className="px-4 py-2 font-medium">{c.name}</td>
               <td className="px-4 py-2">{c.document}</td>
@@ -119,7 +124,6 @@ export function ClientsPage() {
                 <ActionsMenu
                   items={[
                     { label: 'Visualizar', onClick: () => setViewClient(c) },
-                    { label: 'Visualizar Lotes', onClick: () => setLotsClient(c) },
                     ...(canWrite
                       ? [
                           { label: 'Editar', onClick: () => openEdit(c) },
@@ -205,17 +209,10 @@ export function ClientsPage() {
         </form>
       </Modal>
 
-      {/* ---- Modal: visualizar (somente leitura) ---- */}
+      {/* ---- Modal: visualizar (somente leitura, com compras e saldos) ---- */}
       {viewClient && (
         <Modal open onClose={() => setViewClient(null)} title={`Cliente — ${viewClient.name}`}>
           <ClientView client={viewClient} />
-        </Modal>
-      )}
-
-      {/* ---- Modal: visualizar lotes ---- */}
-      {lotsClient && (
-        <Modal open onClose={() => setLotsClient(null)} title={`Lotes/Imóveis — ${lotsClient.name}`}>
-          <ClientLots clientId={lotsClient.id} />
         </Modal>
       )}
     </div>
@@ -253,48 +250,26 @@ function ClientView({ client }: { client: Client }) {
       {client.notes && <Info label="Observações" value={client.notes} />}
 
       <div>
-        <div className="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-200">Compras / Parcelas</div>
+        <div className="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-200">Compras / Lotes</div>
         {sales.isLoading ? (
           <p className="text-xs text-gray-400">Carregando…</p>
         ) : sales.data?.length ? (
-          <div className="space-y-1">
-            {sales.data.map((s) => {
-              const paid = s.installments.filter((i) => i.status === 'PAID').length
-              return (
-                <div key={s.id} className="rounded border border-gray-200 px-3 py-2 text-xs dark:border-gray-700">
-                  <div className="font-medium">{s.propertyLabel}</div>
-                  <div className="text-gray-500 dark:text-gray-400">
-                    {formatCurrency(s.totalValue)} · {paid}/{s.installmentsCount} parcelas pagas · venda {formatDate(s.saleDate)}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <Table headers={['Imóvel', 'Total', 'Pagas', 'Saldo pago', 'Saldo devedor', 'Data']}>
+            {sales.data.map((s) => (
+              <tr key={s.id} className="hover:bg-gray-50">
+                <td className="px-4 py-2 font-medium">{s.propertyLabel}</td>
+                <td className="px-4 py-2">{formatCurrency(s.totalValue)}</td>
+                <td className="px-4 py-2">{s.paidInstallments ?? 0}/{s.installmentsCount}</td>
+                <td className="px-4 py-2 text-green-600">{formatCurrency(s.paidAmount ?? 0)}</td>
+                <td className="px-4 py-2 text-amber-600">{formatCurrency(s.openAmount ?? 0)}</td>
+                <td className="px-4 py-2">{formatDate(s.saleDate)}</td>
+              </tr>
+            ))}
+          </Table>
         ) : (
           <p className="text-xs text-gray-400">Nenhuma compra registrada.</p>
         )}
       </div>
     </div>
-  )
-}
-
-function ClientLots({ clientId }: { clientId: string }) {
-  const sales = useQuery({
-    queryKey: ['client-sales', clientId],
-    queryFn: async () => (await api.get<Sale[]>('/sales', { params: { clientId } })).data,
-  })
-  if (sales.isLoading) return <p className="text-sm text-gray-500">Carregando…</p>
-  if (!sales.data?.length) return <p className="text-sm text-gray-400">Este cliente não possui lotes/imóveis vinculados.</p>
-  return (
-    <Table headers={['Imóvel (Empr./Quadra/Lote)', 'Situação', 'Data compra', 'Valor']}>
-      {sales.data.map((s) => (
-        <tr key={s.id} className="hover:bg-gray-50">
-          <td className="px-4 py-2 font-medium">{s.propertyLabel}</td>
-          <td className="px-4 py-2"><Badge color="blue">{s.status}</Badge></td>
-          <td className="px-4 py-2">{formatDate(s.saleDate)}</td>
-          <td className="px-4 py-2">{formatCurrency(s.totalValue)}</td>
-        </tr>
-      ))}
-    </Table>
   )
 }

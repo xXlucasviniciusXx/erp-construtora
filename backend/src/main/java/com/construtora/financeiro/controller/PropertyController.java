@@ -55,6 +55,13 @@ public class PropertyController {
         return service.update(id, request);
     }
 
+    @PatchMapping("/{id}/cancel")
+    @Operation(summary = "Inativa/cancela imóvel (status CANCELADO)")
+    @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
+    public PropertyResponse cancel(@PathVariable UUID id) {
+        return service.cancel(id);
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove imóvel")
     @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
