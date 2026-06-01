@@ -1,6 +1,7 @@
 package com.construtora.financeiro.controller;
 
 import com.construtora.financeiro.dto.bank.BankTransactionResponse;
+import com.construtora.financeiro.dto.reconciliation.ManualTargetResponse;
 import com.construtora.financeiro.dto.reconciliation.ReconcileRequest;
 import com.construtora.financeiro.dto.reconciliation.ReconciliationResponse;
 import com.construtora.financeiro.dto.reconciliation.SuggestionResponse;
@@ -49,6 +50,13 @@ public class ReconciliationController {
         return service.generateSuggestions(transactionId);
     }
 
+    @GetMapping("/transactions/{transactionId}/targets")
+    @Operation(summary = "Lista lançamentos em aberto para conciliação manual")
+    @PreAuthorize("hasAnyAuthority('RECONCILIATION_WRITE','RECONCILIATION_VALIDATE')")
+    public List<ManualTargetResponse> targets(@PathVariable UUID transactionId) {
+        return service.manualTargets(transactionId);
+    }
+
     @PostMapping("/transactions/{transactionId}/reconcile")
     @Operation(summary = "Concilia manualmente uma transação a um lançamento")
     @PreAuthorize("hasAuthority('RECONCILIATION_WRITE')")
@@ -58,11 +66,12 @@ public class ReconciliationController {
     }
 
     @PatchMapping("/transactions/{transactionId}/status")
-    @Operation(summary = "Marca transação como PENDING, IGNORED ou DIVERGENT")
+    @Operation(summary = "Marca transação como PENDING, IGNORED ou DIVERGENT (motivo opcional)")
     @PreAuthorize("hasAuthority('RECONCILIATION_WRITE')")
     public BankTransactionResponse updateStatus(@PathVariable UUID transactionId,
-                                                @RequestParam TransactionStatus status) {
-        return service.updateTransactionStatus(transactionId, status);
+                                                @RequestParam TransactionStatus status,
+                                                @RequestParam(required = false) String notes) {
+        return service.updateTransactionStatus(transactionId, status, notes);
     }
 
     @PostMapping("/{reconciliationId}/undo")

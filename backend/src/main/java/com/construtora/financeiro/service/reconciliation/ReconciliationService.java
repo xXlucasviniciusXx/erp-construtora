@@ -1,6 +1,7 @@
 package com.construtora.financeiro.service.reconciliation;
 
 import com.construtora.financeiro.dto.bank.BankTransactionResponse;
+import com.construtora.financeiro.dto.reconciliation.ManualTargetResponse;
 import com.construtora.financeiro.dto.reconciliation.ReconcileRequest;
 import com.construtora.financeiro.dto.reconciliation.ReconciliationResponse;
 import com.construtora.financeiro.dto.reconciliation.SuggestionResponse;
@@ -84,6 +85,35 @@ public class ReconciliationService {
         return suggestions;
     }
 
+    /**
+     * Lista todos os lançamentos em aberto compatíveis com o tipo da transação,
+     * para o seletor de conciliação MANUAL (sem filtrar por valor exato).
+     */
+    @Transactional(readOnly = true)
+    public List<ManualTargetResponse> manualTargets(UUID transactionId) {
+        BankTransaction txn = getTransaction(transactionId);
+        List<ManualTargetResponse> targets = new java.util.ArrayList<>();
+        if (txn.getType() == TransactionType.CREDIT) {
+            for (AccountReceivable r : receivableRepository.findByStatus(ReceivableStatus.OPEN)) {
+                String client = r.getClient() != null ? r.getClient().getName() : "—";
+                targets.add(new ManualTargetResponse(TargetType.RECEIVABLE, r.getId(),
+                        "Receber: " + client + (r.getDescription() != null ? " (" + r.getDescription() + ")" : ""),
+                        r.getAmount(), r.getDueDate()));
+            }
+            for (Installment i : installmentRepository.findAllReconcilable()) {
+                targets.add(new ManualTargetResponse(TargetType.INSTALLMENT, i.getId(),
+                        "Parcela " + i.getNumber() + " — " + i.getSale().getClient().getName(),
+                        i.getAmount(), i.getDueDate()));
+            }
+        } else {
+            for (AccountPayable p : payableRepository.findByStatus(PayableStatus.OPEN)) {
+                targets.add(new ManualTargetResponse(TargetType.PAYABLE, p.getId(),
+                        "Pagar: " + p.getSupplier(), p.getAmount(), p.getDueDate()));
+            }
+        }
+        return targets;
+    }
+
     /** Concilia uma transação a um lançamento (alvo). Marca ambos como liquidados. */
     public ReconciliationResponse reconcile(UUID transactionId, ReconcileRequest request, ReconciliationMode mode) {
         BankTransaction txn = getTransaction(transactionId);
@@ -127,13 +157,14 @@ public class ReconciliationService {
         transactionRepository.save(txn);
     }
 
-    /** Marca a transação com um status manual (IGNORED, DIVERGENT, PENDING). */
-    public BankTransactionResponse updateTransactionStatus(UUID transactionId, TransactionStatus status) {
+    /** Marca a transação com um status manual (IGNORED, DIVERGENT, PENDING), com motivo opcional. */
+    public BankTransactionResponse updateTransactionStatus(UUID transactionId, TransactionStatus status, String notes) {
         if (status == TransactionStatus.RECONCILED) {
             throw new BusinessException("Use o endpoint de conciliação para marcar como conciliada");
         }
         BankTransaction txn = getTransaction(transactionId);
         txn.setStatus(status);
+        txn.setNotes(notes);   // motivo da divergência (ou limpa ao voltar para pendente)
         return transactionMapper.toResponse(transactionRepository.save(txn));
     }
 

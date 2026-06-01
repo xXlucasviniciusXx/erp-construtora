@@ -36,6 +36,24 @@ public interface InstallmentRepository extends JpaRepository<Installment, UUID> 
             """)
     List<Installment> findReconcilableByAmount(@Param("amount") BigDecimal amount);
 
+    /** Todas as parcelas em aberto/atrasadas (para o seletor de conciliação manual). */
+    @Query("""
+            select i from Installment i
+            where i.status in (com.construtora.financeiro.model.enums.InstallmentStatus.OPEN,
+                               com.construtora.financeiro.model.enums.InstallmentStatus.OVERDUE)
+            order by i.dueDate asc
+            """)
+    List<Installment> findAllReconcilable();
+
+    /** Conta débitos em aberto do cliente (parcelas em aberto/atrasadas das vendas dele). */
+    @Query("""
+            select count(i) from Installment i
+            where i.sale.client.id = :clientId
+              and i.status in (com.construtora.financeiro.model.enums.InstallmentStatus.OPEN,
+                               com.construtora.financeiro.model.enums.InstallmentStatus.OVERDUE)
+            """)
+    long countOpenDebtsByClient(@Param("clientId") UUID clientId);
+
     /** Clientes inadimplentes: parcelas vencidas e ainda não pagas. */
     @Query("""
             select i from Installment i

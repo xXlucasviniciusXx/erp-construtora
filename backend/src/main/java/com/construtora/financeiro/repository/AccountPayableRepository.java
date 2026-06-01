@@ -15,6 +15,8 @@ public interface AccountPayableRepository extends JpaRepository<AccountPayable, 
 
     List<AccountPayable> findByDueDateBetween(LocalDate start, LocalDate end);
 
+    List<AccountPayable> findByStatus(PayableStatus status);
+
     @Query("""
             select coalesce(sum(a.amount), 0) from AccountPayable a
             where a.status = :status and a.dueDate between :start and :end

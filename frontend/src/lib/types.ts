@@ -108,6 +108,15 @@ export interface BankTransaction {
   documentNumber?: string
   bankIdentifier?: string
   status: 'PENDING' | 'RECONCILED' | 'IGNORED' | 'DIVERGENT'
+  notes?: string
+}
+
+export interface ManualTarget {
+  targetType: 'RECEIVABLE' | 'PAYABLE' | 'INSTALLMENT'
+  targetId: string
+  label: string
+  amount: number
+  dueDate?: string
 }
 
 export interface Suggestion {

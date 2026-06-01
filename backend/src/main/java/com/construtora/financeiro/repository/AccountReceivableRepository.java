@@ -15,6 +15,10 @@ public interface AccountReceivableRepository extends JpaRepository<AccountReceiv
 
     List<AccountReceivable> findByDueDateBetween(LocalDate start, LocalDate end);
 
+    List<AccountReceivable> findByStatus(ReceivableStatus status);
+
+    boolean existsByClientIdAndStatus(UUID clientId, ReceivableStatus status);
+
     @Query("""
             select coalesce(sum(a.amount), 0) from AccountReceivable a
             where a.status = :status and a.dueDate between :start and :end

@@ -16,5 +16,6 @@ public record BankTransactionResponse(
         TransactionType type,
         String documentNumber,
         String bankIdentifier,
-        TransactionStatus status
+        TransactionStatus status,
+        String notes
 ) {}

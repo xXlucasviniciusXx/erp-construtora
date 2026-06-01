@@ -56,8 +56,15 @@ public class ClientController {
         return service.update(id, request);
     }
 
+    @PatchMapping("/{id}/inactivate")
+    @Operation(summary = "Inativa cliente (soft delete; bloqueia se houver débitos)")
+    @PreAuthorize("hasAuthority('CLIENTS_WRITE')")
+    public ClientResponse inactivate(@PathVariable UUID id) {
+        return service.inactivate(id);
+    }
+
     @DeleteMapping("/{id}")
-    @Operation(summary = "Remove cliente")
+    @Operation(summary = "Remove cliente (exclusão física)")
     @PreAuthorize("hasAuthority('CLIENTS_WRITE')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {

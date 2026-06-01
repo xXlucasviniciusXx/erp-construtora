@@ -53,6 +53,9 @@ public class BankTransaction {
     @Column(nullable = false)
     private TransactionStatus status = TransactionStatus.PENDING;
 
+    /** Motivo da divergência ou anotação da conciliação manual. */
+    private String notes;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

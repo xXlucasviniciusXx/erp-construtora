@@ -48,6 +48,11 @@ public class SaleService {
     }
 
     @Transactional(readOnly = true)
+    public List<SaleResponse> findByClient(UUID clientId) {
+        return saleRepository.findByClientId(clientId).stream().map(mapper::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
     public SaleResponse findById(UUID id) {
         return mapper.toResponse(getEntity(id));
     }

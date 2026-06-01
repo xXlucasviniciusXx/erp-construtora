@@ -1,14 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { api, getToken } from '@/lib/api'
 import type { Installment } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
-import { Badge, Button, Card, PageHeader, Table } from '@/components/ui'
+import { ActionsMenu } from '@/components/Menu'
+import { Badge, Card, PageHeader, Table } from '@/components/ui'
 import { formatCurrency, formatDate } from '@/lib/utils'
+
+/** Abre o contrato (PDF) da venda à qual a parcela pertence. */
+async function openContract(saleId: string) {
+  const res = await fetch(`${api.defaults.baseURL}/contracts/sales/${saleId}/pdf`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  })
+  if (!res.ok) { alert('Falha ao gerar o contrato'); return }
+  const blob = await res.blob()
+  window.open(URL.createObjectURL(blob))
+}
 
 export function InstallmentsPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
   const canPay = hasPermission('RECEIVABLE_WRITE') || hasPermission('SALES_WRITE')
+  const canContract = hasPermission('CONTRACTS_GENERATE')
 
   const overdue = useQuery({
     queryKey: ['installments-overdue'],
@@ -29,7 +41,7 @@ export function InstallmentsPage() {
       <PageHeader title="Parcelas em atraso" />
       <Card>
         {overdue.isLoading ? <p className="text-gray-500">Carregando…</p> : (
-          <Table headers={['Parcela', 'Valor', 'Vencimento', 'Status', '']}>
+          <Table headers={['Parcela', 'Valor', 'Vencimento', 'Status', 'Ações']}>
             {overdue.data?.map((i) => (
               <tr key={i.id} className="hover:bg-gray-50">
                 <td className="px-4 py-2 font-medium">#{i.number}</td>
@@ -37,7 +49,16 @@ export function InstallmentsPage() {
                 <td className="px-4 py-2">{formatDate(i.dueDate)}</td>
                 <td className="px-4 py-2"><Badge color="red">{i.status}</Badge></td>
                 <td className="px-4 py-2 text-right">
-                  {canPay && <Button variant="ghost" onClick={() => pay.mutate(i.id)}>Registrar pagamento</Button>}
+                  <ActionsMenu
+                    items={[
+                      ...(canPay ? [{ label: 'Registrar pagamento', onClick: () => pay.mutate(i.id) }] : []),
+                      {
+                        label: 'Gerar contrato',
+                        onClick: () => openContract(i.saleId),
+                        disabled: !canContract,
+                      },
+                    ]}
+                  />
                 </td>
               </tr>
             ))}

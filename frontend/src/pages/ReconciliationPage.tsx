@@ -1,59 +1,90 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
-import type { BankTransaction, Suggestion } from '@/lib/types'
+import type { BankTransaction, ManualTarget, Suggestion } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
-import { Badge, Button, Card, PageHeader, Table } from '@/components/ui'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { Badge, Button, Card, PageHeader, Select, Table } from '@/components/ui'
+import { cn, formatCurrency, formatDate } from '@/lib/utils'
+
+const TABS = [
+  { key: 'PENDING', label: 'Pendentes' },
+  { key: 'RECONCILED', label: 'Conciliadas' },
+  { key: 'IGNORED', label: 'Ignoradas' },
+  { key: 'DIVERGENT', label: 'Divergentes' },
+] as const
+
+type Status = (typeof TABS)[number]['key']
 
 export function ReconciliationPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
-  const [openTxn, setOpenTxn] = useState<string | null>(null)
-  const [suggestions, setSuggestions] = useState<Record<string, Suggestion[]>>({})
-  const [error, setError] = useState<string | null>(null)
   const canWrite = hasPermission('RECONCILIATION_WRITE')
 
-  const pending = useQuery({
-    queryKey: ['pendencies'],
-    queryFn: async () => (await api.get<BankTransaction[]>('/reconciliation/pendencies')).data,
+  const [status, setStatus] = useState<Status>('PENDING')
+  const [expand, setExpand] = useState<{ id: string; mode: 'suggest' | 'manual' } | null>(null)
+  const [suggestions, setSuggestions] = useState<Record<string, Suggestion[]>>({})
+  const [targets, setTargets] = useState<Record<string, ManualTarget[]>>({})
+  const [pick, setPick] = useState<Record<string, string>>({})
+  const [error, setError] = useState<string | null>(null)
+
+  const txns = useQuery({
+    queryKey: ['recon-txns', status],
+    queryFn: async () => (await api.get<BankTransaction[]>('/bank-transactions', { params: { status } })).data,
   })
 
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['recon-txns'] })
+    queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+  }
+
   const loadSuggestions = useMutation({
-    mutationFn: async (txnId: string) =>
-      (await api.get<Suggestion[]>(`/reconciliation/transactions/${txnId}/suggestions`)).data,
-    onSuccess: (data, txnId) => setSuggestions((s) => ({ ...s, [txnId]: data })),
+    mutationFn: async (id: string) =>
+      (await api.get<Suggestion[]>(`/reconciliation/transactions/${id}/suggestions`)).data,
+    onSuccess: (data, id) => setSuggestions((s) => ({ ...s, [id]: data })),
+    onError: (e) => setError(apiErrorMessage(e)),
+  })
+
+  const loadTargets = useMutation({
+    mutationFn: async (id: string) =>
+      (await api.get<ManualTarget[]>(`/reconciliation/transactions/${id}/targets`)).data,
+    onSuccess: (data, id) => setTargets((t) => ({ ...t, [id]: data })),
     onError: (e) => setError(apiErrorMessage(e)),
   })
 
   const reconcile = useMutation({
-    mutationFn: async ({ txnId, s }: { txnId: string; s: Suggestion }) =>
-      api.post(`/reconciliation/transactions/${txnId}/reconcile`, {
-        targetType: s.targetType,
-        targetId: s.targetId,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pendencies'] })
-      queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
-      setOpenTxn(null)
-    },
+    mutationFn: async ({ id, targetType, targetId }: { id: string; targetType: string; targetId: string }) =>
+      api.post(`/reconciliation/transactions/${id}/reconcile`, { targetType, targetId }),
+    onSuccess: () => { invalidate(); setExpand(null) },
     onError: (e) => setError(apiErrorMessage(e)),
   })
 
-  const setStatus = useMutation({
-    mutationFn: async ({ txnId, status }: { txnId: string; status: string }) =>
-      api.patch(`/reconciliation/transactions/${txnId}/status`, null, { params: { status } }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pendencies'] }),
+  const setStatusM = useMutation({
+    mutationFn: async ({ id, newStatus, notes }: { id: string; newStatus: string; notes?: string }) =>
+      api.patch(`/reconciliation/transactions/${id}/status`, null, { params: { status: newStatus, notes } }),
+    onSuccess: () => invalidate(),
     onError: (e) => setError(apiErrorMessage(e)),
   })
 
-  function toggle(txnId: string) {
-    if (openTxn === txnId) {
-      setOpenTxn(null)
-      return
-    }
-    setOpenTxn(txnId)
-    if (!suggestions[txnId]) loadSuggestions.mutate(txnId)
+  function toggle(id: string, mode: 'suggest' | 'manual') {
+    if (expand?.id === id && expand.mode === mode) { setExpand(null); return }
+    setExpand({ id, mode })
+    if (mode === 'suggest' && !suggestions[id]) loadSuggestions.mutate(id)
+    if (mode === 'manual' && !targets[id]) loadTargets.mutate(id)
+  }
+
+  function reconcileSuggestion(id: string, s: Suggestion) {
+    reconcile.mutate({ id, targetType: s.targetType, targetId: s.targetId })
+  }
+  function reconcileManual(id: string) {
+    const sel = pick[id]
+    if (!sel) return
+    const [targetType, targetId] = sel.split('|')
+    reconcile.mutate({ id, targetType, targetId })
+  }
+  function markDivergent(id: string) {
+    const reason = window.prompt('Motivo da divergência (opcional):') ?? ''
+    setStatusM.mutate({ id, newStatus: 'DIVERGENT', notes: reason })
   }
 
   return (
@@ -61,68 +92,116 @@ export function ReconciliationPage() {
       <PageHeader title="Conciliação bancária" />
       {error && <p className="text-sm text-red-600">{error}</p>}
 
+      {/* Abas de status */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => { setStatus(t.key); setExpand(null) }}
+            className={cn(
+              'border-b-2 px-4 py-2 text-sm font-medium',
+              status === t.key ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-gray-700">
-          Transações pendentes ({pending.data?.length ?? 0})
-        </h2>
-        {pending.isLoading ? (
+        {txns.isLoading ? (
           <p className="text-gray-500">Carregando…</p>
         ) : (
           <Table headers={['Data', 'Descrição', 'Documento', 'Valor', 'Tipo', 'Ações']}>
-            {pending.data?.map((t) => (
-              <tr key={t.id} className="align-top hover:bg-gray-50">
-                <td className="px-4 py-2">{formatDate(t.transactionDate)}</td>
-                <td className="px-4 py-2">
-                  {t.description ?? '—'}
-                  {openTxn === t.id && (
-                    <div className="mt-2 space-y-1">
-                      {loadSuggestions.isPending && <p className="text-xs text-gray-400">Buscando sugestões…</p>}
-                      {suggestions[t.id]?.length === 0 && (
-                        <p className="text-xs text-gray-400">Nenhuma sugestão automática. Use conciliação manual.</p>
-                      )}
-                      {suggestions[t.id]?.map((s) => (
-                        <div key={s.targetId} className="flex items-center justify-between rounded border border-gray-200 bg-white px-2 py-1 text-xs">
-                          <div>
-                            <span className="font-medium">{s.label}</span>
-                            <span className="ml-2 text-gray-400">{s.reason}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge color={s.score >= 80 ? 'green' : s.score >= 60 ? 'yellow' : 'gray'}>
-                              {Math.round(s.score)}%
-                            </Badge>
-                            {canWrite && (
-                              <Button variant="primary" className="px-2 py-1" onClick={() => reconcile.mutate({ txnId: t.id, s })}>
-                                Conciliar
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td className="px-4 py-2">{t.documentNumber ?? '—'}</td>
-                <td className="px-4 py-2 font-medium">{formatCurrency(Math.abs(t.amount))}</td>
-                <td className="px-4 py-2">
-                  <Badge color={t.type === 'CREDIT' ? 'green' : 'red'}>{t.type === 'CREDIT' ? 'Crédito' : 'Débito'}</Badge>
-                </td>
-                <td className="px-4 py-2">
-                  <div className="flex flex-wrap gap-1">
-                    <Button variant="outline" className="px-2 py-1" onClick={() => toggle(t.id)}>
-                      {openTxn === t.id ? 'Fechar' : 'Sugestões'}
-                    </Button>
-                    {canWrite && (
-                      <>
-                        <Button variant="ghost" className="px-2 py-1" onClick={() => setStatus.mutate({ txnId: t.id, status: 'IGNORED' })}>Ignorar</Button>
-                        <Button variant="ghost" className="px-2 py-1" onClick={() => setStatus.mutate({ txnId: t.id, status: 'DIVERGENT' })}>Divergente</Button>
-                      </>
+            {txns.data?.map((t) => (
+              <Fragment key={t.id}>
+                <tr className="align-top hover:bg-gray-50">
+                  <td className="px-4 py-2">{formatDate(t.transactionDate)}</td>
+                  <td className="px-4 py-2">
+                    {t.description ?? '—'}
+                    {t.status === 'DIVERGENT' && t.notes && (
+                      <div className="text-xs text-red-500">Divergência: {t.notes}</div>
                     )}
-                  </div>
-                </td>
-              </tr>
+
+                    {expand?.id === t.id && expand.mode === 'suggest' && (
+                      <div className="mt-2 space-y-1">
+                        {loadSuggestions.isPending && <p className="text-xs text-gray-400">Buscando sugestões…</p>}
+                        {suggestions[t.id]?.length === 0 && (
+                          <p className="text-xs text-gray-400">Nenhuma sugestão automática — use "Manual".</p>
+                        )}
+                        {suggestions[t.id]?.map((s) => (
+                          <div key={s.targetId} className="flex items-center justify-between rounded border border-gray-200 bg-white px-2 py-1 text-xs">
+                            <div><span className="font-medium">{s.label}</span><span className="ml-2 text-gray-400">{s.reason}</span></div>
+                            <div className="flex items-center gap-2">
+                              <Badge color={s.score >= 80 ? 'green' : s.score >= 60 ? 'yellow' : 'gray'}>{Math.round(s.score)}%</Badge>
+                              {canWrite && <Button className="px-2 py-1" onClick={() => reconcileSuggestion(t.id, s)}>Conciliar</Button>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {expand?.id === t.id && expand.mode === 'manual' && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {loadTargets.isPending && <p className="text-xs text-gray-400">Carregando lançamentos…</p>}
+                        {targets[t.id] && (
+                          <>
+                            <Select
+                              className="max-w-xs text-xs"
+                              value={pick[t.id] ?? ''}
+                              onChange={(e) => setPick((p) => ({ ...p, [t.id]: e.target.value }))}
+                            >
+                              <option value="">Escolha um lançamento…</option>
+                              {targets[t.id].map((m) => (
+                                <option key={m.targetId} value={`${m.targetType}|${m.targetId}`}>
+                                  {m.label} — {formatCurrency(m.amount)}
+                                </option>
+                              ))}
+                            </Select>
+                            <Button className="px-2 py-1" disabled={!pick[t.id]} onClick={() => reconcileManual(t.id)}>
+                              Conciliar
+                            </Button>
+                            {pick[t.id] && (() => {
+                              const m = targets[t.id].find((x) => `${x.targetType}|${x.targetId}` === pick[t.id])
+                              return m && Math.abs(m.amount) !== Math.abs(t.amount) ? (
+                                <span className="text-xs text-amber-600">⚠ valor difere ({formatCurrency(m.amount)} vs {formatCurrency(Math.abs(t.amount))}) — será registrado</span>
+                              ) : null
+                            })()}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-2">{t.documentNumber ?? '—'}</td>
+                  <td className="px-4 py-2 font-medium">{formatCurrency(Math.abs(t.amount))}</td>
+                  <td className="px-4 py-2"><Badge color={t.type === 'CREDIT' ? 'green' : 'red'}>{t.type === 'CREDIT' ? 'Crédito' : 'Débito'}</Badge></td>
+                  <td className="px-4 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {t.status === 'PENDING' && (
+                        <>
+                          <Button variant="outline" className="px-2 py-1" onClick={() => toggle(t.id, 'suggest')}>Sugestões</Button>
+                          {canWrite && (
+                            <>
+                              <Button variant="outline" className="px-2 py-1" onClick={() => toggle(t.id, 'manual')}>Manual</Button>
+                              <Button variant="ghost" className="px-2 py-1" onClick={() => setStatusM.mutate({ id: t.id, newStatus: 'IGNORED' })}>Ignorar</Button>
+                              <Button variant="ghost" className="px-2 py-1" onClick={() => markDivergent(t.id)}>Divergente</Button>
+                            </>
+                          )}
+                        </>
+                      )}
+                      {(t.status === 'IGNORED' || t.status === 'DIVERGENT') && canWrite && (
+                        <Button variant="ghost" className="px-2 py-1" onClick={() => setStatusM.mutate({ id: t.id, newStatus: 'PENDING' })}>
+                          Voltar p/ pendente
+                        </Button>
+                      )}
+                      {t.status === 'RECONCILED' && <span className="text-xs text-green-600">Conciliada</span>}
+                    </div>
+                  </td>
+                </tr>
+              </Fragment>
             ))}
-            {pending.data?.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Nenhuma transação pendente. 🎉</td></tr>
+            {txns.data?.length === 0 && (
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Nenhuma transação nesta aba.</td></tr>
             )}
           </Table>
         )}
@@ -147,7 +226,8 @@ function ReconciliationHistory() {
     mutationFn: async (id: string) => api.post(`/reconciliation/${id}/undo`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
-      queryClient.invalidateQueries({ queryKey: ['pendencies'] })
+      queryClient.invalidateQueries({ queryKey: ['recon-txns'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 

@@ -29,10 +29,10 @@ public class SaleController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista vendas")
+    @Operation(summary = "Lista vendas (opcionalmente por cliente)")
     @PreAuthorize("hasAuthority('READ')")
-    public List<SaleResponse> list() {
-        return saleService.findAll();
+    public List<SaleResponse> list(@RequestParam(required = false) UUID clientId) {
+        return clientId != null ? saleService.findByClient(clientId) : saleService.findAll();
     }
 
     @GetMapping("/{id}")
