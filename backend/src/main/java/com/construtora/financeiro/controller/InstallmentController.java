@@ -1,14 +1,18 @@
 package com.construtora.financeiro.controller;
 
+import com.construtora.financeiro.dto.sale.InstallmentDetailResponse;
 import com.construtora.financeiro.dto.sale.InstallmentPaymentRequest;
 import com.construtora.financeiro.dto.sale.InstallmentResponse;
+import com.construtora.financeiro.model.enums.InstallmentStatus;
 import com.construtora.financeiro.service.InstallmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,6 +32,17 @@ public class InstallmentController {
     @PreAuthorize("hasAuthority('READ')")
     public List<InstallmentResponse> overdue() {
         return service.findOverdue();
+    }
+
+    @GetMapping
+    @Operation(summary = "Lista parcelas com dados do cliente e filtros (q, status, vencimento)")
+    @PreAuthorize("hasAuthority('READ')")
+    public List<InstallmentDetailResponse> search(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) InstallmentStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueTo) {
+        return service.search(q, status, dueFrom, dueTo);
     }
 
     @PostMapping("/{id}/pay")

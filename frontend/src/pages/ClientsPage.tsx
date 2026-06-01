@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
+import { lookupCep, lookupCnpj } from '@/lib/brasilapi'
 import type { Client, Page, Sale } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
@@ -19,8 +20,35 @@ export function ClientsPage() {
   const [pageError, setPageError] = useState<string | null>(null)
   const [viewClient, setViewClient] = useState<Client | null>(null)
   const [lotsClient, setLotsClient] = useState<Client | null>(null)
+  const [lookupMsg, setLookupMsg] = useState<string | null>(null)
 
   const canWrite = hasPermission('CLIENTS_WRITE')
+
+  async function handleCepBlur(cep: string) {
+    if (!cep) return
+    const r = await lookupCep(cep)
+    if (!r) { setLookupMsg('Não foi possível localizar o CEP. Preencha as informações manualmente.'); return }
+    setLookupMsg(null)
+    setForm((f) => ({
+      ...f, zipCode: cep,
+      address: [r.street, r.neighborhood].filter(Boolean).join(' - ') || f.address,
+      city: r.city, state: r.state,
+    }))
+  }
+
+  async function handleCnpjBlur(doc: string) {
+    if (form.personType !== 'PJ' || !doc) return
+    const r = await lookupCnpj(doc)
+    if (!r) { setLookupMsg('Não foi possível localizar os dados automaticamente. Preencha as informações manualmente.'); return }
+    setLookupMsg(null)
+    setForm((f) => ({
+      ...f,
+      name: r.razao_social || f.name,
+      zipCode: r.cep || f.zipCode,
+      address: [r.logradouro, r.numero, r.bairro].filter(Boolean).join(', ') || f.address,
+      city: r.municipio || f.city, state: r.uf || f.state,
+    }))
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['clients', query],
@@ -46,10 +74,10 @@ export function ClientsPage() {
   })
 
   function openNew() {
-    setForm(EMPTY); setError(null); setEditOpen(true)
+    setForm(EMPTY); setError(null); setLookupMsg(null); setEditOpen(true)
   }
   function openEdit(c: Client) {
-    setForm(c); setError(null); setEditOpen(true)
+    setForm(c); setError(null); setLookupMsg(null); setEditOpen(true)
   }
   function confirmInactivate(c: Client) {
     setPageError(null)
@@ -127,8 +155,23 @@ export function ClientsPage() {
             <Input value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           </Field>
           <Field label="CPF / CNPJ">
-            <Input value={form.document ?? ''} onChange={(e) => setForm({ ...form, document: e.target.value })} required />
+            <Input
+              value={form.document ?? ''}
+              onChange={(e) => setForm({ ...form, document: e.target.value })}
+              onBlur={(e) => handleCnpjBlur(e.target.value)}
+              placeholder={form.personType === 'PJ' ? 'CNPJ — preenche automático' : ''}
+              required
+            />
           </Field>
+          <Field label="CEP">
+            <Input
+              value={form.zipCode ?? ''}
+              onChange={(e) => setForm({ ...form, zipCode: e.target.value })}
+              onBlur={(e) => handleCepBlur(e.target.value)}
+              placeholder="00000-000 — preenche endereço"
+            />
+          </Field>
+          {lookupMsg && <p className="text-xs text-amber-600">{lookupMsg}</p>}
           <div className="grid grid-cols-2 gap-3">
             <Field label="E-mail">
               <Input type="email" value={form.email ?? ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />

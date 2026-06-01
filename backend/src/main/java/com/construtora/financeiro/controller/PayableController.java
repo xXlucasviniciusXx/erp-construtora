@@ -66,6 +66,13 @@ public class PayableController {
         return service.confirmPayment(id, paymentDate);
     }
 
+    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Cancela a conta (status CANCELADO)")
+    @PreAuthorize("hasAuthority('PAYABLE_WRITE')")
+    public PayableResponse cancel(@PathVariable UUID id) {
+        return service.cancel(id);
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove conta a pagar")
     @PreAuthorize("hasAuthority('PAYABLE_WRITE')")

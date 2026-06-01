@@ -1,5 +1,6 @@
 package com.construtora.financeiro.service;
 
+import com.construtora.financeiro.dto.sale.InstallmentDetailResponse;
 import com.construtora.financeiro.dto.sale.InstallmentPaymentRequest;
 import com.construtora.financeiro.dto.sale.InstallmentResponse;
 import com.construtora.financeiro.exception.BusinessException;
@@ -39,6 +40,15 @@ public class InstallmentService {
     public List<InstallmentResponse> findOverdue() {
         return repository.findOverdueUnpaid(LocalDate.now()).stream()
                 .map(mapper::toInstallmentResponse).toList();
+    }
+
+    /** Lista parcelas (com dados do cliente) aplicando filtros opcionais. */
+    @Transactional(readOnly = true)
+    public List<InstallmentDetailResponse> search(String q, InstallmentStatus status,
+                                                  LocalDate dueFrom, LocalDate dueTo) {
+        String query = (q != null && !q.isBlank()) ? q.trim() : "";
+        return repository.search(query, status, dueFrom, dueTo).stream()
+                .map(mapper::toDetailResponse).toList();
     }
 
     /** Confirma o pagamento de uma parcela e dispara a notificação de confirmação. */

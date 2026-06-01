@@ -1,7 +1,9 @@
 package com.construtora.financeiro.mapper;
 
+import com.construtora.financeiro.dto.sale.InstallmentDetailResponse;
 import com.construtora.financeiro.dto.sale.InstallmentResponse;
 import com.construtora.financeiro.dto.sale.SaleResponse;
+import com.construtora.financeiro.model.Client;
 import com.construtora.financeiro.model.Installment;
 import com.construtora.financeiro.model.Property;
 import com.construtora.financeiro.model.PropertySale;
@@ -17,6 +19,16 @@ public class SaleMapper {
         return new InstallmentResponse(
                 i.getId(), i.getSale().getId(), i.getNumber(), i.getAmount(), i.getDueDate(),
                 i.getPaymentDate(), i.getStatus(), i.getPaymentMethod(), i.getReceiptUrl(), i.getNotes());
+    }
+
+    public InstallmentDetailResponse toDetailResponse(Installment i) {
+        PropertySale s = i.getSale();
+        Client c = s.getClient();
+        return new InstallmentDetailResponse(
+                i.getId(), s.getId(), i.getNumber(), i.getAmount(), i.getDueDate(),
+                i.getPaymentDate(), i.getStatus(),
+                c.getId(), c.getName(), c.getDocument(), c.getPhone(),
+                s.getProperty().getDevelopment(), propertyLabel(s.getProperty()));
     }
 
     public SaleResponse toResponse(PropertySale s) {

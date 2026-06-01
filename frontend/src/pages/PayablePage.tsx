@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { Page } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
@@ -19,6 +20,8 @@ interface Payable {
 }
 
 const EMPTY: Partial<Payable> = { status: 'OPEN' }
+const STATUS_COLOR: Record<string, string> = { OPEN: 'gray', PAID: 'green', OVERDUE: 'red', CANCELLED: 'gray' }
+const STATUS_LABEL: Record<string, string> = { OPEN: 'EM ABERTO', PAID: 'PAGO', OVERDUE: 'ATRASADO', CANCELLED: 'CANCELADO' }
 
 export function PayablePage() {
   const { hasPermission } = useAuth()
@@ -41,23 +44,46 @@ export function PayablePage() {
 
   const pay = useMutation({
     mutationFn: async (id: string) => api.post(`/accounts-payable/${id}/pay`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payable'] }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['payable'] }); queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] }) },
+  })
+  const cancel = useMutation({
+    mutationFn: async (id: string) => api.post(`/accounts-payable/${id}/cancel`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['payable'] }); queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] }) },
   })
 
   return (
     <div>
       <PageHeader title="Contas a Pagar" action={canWrite && <Button onClick={() => { setForm(EMPTY); setModalOpen(true) }}>Nova conta</Button>} />
       {isLoading ? <p className="text-gray-500">Carregando…</p> : (
-        <Table headers={['Fornecedor', 'Categoria', 'Valor', 'Vencimento', 'Status', '']}>
+        <Table headers={['Fornecedor', 'Categoria', 'Valor', 'Vencimento', 'Status', 'Ações']}>
           {data?.content.map((p) => (
             <tr key={p.id} className="hover:bg-gray-50">
               <td className="px-4 py-2 font-medium">{p.supplier}</td>
               <td className="px-4 py-2">{p.category ?? '—'}</td>
               <td className="px-4 py-2">{formatCurrency(p.amount)}</td>
               <td className="px-4 py-2">{formatDate(p.dueDate)}</td>
-              <td className="px-4 py-2"><Badge color={p.status === 'PAID' ? 'green' : p.status === 'OVERDUE' ? 'red' : 'gray'}>{p.status}</Badge></td>
-              <td className="px-4 py-2 text-right">
-                {canWrite && p.status !== 'PAID' && <Button variant="ghost" onClick={() => pay.mutate(p.id)}>Confirmar pgto.</Button>}
+              <td className="px-4 py-2"><Badge color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status]}</Badge></td>
+              <td className="px-4 py-2">
+                {canWrite && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      title="Confirmar pagamento"
+                      disabled={p.status === 'PAID' || p.status === 'CANCELLED'}
+                      onClick={() => { if (window.confirm(`Confirmar pagamento de "${p.supplier}" (${formatCurrency(p.amount)})?`)) pay.mutate(p.id) }}
+                      className="text-green-600 hover:text-green-700 disabled:opacity-30"
+                    >
+                      <CheckCircle2 className="h-5 w-5" />
+                    </button>
+                    <button
+                      title="Cancelar conta"
+                      disabled={p.status === 'CANCELLED'}
+                      onClick={() => { if (window.confirm(`Cancelar a conta de "${p.supplier}"?`)) cancel.mutate(p.id) }}
+                      className="text-red-600 hover:text-red-700 disabled:opacity-30"
+                    >
+                      <XCircle className="h-5 w-5" />
+                    </button>
+                  </div>
+                )}
               </td>
             </tr>
           ))}

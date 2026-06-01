@@ -140,6 +140,48 @@ export interface DashboardData {
   soldProperties: number
 }
 
+export interface Point {
+  label: string
+  value: number
+}
+
+export interface DashboardAnalytics {
+  totalSold: number
+  totalReceived: number
+  totalOpen: number
+  totalOverdue: number
+  delinquentClients: number
+  activeClients: number
+  inactiveClients: number
+  lotsSold: number
+  lotsAvailable: number
+  receivedByMonth: Point[]
+  toReceiveByMonth: Point[]
+  overdueByMonth: Point[]
+  delinquencyByDevelopment: Point[]
+  salesByMonth: Point[]
+  salesByPaymentMethod: Point[]
+  cashFlowForecast: Point[]
+  payablesPaidVsOpen: Point[]
+  overdueByAging: Point[]
+}
+
+export interface InstallmentDetail {
+  id: string
+  saleId: string
+  number: number
+  amount: number
+  dueDate: string
+  paymentDate?: string
+  status: 'OPEN' | 'PAID' | 'OVERDUE' | 'CANCELLED'
+  clientId: string
+  clientName: string
+  clientDocument: string
+  clientPhone?: string
+  development?: string
+  propertyLabel?: string
+}
+
 export interface SystemSettings {
   systemName: string
   logoUrl?: string

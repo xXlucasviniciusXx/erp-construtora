@@ -20,10 +20,12 @@ import java.util.UUID;
 public class PayableService {
 
     private final AccountPayableRepository repository;
+    private final AuditService auditService;
     private final PayableMapper mapper;
 
-    public PayableService(AccountPayableRepository repository, PayableMapper mapper) {
+    public PayableService(AccountPayableRepository repository, AuditService auditService, PayableMapper mapper) {
         this.repository = repository;
+        this.auditService = auditService;
         this.mapper = mapper;
     }
 
@@ -49,7 +51,18 @@ public class PayableService {
         AccountPayable a = getEntity(id);
         a.setStatus(PayableStatus.PAID);
         a.setPaymentDate(paymentDate != null ? paymentDate : LocalDate.now());
-        return mapper.toResponse(repository.save(a));
+        PayableResponse resp = mapper.toResponse(repository.save(a));
+        auditService.log("PAYABLE_PAID", "accounts_payable", id, a.getSupplier() + " R$ " + a.getAmount());
+        return resp;
+    }
+
+    public PayableResponse cancel(UUID id) {
+        AccountPayable a = getEntity(id);
+        a.setStatus(PayableStatus.CANCELLED);
+        a.setPaymentDate(null);
+        PayableResponse resp = mapper.toResponse(repository.save(a));
+        auditService.log("PAYABLE_CANCELLED", "accounts_payable", id, a.getSupplier() + " R$ " + a.getAmount());
+        return resp;
     }
 
     public void delete(UUID id) {

@@ -19,8 +19,15 @@ interface SaleForm {
 
 const EMPTY: SaleForm = {
   clientId: '', propertyId: '', totalValue: 0, downPayment: 0,
-  installmentsCount: 12, firstDueDate: '', paymentMethod: 'Boleto', correctionIndex: '',
+  installmentsCount: 12, firstDueDate: '', paymentMethod: 'Entrada + parcelas', correctionIndex: 'Sem correção',
 }
+
+// TODO: futuramente carregar de um cadastro configurável (tabela de referência).
+const PAYMENT_METHODS = [
+  'À vista', 'Entrada + parcelas', 'Financiamento próprio', 'Boleto', 'PIX',
+  'Transferência bancária', 'Cartão', 'Outro',
+]
+const CORRECTION_INDEXES = ['Sem correção', 'INCC', 'IPCA', 'IGP-M', 'Juros fixo mensal', 'Outro']
 
 export function SalesPage() {
   const { hasPermission } = useAuth()
@@ -149,10 +156,14 @@ export function SalesPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Forma de pagamento">
-              <Input value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })} />
+              <Select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
+                {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </Select>
             </Field>
             <Field label="Índice de correção">
-              <Input placeholder="IGPM, INCC…" value={form.correctionIndex} onChange={(e) => setForm({ ...form, correctionIndex: e.target.value })} />
+              <Select value={form.correctionIndex} onChange={(e) => setForm({ ...form, correctionIndex: e.target.value })}>
+                {CORRECTION_INDEXES.map((m) => <option key={m} value={m}>{m}</option>)}
+              </Select>
             </Field>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}

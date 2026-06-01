@@ -63,4 +63,20 @@ public interface InstallmentRepository extends JpaRepository<Installment, UUID> 
             order by i.dueDate asc
             """)
     List<Installment> findOverdueUnpaid(@Param("today") LocalDate today);
+
+    /** Busca de parcelas com filtros opcionais (cliente por nome/documento, status, período). */
+    @Query("""
+            select i from Installment i
+            where (:status is null or i.status = :status)
+              and (:dueFrom is null or i.dueDate >= :dueFrom)
+              and (:dueTo is null or i.dueDate <= :dueTo)
+              and (:q = ''
+                   or lower(i.sale.client.name) like lower(concat('%', :q, '%'))
+                   or i.sale.client.document like concat('%', :q, '%'))
+            order by i.dueDate asc
+            """)
+    List<Installment> search(@Param("q") String q,
+                             @Param("status") InstallmentStatus status,
+                             @Param("dueFrom") LocalDate dueFrom,
+                             @Param("dueTo") LocalDate dueTo);
 }
