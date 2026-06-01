@@ -9,6 +9,7 @@ import { SalesPage } from '@/pages/SalesPage'
 import { InstallmentsPage } from '@/pages/InstallmentsPage'
 import { PayablePage } from '@/pages/PayablePage'
 import { ReceivablePage } from '@/pages/ReceivablePage'
+import { SuppliersPage } from '@/pages/SuppliersPage'
 import { ReconciliationPage } from '@/pages/ReconciliationPage'
 import { ImportPage } from '@/pages/ImportPage'
 import { ReportsPage } from '@/pages/ReportsPage'
@@ -28,6 +29,7 @@ export function App() {
           <Route path="installments" element={<InstallmentsPage />} />
           <Route path="payable" element={<PayablePage />} />
           <Route path="receivable" element={<ReceivablePage />} />
+          <Route path="suppliers" element={<SuppliersPage />} />
           <Route path="reconciliation" element={<ReconciliationPage />} />
           <Route path="import" element={<ImportPage />} />
           <Route path="reports" element={<ReportsPage />} />

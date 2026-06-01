@@ -182,6 +182,27 @@ export interface InstallmentDetail {
   propertyLabel?: string
 }
 
+export interface Supplier {
+  id: string
+  name: string
+  document?: string
+  email?: string
+  phone?: string
+  address?: string
+  city?: string
+  state?: string
+  category?: string
+  notes?: string
+  active: boolean
+}
+
+export interface CostCenter {
+  id: string
+  name: string
+  description?: string
+  active: boolean
+}
+
 export interface SystemSettings {
   systemName: string
   logoUrl?: string

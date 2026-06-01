@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Building2, FileSignature, Wallet, ArrowDownCircle,
   ArrowUpCircle, Banknote, Upload, BarChart3, Settings, ShieldCheck, LogOut, Menu,
-  ChevronLeft, ChevronRight, Sun, Moon,
+  ChevronLeft, ChevronRight, Sun, Moon, Truck,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { useSettings } from '@/theme/SettingsContext'
@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
   { to: '/installments', label: 'Parcelas', icon: Wallet, permission: 'READ' },
   { to: '/payable', label: 'Contas a Pagar', icon: ArrowUpCircle, permission: 'READ' },
   { to: '/receivable', label: 'Contas a Receber', icon: ArrowDownCircle, permission: 'READ' },
+  { to: '/suppliers', label: 'Fornecedores', icon: Truck, permission: 'READ' },
   { to: '/reconciliation', label: 'Conciliação', icon: Banknote, permission: 'READ' },
   { to: '/import', label: 'Importar Extrato', icon: Upload, permission: 'RECONCILIATION_WRITE' },
   { to: '/reports', label: 'Relatórios', icon: BarChart3, permission: 'READ' },

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
-import type { Page } from '@/lib/types'
+import type { CostCenter, Page, Supplier } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
 import { Badge, Button, Field, Input, Modal, PageHeader, Table } from '@/components/ui'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -34,6 +34,14 @@ export function PayablePage() {
   const { data, isLoading } = useQuery({
     queryKey: ['payable'],
     queryFn: async () => (await api.get<Page<Payable>>('/accounts-payable', { params: { size: 100 } })).data,
+  })
+  const suppliers = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: async () => (await api.get<Supplier[]>('/suppliers')).data,
+  })
+  const costCenters = useQuery({
+    queryKey: ['cost-centers'],
+    queryFn: async () => (await api.get<CostCenter[]>('/cost-centers')).data,
   })
 
   const save = useMutation({
@@ -93,10 +101,20 @@ export function PayablePage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nova conta a pagar">
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate(form) }}>
-          <Field label="Fornecedor"><Input value={form.supplier ?? ''} onChange={(e) => setForm({ ...form, supplier: e.target.value })} required /></Field>
+          <Field label="Fornecedor">
+            <Input list="suppliers-list" placeholder="Selecione ou digite…" value={form.supplier ?? ''} onChange={(e) => setForm({ ...form, supplier: e.target.value })} required />
+            <datalist id="suppliers-list">
+              {suppliers.data?.map((s) => <option key={s.id} value={s.name} />)}
+            </datalist>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Categoria"><Input value={form.category ?? ''} onChange={(e) => setForm({ ...form, category: e.target.value })} /></Field>
-            <Field label="Centro de custo"><Input value={form.costCenter ?? ''} onChange={(e) => setForm({ ...form, costCenter: e.target.value })} /></Field>
+            <Field label="Centro de custo">
+              <Input list="cost-centers-list" placeholder="Selecione ou digite…" value={form.costCenter ?? ''} onChange={(e) => setForm({ ...form, costCenter: e.target.value })} />
+              <datalist id="cost-centers-list">
+                {costCenters.data?.map((c) => <option key={c.id} value={c.name} />)}
+              </datalist>
+            </Field>
           </div>
           <Field label="Descrição"><Input value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
           <div className="grid grid-cols-2 gap-3">
