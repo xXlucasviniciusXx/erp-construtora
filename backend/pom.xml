@@ -19,6 +19,9 @@
 
     <properties>
         <java.version>21</java.version>
+        <!-- Override do Lombok gerenciado pelo Spring Boot: a versao padrao (1.18.34)
+             nao compila no JDK 25 (erro TypeTag UNKNOWN no annotation processing). -->
+        <lombok.version>1.18.38</lombok.version>
         <jjwt.version>0.12.6</jjwt.version>
         <springdoc.version>2.6.0</springdoc.version>
         <mapstruct.version>1.6.2</mapstruct.version>
