@@ -19,6 +19,7 @@ coverage/
 .env.*
 !.env.example
 *.pem
+.dbpass
 
 # ---- IDE ----
 .idea/
