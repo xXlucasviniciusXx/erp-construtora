@@ -66,17 +66,15 @@ docker compose up --build
 
 ### Opção B — Sem Docker
 
-**Pré-requisitos:** JDK 21, Maven 3.9+, Node 20+, PostgreSQL 16.
+**Pré-requisitos:** JDK 21+ (testado também no **JDK 25**), Maven 3.9+, Node 20+,
+PostgreSQL 16+ (testado no **PG 18**).
 
 ```bash
-# 1) Banco
-createdb construtora    # ou crie via psql/Supabase
+# 1) Banco — cria role/banco/pgcrypto de uma vez (rode como superusuário postgres)
+psql -U postgres -h localhost -f database/init-local.sql
 
-# 2) Backend
+# 2) Backend (os defaults já apontam para construtora/construtora @ localhost:5432)
 cd backend
-export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/construtora
-export SPRING_DATASOURCE_USERNAME=construtora
-export SPRING_DATASOURCE_PASSWORD=construtora
 export JWT_SECRET=$(openssl rand -base64 48)
 mvn spring-boot:run        # roda Flyway e cria o admin inicial
 
@@ -87,7 +85,11 @@ npm install
 npm run dev
 ```
 
-> No Windows (PowerShell), use `$env:VAR = "valor"` em vez de `export`.
+> **Windows (PowerShell):** use `$env:VAR = "valor"` em vez de `export`. O `psql`
+> fica em `C:\Program Files\PostgreSQL\<versão>\bin`.
+>
+> **JDK 25:** o `pom.xml` já força `lombok.version=1.18.38` (a versão padrão do
+> Spring Boot 3.3.4 não compila no JDK 25). Nenhuma ação extra necessária.
 
 ### Login inicial
 
@@ -121,11 +123,14 @@ Detalhes em [`docs/DEPLOY.md`](docs/DEPLOY.md). Resumo:
 
 - **Banco → Supabase:** crie o projeto, pegue a connection string e aponte
   `SPRING_DATASOURCE_*`. O Flyway cria todo o schema no primeiro start.
-- **Backend → Render/Railway/Fly.io:** build via `backend/Dockerfile`, configure
-  as variáveis de ambiente. Exemplo de `render.yaml` em `docs/`.
-- **Frontend → Vercel:** root `frontend/`, build `npm run build`, output `dist`,
-  variável `VITE_API_BASE_URL` apontando para o backend público. Lembre de
-  incluir o domínio da Vercel em `APP_CORS_ALLOWED_ORIGINS`.
+- **Backend → Render:** já existe um [`render.yaml`](render.yaml) na raiz (Blueprint).
+  No painel: *New → Blueprint* apontando para o repo; preencha as variáveis
+  `sync: false` (conexão do banco, CORS, senha do admin). Vale igualmente para
+  Railway/Fly.io usando o `backend/Dockerfile`.
+- **Frontend → Vercel:** root directory `frontend/`. O [`frontend/vercel.json`](frontend/vercel.json)
+  já define build (`npm run build`), output (`dist`) e o *rewrite* de SPA para o
+  React Router. Defina `VITE_API_BASE_URL` apontando para o backend público e
+  inclua o domínio da Vercel em `APP_CORS_ALLOWED_ORIGINS` no backend.
 
 ---
 

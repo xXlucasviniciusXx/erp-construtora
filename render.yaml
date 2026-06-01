@@ -1,0 +1,50 @@
+# ============================================================
+#  Render Blueprint — backend Spring Boot (Docker)
+#  Importe em https://dashboard.render.com -> New -> Blueprint
+#  apontando para este repositorio.
+#
+#  As variaveis marcadas com `sync: false` voce preenche no painel
+#  (Environment) — incluindo a conexao do banco (Supabase ou Render PG).
+# ============================================================
+services:
+  - type: web
+    name: erp-construtora-backend
+    runtime: docker
+    repo: https://github.com/xXlucasviniciusXx/erp-construtora
+    branch: main
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # Endpoint publico que devolve 200 sem autenticacao (doc OpenAPI)
+    healthCheckPath: /v3/api-docs
+    envVars:
+      # --- Banco (Supabase ou Render Postgres). Formato JDBC. ---
+      - key: SPRING_DATASOURCE_URL
+        sync: false   # ex.: jdbc:postgresql://db.<ref>.supabase.co:5432/postgres?sslmode=require
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      # --- Seguranca ---
+      - key: JWT_SECRET
+        generateValue: true        # Render gera um segredo forte automaticamente
+      - key: JWT_EXPIRATION_MS
+        value: "86400000"
+      # --- CORS: inclua o dominio do frontend na Vercel ---
+      - key: APP_CORS_ALLOWED_ORIGINS
+        sync: false   # ex.: https://erp-construtora.vercel.app
+      # --- Admin inicial ---
+      - key: APP_ADMIN_EMAIL
+        value: admin@construtora.com.br
+      - key: APP_ADMIN_PASSWORD
+        sync: false
+      # --- SMTP (opcional; deixe MAIL_ENABLED=false para apenas logar) ---
+      - key: MAIL_ENABLED
+        value: "false"
+
+# Opcional: provisionar um Postgres gerenciado no proprio Render.
+# Atencao: o connection string do Render vem no formato postgres://;
+# converta para jdbc:postgresql://... ao preencher SPRING_DATASOURCE_URL.
+# databases:
+#   - name: erp-construtora-db
+#     plan: free
