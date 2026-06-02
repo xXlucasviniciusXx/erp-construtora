@@ -31,10 +31,13 @@ interface SaleForm {
   purchaseType: string
   paymentMethod: string
   correctionIndex: string
+  interestRate: number
+  penaltyRate: number
 }
 const EMPTY: SaleForm = {
   clientId: '', lotId: '', totalValue: 0, downPayment: 0, installmentsCount: 12,
   firstDueDate: '', purchaseType: PURCHASE_WITH_DOWN, paymentMethod: 'Boleto', correctionIndex: 'Sem correção',
+  interestRate: 1, penaltyRate: 2,
 }
 
 export function SalesPage() {
@@ -95,6 +98,7 @@ export function SalesPage() {
       installmentsCount: s.installmentsCount, firstDueDate: s.firstDueDate.slice(0, 10),
       purchaseType: s.purchaseType ?? PURCHASE_WITH_DOWN, paymentMethod: s.paymentMethod ?? 'Boleto',
       correctionIndex: s.correctionIndex ?? 'Sem correção',
+      interestRate: s.interestRate ?? 0, penaltyRate: s.penaltyRate ?? 0,
     })
     setError(null); setModalOpen(true)
   }
@@ -176,12 +180,18 @@ export function SalesPage() {
             Pago: <span className="font-medium text-green-600">{formatCurrency(view.paidAmount ?? 0)}</span> ·
             {' '}Saldo devedor: <span className="font-medium text-amber-600">{formatCurrency(view.openAmount ?? 0)}</span>
           </div>
-          <Table headers={['Nº', 'Vencimento', 'Valor', 'Status']}>
+          <Table headers={['Nº', 'Vencimento', 'Valor', 'Atraso', 'Total atualizado', 'Status']}>
             {view.installments.map((i) => (
               <Tr key={i.id}>
                 <td className="px-4 py-2">#{i.number}</td>
                 <td className="px-4 py-2">{formatDate(i.dueDate)}</td>
                 <td className="px-4 py-2">{formatCurrency(i.amount)}</td>
+                <td className="px-4 py-2">{i.daysLate > 0 ? <span className="text-red-600">{i.daysLate}d</span> : '—'}</td>
+                <td className="px-4 py-2 font-medium">
+                  {i.daysLate > 0
+                    ? <span title={`Multa ${formatCurrency(i.penaltyAmount)} + juros ${formatCurrency(i.interestAmount)}`}>{formatCurrency(i.updatedAmount)}</span>
+                    : '—'}
+                </td>
                 <td className="px-4 py-2">
                   <Badge dot color={INSTALLMENT_STATUS[i.status]?.color ?? 'gray'}>
                     {INSTALLMENT_STATUS[i.status]?.label ?? i.status}
@@ -241,6 +251,19 @@ export function SalesPage() {
               </Select>
             </Field>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Juros de mora (% ao mês)">
+              <Input type="number" step="0.01" min={0} value={form.interestRate}
+                onChange={(e) => setForm({ ...form, interestRate: Number(e.target.value) })} />
+            </Field>
+            <Field label="Multa por atraso (%)">
+              <Input type="number" step="0.01" min={0} value={form.penaltyRate}
+                onChange={(e) => setForm({ ...form, penaltyRate: Number(e.target.value) })} />
+            </Field>
+          </div>
+          <p className="text-xs text-gray-400">
+            Encargos calculados automaticamente nas parcelas vencidas: multa fixa + juros proporcionais aos dias de atraso.
+          </p>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>

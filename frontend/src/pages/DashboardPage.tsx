@@ -5,9 +5,9 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { api } from '@/lib/api'
-import type { Client, DashboardAnalytics, Lot, Page, Point } from '@/lib/types'
-import { Button, Card, Field, Input, PageHeader, Select, Skeleton } from '@/components/ui'
-import { formatCurrency } from '@/lib/utils'
+import type { Client, DashboardAnalytics, InstallmentDetail, Lot, Page, Point, Sale } from '@/lib/types'
+import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Skeleton, Table, Tr } from '@/components/ui'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 const COLORS = ['#1e40af', '#0f766e', '#b45309', '#be123c', '#7c3aed', '#0891b2', '#65a30d', '#db2777']
 const brl = (v: number) => formatCurrency(v)
@@ -21,10 +21,13 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
   )
 }
 
-function ChartCard({ title, footer, children }: { title: string; footer?: React.ReactNode; children: React.ReactNode }) {
+function ChartCard({ title, hint, footer, children }: { title: string; hint?: string; footer?: React.ReactNode; children: React.ReactNode }) {
   return (
     <Card className="transition-all duration-150 hover:shadow-md">
-      <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</h3>
+      <div className="mb-3 flex items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</h3>
+        {hint && <span className="text-[11px] text-gray-400">{hint}</span>}
+      </div>
       <div style={{ width: '100%', height: 220 }}>
         <ResponsiveContainer>{children as any}</ResponsiveContainer>
       </div>
@@ -32,6 +35,8 @@ function ChartCard({ title, footer, children }: { title: string; footer?: React.
     </Card>
   )
 }
+
+type DrillState = { kind: 'overdue' | 'sales'; key: string; title: string }
 
 export function DashboardPage() {
   const [from, setFrom] = useState('')
@@ -47,6 +52,17 @@ export function DashboardPage() {
     queryKey: ['lots-all'],
     queryFn: async () => (await api.get<Lot[]>('/lots')).data,
   })
+
+  // Fontes para o drill-down (clicar no gráfico → lista detalhada)
+  const allSales = useQuery({
+    queryKey: ['sales-all'],
+    queryFn: async () => (await api.get<Sale[]>('/sales')).data,
+  })
+  const overdueInst = useQuery({
+    queryKey: ['installments-overdue'],
+    queryFn: async () => (await api.get<InstallmentDetail[]>('/installments', { params: { status: 'OVERDUE' } })).data,
+  })
+  const [drill, setDrill] = useState<DrillState | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard-analytics', from, to, clientId, propertyId],
@@ -156,16 +172,19 @@ export function DashboardPage() {
               </BarChart>
             </ChartCard>
 
-            <ChartCard title="Inadimplência por empreendimento">
+            <ChartCard title="Inadimplência por empreendimento" hint="Clique numa barra para ver as parcelas">
               <BarChart data={data.delinquencyByDevelopment} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
-                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#b45309" name="Inadimplência" />
+                <Tooltip formatter={(v: number) => brl(v)} />
+                <Bar dataKey="value" fill="#b45309" name="Inadimplência" cursor="pointer"
+                  onClick={(d: any) => setDrill({ kind: 'overdue', key: d?.payload?.label, title: `Parcelas em atraso — ${d?.payload?.label}` })} />
               </BarChart>
             </ChartCard>
 
-            <ChartCard title="Vendas por forma de compra">
+            <ChartCard title="Vendas por forma de compra" hint="Clique numa fatia para ver as vendas">
               <PieChart>
-                <Pie data={data.salesByPurchaseType} dataKey="value" nameKey="label" outerRadius={80} label>
+                <Pie data={data.salesByPurchaseType} dataKey="value" nameKey="label" outerRadius={80} label cursor="pointer"
+                  onClick={(d: any) => setDrill({ kind: 'sales', key: d?.label ?? d?.payload?.label, title: `Vendas — ${d?.label ?? d?.payload?.label}` })}>
                   {data.salesByPurchaseType.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(v: number) => brl(v)} /><Legend />
@@ -204,7 +223,69 @@ export function DashboardPage() {
           </div>
         </>
       )}
+
+      {/* Drill-down: lista detalhada do segmento clicado */}
+      {drill && (
+        <DrillModal
+          drill={drill}
+          sales={allSales.data ?? []}
+          overdue={overdueInst.data ?? []}
+          onClose={() => setDrill(null)}
+        />
+      )}
     </div>
+  )
+}
+
+function DrillModal({ drill, sales, overdue, onClose }: {
+  drill: DrillState; sales: Sale[]; overdue: InstallmentDetail[]; onClose: () => void
+}) {
+  if (drill.kind === 'overdue') {
+    const rows = overdue.filter((i) => i.development === drill.key)
+    const total = rows.reduce((s, i) => s + (i.updatedAmount || i.amount), 0)
+    return (
+      <Modal open onClose={onClose} title={drill.title} size="xl">
+        <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+          {rows.length} parcela(s) · total atualizado <span className="font-semibold text-amber-600">{formatCurrency(total)}</span>
+        </p>
+        <Table headers={['Cliente', 'Lote', 'Parcela', 'Vencimento', 'Atraso', 'Total atualizado']}>
+          {rows.map((i) => (
+            <Tr key={i.id}>
+              <td className="px-4 py-2 font-medium">{i.clientName}</td>
+              <td className="px-4 py-2">{i.propertyLabel ?? '—'}</td>
+              <td className="px-4 py-2">#{i.number}</td>
+              <td className="px-4 py-2">{formatDate(i.dueDate)}</td>
+              <td className="px-4 py-2 text-red-600">{i.daysLate}d</td>
+              <td className="px-4 py-2 font-medium">{formatCurrency(i.updatedAmount || i.amount)}</td>
+            </Tr>
+          ))}
+          {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400">Sem parcelas neste empreendimento.</td></tr>}
+        </Table>
+      </Modal>
+    )
+  }
+  // kind === 'sales'
+  const rows = sales.filter((s) => (s.purchaseType ?? '—') === drill.key)
+  const total = rows.reduce((s, v) => s + v.totalValue, 0)
+  const STATUS: Record<string, string> = { ACTIVE: 'Ativa', COMPLETED: 'Quitada', CANCELLED: 'Cancelada' }
+  return (
+    <Modal open onClose={onClose} title={drill.title} size="xl">
+      <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+        {rows.length} venda(s) · total <span className="font-semibold text-blue-700">{formatCurrency(total)}</span>
+      </p>
+      <Table headers={['Cliente', 'Lote', 'Valor', 'Data', 'Status']}>
+        {rows.map((s) => (
+          <Tr key={s.id}>
+            <td className="px-4 py-2 font-medium">{s.clientName}</td>
+            <td className="px-4 py-2">{s.propertyLabel}</td>
+            <td className="px-4 py-2">{formatCurrency(s.totalValue)}</td>
+            <td className="px-4 py-2">{formatDate(s.saleDate)}</td>
+            <td className="px-4 py-2"><Badge dot color={s.status === 'ACTIVE' ? 'blue' : s.status === 'COMPLETED' ? 'green' : 'gray'}>{STATUS[s.status] ?? s.status}</Badge></td>
+          </Tr>
+        ))}
+        {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">Sem vendas nesta forma de compra.</td></tr>}
+      </Table>
+    </Modal>
   )
 }
 

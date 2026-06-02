@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Building2, ArrowLeft } from 'lucide-react'
+import { ChevronRight, Building2, ArrowLeft, LayoutList, Grid3x3 } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { Block, Development, Lot, LotStatus } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
@@ -116,6 +116,7 @@ function DevelopmentsList({ canWrite, onManage }: { canWrite: boolean; onManage:
 function DevelopmentManager({ development, canWrite, onBack }: { development: Development; canWrite: boolean; onBack: () => void }) {
   const queryClient = useQueryClient()
   const [selectedBlock, setSelectedBlock] = useState<Block | null>(null)
+  const [view, setView] = useState<'manage' | 'map'>('manage')
 
   // Recarrega o empreendimento (derivados atualizam ao criar lotes)
   const dev = useQuery({
@@ -140,7 +141,26 @@ function DevelopmentManager({ development, canWrite, onBack }: { development: De
       <button onClick={onBack} className="mb-2 inline-flex items-center gap-1 text-sm text-primary hover:underline">
         <ArrowLeft className="h-4 w-4" /> Empreendimentos
       </button>
-      <PageHeader title={d.name} subtitle={`Código ${d.internalCode}`} />
+      <PageHeader
+        title={d.name}
+        subtitle={`Código ${d.internalCode}`}
+        action={
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-gray-800">
+            {(['manage', 'map'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition',
+                  view === v ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
+                )}
+              >
+                {v === 'manage' ? <><LayoutList className="h-4 w-4" /> Gestão</> : <><Grid3x3 className="h-4 w-4" /> Mapa</>}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Card><div className="text-xs uppercase text-gray-500 dark:text-gray-400">Valor previsto total</div><div className="mt-1 text-lg font-semibold text-blue-700">{formatCurrency(d.plannedTotal)}</div></Card>
@@ -148,17 +168,109 @@ function DevelopmentManager({ development, canWrite, onBack }: { development: De
         <Card><div className="text-xs uppercase text-gray-500 dark:text-gray-400">Valor recebido</div><div className="mt-1 text-lg font-semibold text-green-600">{formatCurrency(d.receivedTotal)}</div></Card>
       </div>
 
-      {/* Quadras */}
-      <BlocksSection
-        development={d} blocks={blocks.data ?? []} canWrite={canWrite}
-        selectedBlock={selectedBlock} onSelect={setSelectedBlock} onChange={refreshAll}
-      />
+      {view === 'map' ? (
+        <DevelopmentMap development={d} blocks={blocks.data ?? []} />
+      ) : (
+        <>
+          {/* Quadras */}
+          <BlocksSection
+            development={d} blocks={blocks.data ?? []} canWrite={canWrite}
+            selectedBlock={selectedBlock} onSelect={setSelectedBlock} onChange={refreshAll}
+          />
 
-      {/* Lotes da quadra selecionada */}
-      {selectedBlock && (
-        <LotsSection development={d} block={selectedBlock} canWrite={canWrite} onChange={refreshAll} />
+          {/* Lotes da quadra selecionada */}
+          {selectedBlock && (
+            <LotsSection development={d} block={selectedBlock} canWrite={canWrite} onChange={refreshAll} />
+          )}
+        </>
       )}
     </div>
+  )
+}
+
+/* ---------------- Mapa visual de lotes (espelho de vendas) ---------------- */
+const CELL_STYLE: Record<LotStatus, string> = {
+  AVAILABLE: 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800',
+  RESERVED: 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800',
+  SOLD: 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
+  CANCELLED: 'bg-gray-100 text-gray-400 border-gray-300 line-through hover:bg-gray-200 dark:bg-gray-700/40 dark:text-gray-500 dark:border-gray-600',
+}
+
+function DevelopmentMap({ development, blocks }: { development: Development; blocks: Block[] }) {
+  const [selectedLot, setSelectedLot] = useState<Lot | null>(null)
+  const lots = useQuery({
+    queryKey: ['lots-dev', development.id],
+    queryFn: async () => (await api.get<Lot[]>('/lots', { params: { developmentId: development.id } })).data,
+  })
+
+  const counts = (lots.data ?? []).reduce(
+    (acc, l) => { acc[l.status] = (acc[l.status] ?? 0) + 1; return acc },
+    {} as Record<string, number>,
+  )
+
+  if (lots.isLoading) return <Card><div className="skeleton h-40 w-full" /></Card>
+
+  return (
+    <Card>
+      {/* Legenda + contadores */}
+      <div className="mb-4 flex flex-wrap items-center gap-4 text-xs">
+        {(Object.keys(LOT_LABEL) as LotStatus[]).map((s) => (
+          <span key={s} className="inline-flex items-center gap-1.5">
+            <span className={cn('inline-block h-3 w-3 rounded border', CELL_STYLE[s])} />
+            {LOT_LABEL[s]} <span className="font-semibold text-gray-700 dark:text-gray-200">({counts[s] ?? 0})</span>
+          </span>
+        ))}
+      </div>
+
+      {blocks.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Nenhuma quadra cadastrada ainda.</p>}
+
+      <div className="space-y-4">
+        {blocks.map((b) => {
+          const blockLots = (lots.data ?? []).filter((l) => l.blockId === b.id)
+          return (
+            <div key={b.id}>
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                <span>Quadra {b.name}</span>
+                <span className="text-xs font-normal text-gray-400">{b.internalCode} · {blockLots.length} lote(s)</span>
+              </div>
+              {blockLots.length === 0 ? (
+                <p className="text-xs text-gray-400">Sem lotes nesta quadra.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {blockLots.map((l) => (
+                    <button
+                      key={l.id}
+                      onClick={() => setSelectedLot(l)}
+                      title={`${l.name} · ${LOT_LABEL[l.status]}${l.saleValue ? ' · ' + formatCurrency(l.saleValue) : ''}`}
+                      className={cn(
+                        'flex h-16 w-16 flex-col items-center justify-center rounded-lg border text-center text-xs font-medium transition',
+                        CELL_STYLE[l.status],
+                      )}
+                    >
+                      <span className="truncate px-1">{l.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Detalhe do lote ao clicar */}
+      {selectedLot && (
+        <Modal open onClose={() => setSelectedLot(null)} title={`Lote ${selectedLot.name}`} size="sm">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><div className="text-xs text-gray-400">Código</div><div>{selectedLot.internalCode}</div></div>
+            <div><div className="text-xs text-gray-400">Status</div><Badge dot color={LOT_COLOR[selectedLot.status]}>{LOT_LABEL[selectedLot.status]}</Badge></div>
+            <div><div className="text-xs text-gray-400">Matrícula</div><div>{selectedLot.registration ?? '—'}</div></div>
+            <div><div className="text-xs text-gray-400">Área total</div><div>{selectedLot.totalArea ?? '—'}</div></div>
+            <div><div className="text-xs text-gray-400">Valor previsto</div><div>{formatCurrency(selectedLot.plannedValue)}</div></div>
+            <div><div className="text-xs text-gray-400">Valor vendido</div><div className="text-green-600">{selectedLot.saleValue != null ? formatCurrency(selectedLot.saleValue) : '—'}</div></div>
+          </div>
+        </Modal>
+      )}
+    </Card>
   )
 }
 

@@ -16,5 +16,9 @@ public record InstallmentResponse(
         InstallmentStatus status,
         String paymentMethod,
         String receiptUrl,
-        String notes
+        String notes,
+        long daysLate,
+        BigDecimal penaltyAmount,
+        BigDecimal interestAmount,
+        BigDecimal updatedAmount
 ) {}

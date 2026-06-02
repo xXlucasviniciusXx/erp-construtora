@@ -36,6 +36,7 @@ public class ReconciliationService {
     private final InstallmentRepository installmentRepository;
     private final SuggestionEngine suggestionEngine;
     private final BankTransactionMapper transactionMapper;
+    private final com.construtora.financeiro.service.LateFeeCalculator lateFeeCalculator;
 
     public ReconciliationService(BankTransactionRepository transactionRepository,
                                  ReconciliationRepository reconciliationRepository,
@@ -44,7 +45,8 @@ public class ReconciliationService {
                                  AccountPayableRepository payableRepository,
                                  InstallmentRepository installmentRepository,
                                  SuggestionEngine suggestionEngine,
-                                 BankTransactionMapper transactionMapper) {
+                                 BankTransactionMapper transactionMapper,
+                                 com.construtora.financeiro.service.LateFeeCalculator lateFeeCalculator) {
         this.transactionRepository = transactionRepository;
         this.reconciliationRepository = reconciliationRepository;
         this.suggestionRepository = suggestionRepository;
@@ -53,6 +55,7 @@ public class ReconciliationService {
         this.installmentRepository = installmentRepository;
         this.suggestionEngine = suggestionEngine;
         this.transactionMapper = transactionMapper;
+        this.lateFeeCalculator = lateFeeCalculator;
     }
 
     @Transactional(readOnly = true)
@@ -101,9 +104,13 @@ public class ReconciliationService {
                         r.getAmount(), r.getDueDate()));
             }
             for (Installment i : installmentRepository.findAllReconcilable()) {
+                var fees = lateFeeCalculator.compute(i);
+                String label = "Parcela " + i.getNumber() + " — " + i.getSale().getClient().getName();
+                if (fees.daysLate() > 0) {
+                    label += " (atrasada " + fees.daysLate() + "d, + encargos)";
+                }
                 targets.add(new ManualTargetResponse(TargetType.INSTALLMENT, i.getId(),
-                        "Parcela " + i.getNumber() + " — " + i.getSale().getClient().getName(),
-                        i.getAmount(), i.getDueDate()));
+                        label, fees.updatedAmount(), i.getDueDate()));
             }
         } else {
             for (AccountPayable p : payableRepository.findByStatus(PayableStatus.OPEN)) {

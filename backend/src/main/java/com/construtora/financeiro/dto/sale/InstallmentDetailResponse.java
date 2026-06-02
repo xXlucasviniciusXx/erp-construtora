@@ -20,5 +20,9 @@ public record InstallmentDetailResponse(
         String clientDocument,
         String clientPhone,
         String development,
-        String propertyLabel
+        String propertyLabel,
+        long daysLate,
+        BigDecimal penaltyAmount,
+        BigDecimal interestAmount,
+        BigDecimal updatedAmount
 ) {}

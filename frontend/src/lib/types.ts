@@ -99,6 +99,10 @@ export interface Installment {
   paymentMethod?: string
   receiptUrl?: string
   notes?: string
+  daysLate: number
+  penaltyAmount: number
+  interestAmount: number
+  updatedAmount: number
 }
 
 export interface Sale {
@@ -220,6 +224,10 @@ export interface InstallmentDetail {
   clientPhone?: string
   development?: string
   propertyLabel?: string
+  daysLate: number
+  penaltyAmount: number
+  interestAmount: number
+  updatedAmount: number
 }
 
 export interface Supplier {

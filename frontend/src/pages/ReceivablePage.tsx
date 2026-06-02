@@ -87,16 +87,19 @@ function InstallmentsTab() {
         <Input type="date" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} />
         <Input type="date" value={dueTo} onChange={(e) => setDueTo(e.target.value)} />
       </div>
-      {isLoading ? <TableSkeleton rows={6} cols={8} /> : (
-        <Table headers={['Cliente', 'Documento', 'Telefone', 'Parcela', 'Valor', 'Vencimento', 'Status', 'Ações']}>
-          {data?.map((i) => (
+      {isLoading ? <TableSkeleton rows={6} cols={9} /> : (
+        <Table headers={['Cliente', 'Documento', 'Parcela', 'Valor', 'Atraso', 'Encargos', 'Total atualizado', 'Status', 'Ações']}>
+          {data?.map((i) => {
+            const encargos = (i.penaltyAmount ?? 0) + (i.interestAmount ?? 0)
+            return (
             <Tr key={i.id}>
               <td className="px-4 py-2 font-medium">{i.clientName}</td>
               <td className="px-4 py-2">{i.clientDocument}</td>
-              <td className="px-4 py-2">{i.clientPhone ?? '—'}</td>
               <td className="px-4 py-2">#{i.number}</td>
               <td className="px-4 py-2">{formatCurrency(i.amount)}</td>
-              <td className="px-4 py-2">{formatDate(i.dueDate)}</td>
+              <td className="px-4 py-2">{i.daysLate > 0 ? <span className="text-red-600">{i.daysLate}d</span> : '—'}</td>
+              <td className="px-4 py-2">{encargos > 0 ? <span className="text-amber-600" title={`Multa ${formatCurrency(i.penaltyAmount)} + juros ${formatCurrency(i.interestAmount)}`}>+{formatCurrency(encargos)}</span> : '—'}</td>
+              <td className="px-4 py-2 font-medium">{encargos > 0 ? formatCurrency(i.updatedAmount) : '—'}</td>
               <td className="px-4 py-2"><Badge dot color={INST_COLOR[i.status]}>{INST_LABEL[i.status] ?? i.status}</Badge></td>
               <td className="px-4 py-2 text-right">
                 <ActionsMenu items={[
@@ -105,9 +108,9 @@ function InstallmentsTab() {
                 ]} />
               </td>
             </Tr>
-          ))}
+          )})}
           {data?.length === 0 && (
-            <tr><td colSpan={8} className="p-0">
+            <tr><td colSpan={9} className="p-0">
               <EmptyState icon={ArrowDownCircle} title="Nenhuma parcela encontrada" description="Ajuste a busca ou os filtros de período/status." />
             </td></tr>
           )}
