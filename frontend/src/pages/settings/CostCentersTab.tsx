@@ -3,12 +3,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { CostCenter } from '@/lib/types'
 import { ActionsMenu } from '@/components/Menu'
-import { Badge, Button, Field, Input, Modal, Table } from '@/components/ui'
+import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/Confirm'
+import { Badge, Button, Field, Input, Modal, Table, TableSkeleton, Tr } from '@/components/ui'
 
 const EMPTY: Partial<CostCenter> = { active: true }
 
 export function CostCentersTab() {
   const queryClient = useQueryClient()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<Partial<CostCenter>>(EMPTY)
   const [error, setError] = useState<string | null>(null)
@@ -21,36 +25,40 @@ export function CostCentersTab() {
   const save = useMutation({
     mutationFn: async (p: Partial<CostCenter>) =>
       p.id ? api.put(`/cost-centers/${p.id}`, p) : api.post('/cost-centers', p),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['cost-centers'] }); setModalOpen(false); setForm(EMPTY) },
+    onSuccess: (_d, p) => { queryClient.invalidateQueries({ queryKey: ['cost-centers'] }); setModalOpen(false); setForm(EMPTY); toast.success(p.id ? 'Centro de custo atualizado.' : 'Centro de custo criado.') },
     onError: (e) => setError(apiErrorMessage(e)),
   })
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/cost-centers/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cost-centers'] }),
-    onError: (e) => alert(apiErrorMessage(e)),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['cost-centers'] }); toast.success('Centro de custo removido.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
   })
+
+  async function confirmRemove(c: CostCenter) {
+    if (await confirm({ title: 'Remover centro de custo', message: `Remover "${c.name}"?`, confirmLabel: 'Remover', danger: true })) remove.mutate(c.id)
+  }
 
   return (
     <div>
       <div className="mb-3 flex justify-end">
         <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Novo centro de custo</Button>
       </div>
-      {isLoading ? <p className="text-gray-500">Carregando…</p> : (
+      {isLoading ? <TableSkeleton rows={4} cols={4} /> : (
         <Table headers={['Nome', 'Descrição', 'Status', 'Ações']}>
           {data?.map((c) => (
-            <tr key={c.id} className="hover:bg-gray-50">
+            <Tr key={c.id}>
               <td className="px-4 py-2 font-medium">{c.name}</td>
               <td className="px-4 py-2">{c.description ?? '—'}</td>
-              <td className="px-4 py-2"><Badge color={c.active ? 'green' : 'gray'}>{c.active ? 'ATIVO' : 'INATIVO'}</Badge></td>
+              <td className="px-4 py-2"><Badge dot color={c.active ? 'green' : 'gray'}>{c.active ? 'Ativo' : 'Inativo'}</Badge></td>
               <td className="px-4 py-2 text-right">
                 <ActionsMenu items={[
                   { label: 'Editar', onClick: () => { setForm(c); setError(null); setModalOpen(true) } },
-                  { label: 'Remover', danger: true, onClick: () => { if (window.confirm(`Remover "${c.name}"?`)) remove.mutate(c.id) } },
+                  { label: 'Remover', danger: true, onClick: () => confirmRemove(c) },
                 ]} />
               </td>
-            </tr>
+            </Tr>
           ))}
-          {data?.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400">Nenhum centro de custo.</td></tr>}
+          {data?.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-400">Nenhum centro de custo.</td></tr>}
         </Table>
       )}
 
@@ -61,7 +69,7 @@ export function CostCentersTab() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={save.isPending}>Salvar</Button>
+            <Button type="submit" loading={save.isPending}>Salvar</Button>
           </div>
         </form>
       </Modal>

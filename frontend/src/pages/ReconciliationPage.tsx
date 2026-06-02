@@ -1,9 +1,11 @@
 import { Fragment, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Banknote } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { BankTransaction, ManualTarget, Suggestion } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
-import { Badge, Button, Card, PageHeader, Select, Table } from '@/components/ui'
+import { useToast } from '@/components/Toast'
+import { Badge, Button, Card, EmptyState, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 
 const TABS = [
@@ -18,6 +20,7 @@ type Status = (typeof TABS)[number]['key']
 export function ReconciliationPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const canWrite = hasPermission('RECONCILIATION_WRITE')
 
   const [status, setStatus] = useState<Status>('PENDING')
@@ -55,15 +58,15 @@ export function ReconciliationPage() {
   const reconcile = useMutation({
     mutationFn: async ({ id, targetType, targetId }: { id: string; targetType: string; targetId: string }) =>
       api.post(`/reconciliation/transactions/${id}/reconcile`, { targetType, targetId }),
-    onSuccess: () => { invalidate(); setExpand(null) },
-    onError: (e) => setError(apiErrorMessage(e)),
+    onSuccess: () => { invalidate(); setExpand(null); toast.success('Transação conciliada com sucesso.') },
+    onError: (e) => { setError(apiErrorMessage(e)); toast.error(apiErrorMessage(e)) },
   })
 
   const setStatusM = useMutation({
     mutationFn: async ({ id, newStatus, notes }: { id: string; newStatus: string; notes?: string }) =>
       api.patch(`/reconciliation/transactions/${id}/status`, null, { params: { status: newStatus, notes } }),
-    onSuccess: () => invalidate(),
-    onError: (e) => setError(apiErrorMessage(e)),
+    onSuccess: () => { invalidate(); toast.success('Status atualizado.') },
+    onError: (e) => { setError(apiErrorMessage(e)); toast.error(apiErrorMessage(e)) },
   })
 
   function toggle(id: string, mode: 'suggest' | 'manual') {
@@ -89,18 +92,18 @@ export function ReconciliationPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Conciliação bancária" />
+      <PageHeader title="Conciliação bancária" subtitle="Vincule transações do extrato aos lançamentos" />
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {/* Abas de status */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => { setStatus(t.key); setExpand(null) }}
             className={cn(
-              'border-b-2 px-4 py-2 text-sm font-medium',
-              status === t.key ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700',
+              'border-b-2 px-4 py-2 text-sm font-medium transition',
+              status === t.key ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
             )}
           >
             {t.label}
@@ -110,12 +113,12 @@ export function ReconciliationPage() {
 
       <Card>
         {txns.isLoading ? (
-          <p className="text-gray-500">Carregando…</p>
+          <TableSkeleton rows={5} cols={6} />
         ) : (
           <Table headers={['Data', 'Descrição', 'Documento', 'Valor', 'Tipo', 'Ações']}>
             {txns.data?.map((t) => (
               <Fragment key={t.id}>
-                <tr className="align-top hover:bg-gray-50">
+                <Tr className="align-top">
                   <td className="px-4 py-2">{formatDate(t.transactionDate)}</td>
                   <td className="px-4 py-2">
                     {t.description ?? '—'}
@@ -197,11 +200,13 @@ export function ReconciliationPage() {
                       {t.status === 'RECONCILED' && <span className="text-xs text-green-600">Conciliada</span>}
                     </div>
                   </td>
-                </tr>
+                </Tr>
               </Fragment>
             ))}
             {txns.data?.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Nenhuma transação nesta aba.</td></tr>
+              <tr><td colSpan={6} className="p-0">
+                <EmptyState icon={Banknote} title="Nenhuma transação" description="Não há transações nesta aba. Importe um extrato para iniciar a conciliação." />
+              </td></tr>
             )}
           </Table>
         )}
@@ -214,6 +219,7 @@ export function ReconciliationPage() {
 
 function ReconciliationHistory() {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const { hasPermission } = useAuth()
   const canWrite = hasPermission('RECONCILIATION_WRITE')
 
@@ -228,7 +234,9 @@ function ReconciliationHistory() {
       queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
       queryClient.invalidateQueries({ queryKey: ['recon-txns'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success('Conciliação desfeita.')
     },
+    onError: (e) => toast.error(apiErrorMessage(e)),
   })
 
   return (
@@ -236,7 +244,7 @@ function ReconciliationHistory() {
       <h2 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">Histórico de conciliações</h2>
       <Table headers={['Valor', 'Alvo', 'Modo', 'Data', '']}>
         {history.data?.map((r) => (
-          <tr key={r.id} className="hover:bg-gray-50">
+          <Tr key={r.id}>
             <td className="px-4 py-2 font-medium">{formatCurrency(r.matchedAmount)}</td>
             <td className="px-4 py-2">{r.targetType}</td>
             <td className="px-4 py-2"><Badge color="blue">{r.mode}</Badge></td>
@@ -244,10 +252,10 @@ function ReconciliationHistory() {
             <td className="px-4 py-2 text-right">
               {canWrite && <Button variant="ghost" onClick={() => undo.mutate(r.id)}>Desfazer</Button>}
             </td>
-          </tr>
+          </Tr>
         ))}
         {history.data?.length === 0 && (
-          <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">Sem conciliações ainda.</td></tr>
+          <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">Sem conciliações ainda.</td></tr>
         )}
       </Table>
     </Card>

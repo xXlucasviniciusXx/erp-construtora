@@ -3,9 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
 import { lookupCep, lookupCnpj } from '@/lib/brasilapi'
 import type { Client, Page, Sale } from '@/lib/types'
+import { Users } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
-import { Badge, Button, Field, Input, Modal, PageHeader, Select, Table } from '@/components/ui'
+import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/Confirm'
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 const EMPTY: Partial<Client> = { personType: 'PF', status: 'ACTIVE' }
@@ -13,6 +16,8 @@ const EMPTY: Partial<Client> = { personType: 'PF', status: 'ACTIVE' }
 export function ClientsPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [editOpen, setEditOpen] = useState(false)
@@ -59,18 +64,22 @@ export function ClientsPage() {
   const save = useMutation({
     mutationFn: async (payload: Partial<Client>) =>
       payload.id ? api.put(`/clients/${payload.id}`, payload) : api.post('/clients', payload),
-    onSuccess: () => {
+    onSuccess: (_d, payload) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] })
       setEditOpen(false)
       setForm(EMPTY)
+      toast.success(payload.id ? 'Cliente atualizado com sucesso.' : 'Cliente criado com sucesso.')
     },
     onError: (e) => setError(apiErrorMessage(e)),
   })
 
   const inactivate = useMutation({
     mutationFn: async (id: string) => api.patch(`/clients/${id}/inactivate`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clients'] }),
-    onError: (e) => setPageError(apiErrorMessage(e)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      toast.success('Cliente inativado.')
+    },
+    onError: (e) => { setPageError(apiErrorMessage(e)); toast.error(apiErrorMessage(e)) },
   })
 
   function openNew() {
@@ -79,16 +88,20 @@ export function ClientsPage() {
   function openEdit(c: Client) {
     setForm(c); setError(null); setLookupMsg(null); setEditOpen(true)
   }
-  function confirmInactivate(c: Client) {
+  async function confirmInactivate(c: Client) {
     setPageError(null)
-    if (window.confirm(`Tem certeza que deseja inativar o cliente "${c.name}"?`)) {
-      inactivate.mutate(c.id)
-    }
+    const ok = await confirm({
+      title: 'Inativar cliente',
+      message: `Tem certeza que deseja inativar o cliente "${c.name}"?`,
+      confirmLabel: 'Inativar',
+      danger: true,
+    })
+    if (ok) inactivate.mutate(c.id)
   }
 
   return (
     <div>
-      <PageHeader title="Clientes" action={canWrite && <Button onClick={openNew}>Novo cliente</Button>} />
+      <PageHeader title="Clientes" subtitle="Cadastro de pessoas físicas e jurídicas" action={canWrite && <Button onClick={openNew}>Novo cliente</Button>} />
 
       {pageError && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -106,18 +119,18 @@ export function ClientsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-gray-500">Carregando…</p>
+        <TableSkeleton rows={6} cols={6} />
       ) : (
         <Table headers={['Nome', 'Documento', 'Tipo', 'E-mail', 'Status', 'Ações']}>
           {data?.content.filter((c) => !statusFilter || c.status === statusFilter).map((c) => (
-            <tr key={c.id} className="hover:bg-gray-50">
+            <Tr key={c.id}>
               <td className="px-4 py-2 font-medium">{c.name}</td>
               <td className="px-4 py-2">{c.document}</td>
               <td className="px-4 py-2">{c.personType}</td>
               <td className="px-4 py-2">{c.email ?? '—'}</td>
               <td className="px-4 py-2">
-                <Badge color={c.status === 'ACTIVE' ? 'green' : 'gray'}>
-                  {c.status === 'ACTIVE' ? 'ATIVO' : 'INATIVO'}
+                <Badge dot color={c.status === 'ACTIVE' ? 'green' : 'gray'}>
+                  {c.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
                 </Badge>
               </td>
               <td className="px-4 py-2 text-right">
@@ -138,10 +151,19 @@ export function ClientsPage() {
                   ]}
                 />
               </td>
-            </tr>
+            </Tr>
           ))}
           {data?.content.length === 0 && (
-            <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Nenhum cliente.</td></tr>
+            <tr>
+              <td colSpan={6} className="p-0">
+                <EmptyState
+                  icon={Users}
+                  title="Nenhum cliente encontrado"
+                  description={query ? 'Tente ajustar a busca ou os filtros.' : 'Cadastre o primeiro cliente para começar.'}
+                  action={canWrite && !query ? <Button onClick={openNew}>Novo cliente</Button> : undefined}
+                />
+              </td>
+            </tr>
           )}
         </Table>
       )}
@@ -204,7 +226,7 @@ export function ClientsPage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={save.isPending}>Salvar</Button>
+            <Button type="submit" loading={save.isPending}>Salvar</Button>
           </div>
         </form>
       </Modal>
@@ -256,14 +278,14 @@ function ClientView({ client }: { client: Client }) {
         ) : sales.data?.length ? (
           <Table headers={['Imóvel', 'Total', 'Pagas', 'Saldo pago', 'Saldo devedor', 'Data']}>
             {sales.data.map((s) => (
-              <tr key={s.id} className="hover:bg-gray-50">
+              <Tr key={s.id}>
                 <td className="px-4 py-2 font-medium">{s.propertyLabel}</td>
                 <td className="px-4 py-2">{formatCurrency(s.totalValue)}</td>
                 <td className="px-4 py-2">{s.paidInstallments ?? 0}/{s.installmentsCount}</td>
                 <td className="px-4 py-2 text-green-600">{formatCurrency(s.paidAmount ?? 0)}</td>
                 <td className="px-4 py-2 text-amber-600">{formatCurrency(s.openAmount ?? 0)}</td>
                 <td className="px-4 py-2">{formatDate(s.saleDate)}</td>
-              </tr>
+              </Tr>
             ))}
           </Table>
         ) : (

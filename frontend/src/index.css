@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #1e40af;
-  --color-secondary: #0f766e;
+  --color-primary: #1d4ed8;
+  --color-secondary: #0d9488;
 }
 
 html, body, #root {
@@ -13,10 +13,11 @@ html, body, #root {
 
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 .dark body {
-  @apply bg-gray-900 text-gray-100;
+  @apply bg-gray-950 text-gray-100;
 }
 
 /* Botão primário usa a cor configurável do sistema */
@@ -24,8 +25,70 @@ body {
   background-color: var(--color-primary);
 }
 
-/* No tema escuro, o hover das linhas de tabela usa um cinza escuro
-   (sobrepõe o utilitário hover:bg-gray-50 das páginas). */
-.dark tbody tr:hover {
-  background-color: rgb(55 65 81 / 0.4) !important; /* gray-700/40 */
+/* Hover de linha de tabela com suporte a tema (substitui o antigo !important) */
+@layer components {
+  .row-hover {
+    @apply transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/40;
+  }
+}
+
+/* Foco acessível e consistente em toda a aplicação */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Scrollbar discreta */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-gray-300 dark:bg-gray-700;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-600;
+}
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- Animações (modais, toasts, dropdowns) ---- */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+.animate-fade-in { animation: fade-in 0.15s ease-out; }
+.animate-scale-in { animation: scale-in 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-toast-in { animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Skeleton shimmer */
+.skeleton {
+  @apply relative overflow-hidden rounded bg-gray-200 dark:bg-gray-700;
+}
+.skeleton::after {
+  content: '';
+  @apply absolute inset-0 -translate-x-full;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.35) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 1.4s infinite;
+}
+.dark .skeleton::after {
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
 }

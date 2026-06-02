@@ -2,15 +2,20 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { Supplier } from '@/lib/types'
+import { Truck } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
-import { Badge, Button, Field, Input, Modal, PageHeader, Table } from '@/components/ui'
+import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/Confirm'
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Table, TableSkeleton, Tr } from '@/components/ui'
 
 const EMPTY: Partial<Supplier> = { active: true }
 
 export function SuppliersPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [q, setQ] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<Partial<Supplier>>(EMPTY)
@@ -25,18 +30,28 @@ export function SuppliersPage() {
   const save = useMutation({
     mutationFn: async (p: Partial<Supplier>) =>
       p.id ? api.put(`/suppliers/${p.id}`, p) : api.post('/suppliers', p),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['suppliers'] }); setModalOpen(false); setForm(EMPTY) },
+    onSuccess: (_d, p) => {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] }); setModalOpen(false); setForm(EMPTY)
+      toast.success(p.id ? 'Fornecedor atualizado.' : 'Fornecedor criado.')
+    },
     onError: (e) => setError(apiErrorMessage(e)),
   })
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/suppliers/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['suppliers'] }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['suppliers'] }); toast.success('Fornecedor removido.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
   })
+
+  async function confirmRemove(s: Supplier) {
+    const ok = await confirm({ title: 'Remover fornecedor', message: `Remover "${s.name}"?`, confirmLabel: 'Remover', danger: true })
+    if (ok) remove.mutate(s.id)
+  }
 
   return (
     <div>
       <PageHeader
         title="Fornecedores"
+        subtitle="Cadastro de fornecedores e prestadores"
         action={canWrite && <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Novo fornecedor</Button>}
       />
 
@@ -44,29 +59,38 @@ export function SuppliersPage() {
         <Input placeholder="Buscar fornecedor…" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
-      {isLoading ? <p className="text-gray-500">Carregando…</p> : (
+      {isLoading ? <TableSkeleton rows={5} cols={7} /> : (
         <Table headers={['Nome', 'Documento', 'Categoria', 'Telefone', 'Cidade/UF', 'Status', 'Ações']}>
           {data?.map((s) => (
-            <tr key={s.id} className="hover:bg-gray-50">
+            <Tr key={s.id}>
               <td className="px-4 py-2 font-medium">{s.name}</td>
               <td className="px-4 py-2">{s.document ?? '—'}</td>
               <td className="px-4 py-2">{s.category ?? '—'}</td>
               <td className="px-4 py-2">{s.phone ?? '—'}</td>
               <td className="px-4 py-2">{[s.city, s.state].filter(Boolean).join(' / ') || '—'}</td>
-              <td className="px-4 py-2"><Badge color={s.active ? 'green' : 'gray'}>{s.active ? 'ATIVO' : 'INATIVO'}</Badge></td>
+              <td className="px-4 py-2"><Badge dot color={s.active ? 'green' : 'gray'}>{s.active ? 'Ativo' : 'Inativo'}</Badge></td>
               <td className="px-4 py-2 text-right">
                 {canWrite && (
                   <ActionsMenu
                     items={[
                       { label: 'Editar', onClick: () => { setForm(s); setError(null); setModalOpen(true) } },
-                      { label: 'Remover', danger: true, onClick: () => { if (window.confirm(`Remover "${s.name}"?`)) remove.mutate(s.id) } },
+                      { label: 'Remover', danger: true, onClick: () => confirmRemove(s) },
                     ]}
                   />
                 )}
               </td>
-            </tr>
+            </Tr>
           ))}
-          {data?.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Nenhum fornecedor.</td></tr>}
+          {data?.length === 0 && (
+            <tr><td colSpan={7} className="p-0">
+              <EmptyState
+                icon={Truck}
+                title="Nenhum fornecedor"
+                description={q ? 'Ajuste a busca.' : 'Cadastre o primeiro fornecedor.'}
+                action={canWrite && !q ? <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Novo fornecedor</Button> : undefined}
+              />
+            </td></tr>
+          )}
         </Table>
       )}
 
@@ -92,7 +116,7 @@ export function SuppliersPage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={save.isPending}>Salvar</Button>
+            <Button type="submit" loading={save.isPending}>Salvar</Button>
           </div>
         </form>
       </Modal>

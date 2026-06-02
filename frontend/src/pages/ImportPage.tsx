@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { BankAccount } from '@/lib/types'
-import { Badge, Button, Card, Field, PageHeader, Select, Table } from '@/components/ui'
+import { useToast } from '@/components/Toast'
+import { Badge, Button, Card, Field, PageHeader, Table, TableSkeleton, Select, Tr } from '@/components/ui'
 import { formatDate } from '@/lib/utils'
 
 export function ImportPage() {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [bankAccountId, setBankAccountId] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -34,13 +36,14 @@ export function ImportPage() {
       queryClient.invalidateQueries({ queryKey: ['imports', bankAccountId] })
       queryClient.invalidateQueries({ queryKey: ['pendencies'] })
       setFile(null)
+      toast.success('Extrato importado com sucesso.')
     },
-    onError: (e) => setError(apiErrorMessage(e)),
+    onError: (e) => { setError(apiErrorMessage(e)); toast.error(apiErrorMessage(e)) },
   })
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Importação de extrato" />
+      <PageHeader title="Importação de extrato" subtitle="Envie arquivos CSV ou OFX para conciliar transações" />
 
       <Card className="max-w-xl space-y-4">
         <Field label="Conta bancária">
@@ -74,13 +77,14 @@ export function ImportPage() {
       {bankAccountId && (
         <Card>
           <h2 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">Histórico de importações</h2>
+          {history.isLoading ? <TableSkeleton rows={3} cols={6} /> : (
           <Table headers={['Arquivo', 'Formato', 'Status', 'Linhas', 'Importadas', 'Data']}>
             {history.data?.map((h) => (
-              <tr key={h.id} className="hover:bg-gray-50">
+              <Tr key={h.id}>
                 <td className="px-4 py-2">{h.fileName}</td>
                 <td className="px-4 py-2">{h.fileFormat}</td>
                 <td className="px-4 py-2">
-                  <Badge color={h.status === 'COMPLETED' ? 'green' : h.status === 'FAILED' ? 'red' : 'yellow'}>
+                  <Badge dot color={h.status === 'COMPLETED' ? 'green' : h.status === 'FAILED' ? 'red' : 'yellow'}>
                     {h.status}
                   </Badge>
                   {h.errorMessage && <span className="ml-2 text-xs text-red-500">{h.errorMessage}</span>}
@@ -88,12 +92,13 @@ export function ImportPage() {
                 <td className="px-4 py-2">{h.totalRows}</td>
                 <td className="px-4 py-2">{h.importedRows}</td>
                 <td className="px-4 py-2">{formatDate(h.createdAt)}</td>
-              </tr>
+              </Tr>
             ))}
             {history.data?.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Nenhuma importação ainda.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400">Nenhuma importação ainda.</td></tr>
             )}
           </Table>
+          )}
         </Card>
       )}
     </div>

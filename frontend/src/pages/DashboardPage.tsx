@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import { api } from '@/lib/api'
 import type { Client, DashboardAnalytics, Lot, Page, Point } from '@/lib/types'
-import { Button, Card, Field, Input, PageHeader, Select } from '@/components/ui'
+import { Button, Card, Field, Input, PageHeader, Select, Skeleton } from '@/components/ui'
 import { formatCurrency } from '@/lib/utils'
 
 const COLORS = ['#1e40af', '#0f766e', '#b45309', '#be123c', '#7c3aed', '#0891b2', '#65a30d', '#db2777']
@@ -69,7 +69,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" />
+      <PageHeader title="Dashboard" subtitle="Indicadores financeiros e comerciais" />
 
       {/* Filtros */}
       <Card>
@@ -94,7 +94,20 @@ export function DashboardPage() {
         </div>
       </Card>
 
-      {isLoading || !data ? <p className="text-gray-500">Carregando indicadores…</p> : (
+      {isLoading || !data ? (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i}><Skeleton className="h-3 w-20" /><Skeleton className="mt-3 h-6 w-28" /></Card>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}><Skeleton className="mb-3 h-3 w-40" /><Skeleton className="h-[220px] w-full" /></Card>
+            ))}
+          </div>
+        </>
+      ) : (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Metric label="Total vendido" value={brl(data.totalSold)} accent="text-blue-700" />

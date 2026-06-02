@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, ArrowUpCircle } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { CostCenter, Page, Supplier } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
-import { Badge, Button, Field, Input, Modal, PageHeader, Select, Table } from '@/components/ui'
+import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/Confirm'
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 interface Payable {
@@ -23,11 +25,13 @@ interface Payable {
 
 const EMPTY: Partial<Payable> = { status: 'OPEN' }
 const STATUS_COLOR: Record<string, string> = { OPEN: 'gray', PAID: 'green', OVERDUE: 'red', CANCELLED: 'gray' }
-const STATUS_LABEL: Record<string, string> = { OPEN: 'EM ABERTO', PAID: 'PAGO', OVERDUE: 'ATRASADO', CANCELLED: 'CANCELADO' }
+const STATUS_LABEL: Record<string, string> = { OPEN: 'Em aberto', PAID: 'Pago', OVERDUE: 'Atrasado', CANCELLED: 'Cancelado' }
 
 export function PayablePage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<Partial<Payable>>(EMPTY)
   const [view, setView] = useState<Payable | null>(null)
@@ -46,12 +50,22 @@ export function PayablePage() {
   const invalidate = () => { queryClient.invalidateQueries({ queryKey: ['payable'] }); queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] }) }
   const save = useMutation({
     mutationFn: async (p: Partial<Payable>) => p.id ? api.put(`/accounts-payable/${p.id}`, p) : api.post('/accounts-payable', p),
-    onSuccess: () => { invalidate(); setModalOpen(false); setForm(EMPTY) },
+    onSuccess: (_d, p) => { invalidate(); setModalOpen(false); setForm(EMPTY); toast.success(p.id ? 'Conta atualizada.' : 'Conta criada.') },
     onError: (e) => setError(apiErrorMessage(e)),
   })
-  const pay = useMutation({ mutationFn: async (id: string) => api.post(`/accounts-payable/${id}/pay`), onSuccess: invalidate })
-  const cancel = useMutation({ mutationFn: async (id: string) => api.post(`/accounts-payable/${id}/cancel`), onSuccess: invalidate })
-  const remove = useMutation({ mutationFn: async (id: string) => api.delete(`/accounts-payable/${id}`), onSuccess: invalidate, onError: (e) => alert(apiErrorMessage(e)) })
+  const pay = useMutation({ mutationFn: async (id: string) => api.post(`/accounts-payable/${id}/pay`), onSuccess: () => { invalidate(); toast.success('Pagamento confirmado.') }, onError: (e) => toast.error(apiErrorMessage(e)) })
+  const cancel = useMutation({ mutationFn: async (id: string) => api.post(`/accounts-payable/${id}/cancel`), onSuccess: () => { invalidate(); toast.success('Conta cancelada.') }, onError: (e) => toast.error(apiErrorMessage(e)) })
+  const remove = useMutation({ mutationFn: async (id: string) => api.delete(`/accounts-payable/${id}`), onSuccess: () => { invalidate(); toast.success('Conta excluída.') }, onError: (e) => toast.error(apiErrorMessage(e)) })
+
+  async function confirmPay(p: Payable) {
+    if (await confirm({ title: 'Confirmar pagamento', message: `Confirmar pagamento de "${p.supplier}" (${formatCurrency(p.amount)})?`, confirmLabel: 'Confirmar' })) pay.mutate(p.id)
+  }
+  async function confirmCancel(p: Payable) {
+    if (await confirm({ title: 'Cancelar conta', message: `Cancelar a conta de "${p.supplier}"?`, confirmLabel: 'Cancelar conta', danger: true })) cancel.mutate(p.id)
+  }
+  async function confirmRemove(p: Payable) {
+    if (await confirm({ title: 'Excluir conta', message: 'Excluir esta conta a pagar?', confirmLabel: 'Excluir', danger: true })) remove.mutate(p.id)
+  }
 
   const filtered = useMemo(() => {
     let list = data?.content ?? []
@@ -62,7 +76,7 @@ export function PayablePage() {
 
   return (
     <div>
-      <PageHeader title="Contas a Pagar" action={canWrite && <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Nova conta</Button>} />
+      <PageHeader title="Contas a Pagar" subtitle="Despesas e obrigações da empresa" action={canWrite && <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Nova conta</Button>} />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Input placeholder="Buscar por fornecedor ou descrição…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -75,39 +89,48 @@ export function PayablePage() {
         </Select>
       </div>
 
-      {isLoading ? <p className="text-gray-500">Carregando…</p> : (
+      {isLoading ? <TableSkeleton rows={6} cols={6} /> : (
         <Table headers={['Fornecedor', 'Categoria', 'Valor', 'Vencimento', 'Status', 'Ações']}>
           {filtered.map((p) => (
-            <tr key={p.id} className="hover:bg-gray-50">
+            <Tr key={p.id}>
               <td className="px-4 py-2 font-medium">{p.supplier}</td>
               <td className="px-4 py-2">{p.category ?? '—'}</td>
               <td className="px-4 py-2">{formatCurrency(p.amount)}</td>
               <td className="px-4 py-2">{formatDate(p.dueDate)}</td>
-              <td className="px-4 py-2"><Badge color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status]}</Badge></td>
+              <td className="px-4 py-2"><Badge dot color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status]}</Badge></td>
               <td className="px-4 py-2">
                 <div className="flex items-center justify-end gap-1">
                   {canWrite && (
                     <>
                       <button title="Confirmar pagamento" disabled={p.status === 'PAID' || p.status === 'CANCELLED'}
-                        onClick={() => { if (window.confirm(`Confirmar pagamento de "${p.supplier}" (${formatCurrency(p.amount)})?`)) pay.mutate(p.id) }}
-                        className="text-green-600 hover:text-green-700 disabled:opacity-30"><CheckCircle2 className="h-5 w-5" /></button>
+                        onClick={() => confirmPay(p)}
+                        className="text-green-600 transition hover:text-green-700 disabled:opacity-30"><CheckCircle2 className="h-5 w-5" /></button>
                       <button title="Cancelar conta" disabled={p.status === 'CANCELLED'}
-                        onClick={() => { if (window.confirm(`Cancelar a conta de "${p.supplier}"?`)) cancel.mutate(p.id) }}
-                        className="text-red-600 hover:text-red-700 disabled:opacity-30"><XCircle className="h-5 w-5" /></button>
+                        onClick={() => confirmCancel(p)}
+                        className="text-red-600 transition hover:text-red-700 disabled:opacity-30"><XCircle className="h-5 w-5" /></button>
                     </>
                   )}
                   <ActionsMenu items={[
                     { label: 'Consultar', onClick: () => setView(p) },
                     ...(canWrite ? [
                       { label: 'Alterar', onClick: () => { setForm(p); setError(null); setModalOpen(true) } },
-                      { label: 'Excluir', danger: true, onClick: () => { if (window.confirm('Excluir esta conta a pagar?')) remove.mutate(p.id) } },
+                      { label: 'Excluir', danger: true, onClick: () => confirmRemove(p) },
                     ] : []),
                   ]} />
                 </div>
               </td>
-            </tr>
+            </Tr>
           ))}
-          {filtered.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Nenhuma conta.</td></tr>}
+          {filtered.length === 0 && (
+            <tr><td colSpan={6} className="p-0">
+              <EmptyState
+                icon={ArrowUpCircle}
+                title="Nenhuma conta a pagar"
+                description={q || statusFilter ? 'Ajuste a busca ou os filtros.' : 'Cadastre a primeira conta a pagar.'}
+                action={canWrite && !q && !statusFilter ? <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Nova conta</Button> : undefined}
+              />
+            </td></tr>
+          )}
         </Table>
       )}
 
@@ -148,7 +171,7 @@ export function PayablePage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={save.isPending}>Salvar</Button>
+            <Button type="submit" loading={save.isPending}>Salvar</Button>
           </div>
         </form>
       </Modal>

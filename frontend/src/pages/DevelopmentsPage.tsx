@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Building2, ArrowLeft } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { Block, Development, Lot, LotStatus } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
-import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Table } from '@/components/ui'
-import { formatCurrency } from '@/lib/utils'
+import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/Confirm'
+import { Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
+import { cn, formatCurrency } from '@/lib/utils'
 
 const LOT_COLOR: Record<LotStatus, string> = { AVAILABLE: 'green', RESERVED: 'yellow', SOLD: 'blue', CANCELLED: 'gray' }
 const LOT_LABEL: Record<LotStatus, string> = { AVAILABLE: 'Disponível', RESERVED: 'Reservado', SOLD: 'Vendido', CANCELLED: 'Cancelado' }
@@ -23,6 +25,8 @@ export function DevelopmentsPage() {
 /* ---------------- Lista de empreendimentos ---------------- */
 function DevelopmentsList({ canWrite, onManage }: { canWrite: boolean; onManage: (d: Development) => void }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Partial<Development>>({})
   const [error, setError] = useState<string | null>(null)
@@ -33,22 +37,26 @@ function DevelopmentsList({ canWrite, onManage }: { canWrite: boolean; onManage:
   })
   const save = useMutation({
     mutationFn: async (d: Partial<Development>) => d.id ? api.put(`/developments/${d.id}`, d) : api.post('/developments', d),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['developments'] }); setOpen(false); setForm({}) },
+    onSuccess: (_r, d) => { queryClient.invalidateQueries({ queryKey: ['developments'] }); setOpen(false); setForm({}); toast.success(d.id ? 'Empreendimento atualizado.' : 'Empreendimento criado.') },
     onError: (e) => setError(apiErrorMessage(e)),
   })
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/developments/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['developments'] }),
-    onError: (e) => alert(apiErrorMessage(e)),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['developments'] }); toast.success('Empreendimento excluído.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
   })
+
+  async function confirmRemove(d: Development) {
+    if (await confirm({ title: 'Excluir empreendimento', message: `Excluir "${d.name}" e tudo dentro dele (quadras e lotes)?`, confirmLabel: 'Excluir', danger: true })) remove.mutate(d.id)
+  }
 
   return (
     <div>
-      <PageHeader title="Empreendimentos" action={canWrite && <Button onClick={() => { setForm({}); setError(null); setOpen(true) }}>Novo empreendimento</Button>} />
-      {isLoading ? <p className="text-gray-500">Carregando…</p> : (
+      <PageHeader title="Empreendimentos" subtitle="Hierarquia Empreendimento → Quadra → Lote" action={canWrite && <Button onClick={() => { setForm({}); setError(null); setOpen(true) }}>Novo empreendimento</Button>} />
+      {isLoading ? <TableSkeleton rows={5} cols={8} /> : (
         <Table headers={['Empreendimento', 'Código', 'Valor previsto', 'Expectativa', 'Recebido', 'Quadras', 'Lotes', 'Ações']}>
           {data?.map((d) => (
-            <tr key={d.id} className="hover:bg-gray-50">
+            <Tr key={d.id}>
               <td className="px-4 py-2 font-medium">{d.name}</td>
               <td className="px-4 py-2">{d.internalCode}</td>
               <td className="px-4 py-2 text-blue-700">{formatCurrency(d.plannedTotal)}</td>
@@ -61,13 +69,22 @@ function DevelopmentsList({ canWrite, onManage }: { canWrite: boolean; onManage:
                   { label: 'Gerenciar quadras/lotes', onClick: () => onManage(d) },
                   ...(canWrite ? [
                     { label: 'Editar', onClick: () => { setForm(d); setError(null); setOpen(true) } },
-                    { label: 'Excluir', danger: true, onClick: () => { if (window.confirm(`Excluir "${d.name}" e tudo dentro dele?`)) remove.mutate(d.id) } },
+                    { label: 'Excluir', danger: true, onClick: () => confirmRemove(d) },
                   ] : []),
                 ]} />
               </td>
-            </tr>
+            </Tr>
           ))}
-          {data?.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400">Nenhum empreendimento.</td></tr>}
+          {data?.length === 0 && (
+            <tr><td colSpan={8} className="p-0">
+              <EmptyState
+                icon={Building2}
+                title="Nenhum empreendimento"
+                description="Cadastre o primeiro empreendimento para criar quadras e lotes."
+                action={canWrite ? <Button onClick={() => { setForm({}); setError(null); setOpen(true) }}>Novo empreendimento</Button> : undefined}
+              />
+            </td></tr>
+          )}
         </Table>
       )}
 
@@ -87,7 +104,7 @@ function DevelopmentsList({ canWrite, onManage }: { canWrite: boolean; onManage:
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={save.isPending}>Salvar</Button>
+            <Button type="submit" loading={save.isPending}>Salvar</Button>
           </div>
         </form>
       </Modal>
@@ -120,8 +137,10 @@ function DevelopmentManager({ development, canWrite, onBack }: { development: De
 
   return (
     <div>
-      <button onClick={onBack} className="mb-2 text-sm text-primary hover:underline">← Empreendimentos</button>
-      <PageHeader title={`${d.name} (${d.internalCode})`} />
+      <button onClick={onBack} className="mb-2 inline-flex items-center gap-1 text-sm text-primary hover:underline">
+        <ArrowLeft className="h-4 w-4" /> Empreendimentos
+      </button>
+      <PageHeader title={d.name} subtitle={`Código ${d.internalCode}`} />
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Card><div className="text-xs uppercase text-gray-500 dark:text-gray-400">Valor previsto total</div><div className="mt-1 text-lg font-semibold text-blue-700">{formatCurrency(d.plannedTotal)}</div></Card>
@@ -148,6 +167,8 @@ function BlocksSection({ development, blocks, canWrite, selectedBlock, onSelect,
   selectedBlock: Block | null; onSelect: (b: Block) => void; onChange: () => void
 }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Partial<Block>>({})
   const [error, setError] = useState<string | null>(null)
@@ -157,14 +178,18 @@ function BlocksSection({ development, blocks, canWrite, selectedBlock, onSelect,
     mutationFn: async (b: Partial<Block>) => b.id
       ? api.put(`/blocks/${b.id}`, { ...b, developmentId: development.id })
       : api.post('/blocks', { ...b, developmentId: development.id }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['blocks', development.id] }); onChange(); setOpen(false); setForm({}) },
+    onSuccess: (_r, b) => { queryClient.invalidateQueries({ queryKey: ['blocks', development.id] }); onChange(); setOpen(false); setForm({}); toast.success(b.id ? 'Quadra atualizada.' : 'Quadra criada.') },
     onError: (e) => setError(apiErrorMessage(e)),
   })
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/blocks/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['blocks', development.id] }); onChange() },
-    onError: (e) => alert(apiErrorMessage(e)),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['blocks', development.id] }); onChange(); toast.success('Quadra excluída.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
   })
+
+  async function confirmRemove(b: Block) {
+    if (await confirm({ title: 'Excluir quadra', message: `Excluir a quadra "${b.name}" e seus lotes?`, confirmLabel: 'Excluir', danger: true })) remove.mutate(b.id)
+  }
 
   return (
     <Card className="mb-4">
@@ -174,7 +199,11 @@ function BlocksSection({ development, blocks, canWrite, selectedBlock, onSelect,
       </div>
       <Table headers={['Quadra', 'Código', 'Matrícula', 'Área', 'Lotes', 'Ações']}>
         {blocks.map((b) => (
-          <tr key={b.id} className={`cursor-pointer hover:bg-gray-50 ${selectedBlock?.id === b.id ? 'bg-primary/5' : ''}`} onClick={() => onSelect(b)}>
+          <tr
+            key={b.id}
+            className={cn('row-hover cursor-pointer', selectedBlock?.id === b.id && 'bg-primary/5')}
+            onClick={() => onSelect(b)}
+          >
             <td className="px-4 py-2 font-medium">{b.name}</td>
             <td className="px-4 py-2">{b.internalCode}</td>
             <td className="px-4 py-2">{b.registration ?? '—'}</td>
@@ -185,13 +214,13 @@ function BlocksSection({ development, blocks, canWrite, selectedBlock, onSelect,
                 <Button variant="outline" className="px-2 py-1 text-xs" onClick={() => onSelect(b)}>Ver lotes <ChevronRight className="inline h-3 w-3" /></Button>
                 {canWrite && <ActionsMenu items={[
                   { label: 'Editar', onClick: () => { setForm(b); setError(null); setOpen(true) } },
-                  { label: 'Excluir', danger: true, onClick: () => { if (window.confirm(`Excluir a quadra "${b.name}" e seus lotes?`)) remove.mutate(b.id) } },
+                  { label: 'Excluir', danger: true, onClick: () => confirmRemove(b) },
                 ]} />}
               </div>
             </td>
           </tr>
         ))}
-        {blocks.length === 0 && <tr><td colSpan={6} className="px-4 py-4 text-center text-gray-400">Nenhuma quadra.</td></tr>}
+        {blocks.length === 0 && <tr><td colSpan={6} className="px-4 py-4 text-center text-sm text-gray-400">Nenhuma quadra cadastrada.</td></tr>}
       </Table>
 
       <Modal open={open} onClose={() => setOpen(false)} title={form.id ? 'Editar quadra' : 'Nova quadra'}>
@@ -205,7 +234,7 @@ function BlocksSection({ development, blocks, canWrite, selectedBlock, onSelect,
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={save.isPending}>Salvar</Button>
+            <Button type="submit" loading={save.isPending}>Salvar</Button>
           </div>
         </form>
       </Modal>
@@ -215,6 +244,8 @@ function BlocksSection({ development, blocks, canWrite, selectedBlock, onSelect,
 
 function LotsSection({ development, block, canWrite, onChange }: { development: Development; block: Block; canWrite: boolean; onChange: () => void }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Partial<Lot>>({ status: 'AVAILABLE' })
   const [error, setError] = useState<string | null>(null)
@@ -229,11 +260,18 @@ function LotsSection({ development, block, canWrite, onChange }: { development: 
     mutationFn: async (l: Partial<Lot>) => l.id
       ? api.put(`/lots/${l.id}`, { ...l, blockId: block.id })
       : api.post('/lots', { ...l, blockId: block.id }),
-    onSuccess: () => { refresh(); setOpen(false); setForm({ status: 'AVAILABLE' }) },
+    onSuccess: (_r, l) => { refresh(); setOpen(false); setForm({ status: 'AVAILABLE' }); toast.success(l.id ? 'Lote atualizado.' : 'Lote criado.') },
     onError: (e) => setError(apiErrorMessage(e)),
   })
-  const cancel = useMutation({ mutationFn: async (id: string) => api.patch(`/lots/${id}/cancel`), onSuccess: refresh, onError: (e) => alert(apiErrorMessage(e)) })
-  const remove = useMutation({ mutationFn: async (id: string) => api.delete(`/lots/${id}`), onSuccess: refresh, onError: (e) => alert(apiErrorMessage(e)) })
+  const cancel = useMutation({ mutationFn: async (id: string) => api.patch(`/lots/${id}/cancel`), onSuccess: () => { refresh(); toast.success('Lote inativado.') }, onError: (e) => toast.error(apiErrorMessage(e)) })
+  const remove = useMutation({ mutationFn: async (id: string) => api.delete(`/lots/${id}`), onSuccess: () => { refresh(); toast.success('Lote excluído.') }, onError: (e) => toast.error(apiErrorMessage(e)) })
+
+  async function confirmCancel(l: Lot) {
+    if (await confirm({ title: 'Inativar lote', message: `Inativar o lote "${l.name}"?`, confirmLabel: 'Inativar', danger: true })) cancel.mutate(l.id)
+  }
+  async function confirmRemove(l: Lot) {
+    if (await confirm({ title: 'Excluir lote', message: `Excluir o lote "${l.name}"?`, confirmLabel: 'Excluir', danger: true })) remove.mutate(l.id)
+  }
 
   return (
     <Card>
@@ -241,26 +279,26 @@ function LotsSection({ development, block, canWrite, onChange }: { development: 
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Lotes da quadra {block.name}</h3>
         {canWrite && <Button disabled={atLimit} onClick={() => { setForm({ status: 'AVAILABLE' }); setError(null); setOpen(true) }}>{atLimit ? 'Limite de lotes atingido' : 'Novo lote'}</Button>}
       </div>
-      {lots.isLoading ? <p className="text-gray-500">Carregando…</p> : (
+      {lots.isLoading ? <TableSkeleton rows={4} cols={7} /> : (
         <Table headers={['Lote', 'Código', 'Matrícula', 'Previsto', 'Vendido', 'Status', 'Ações']}>
           {lots.data?.map((l) => (
-            <tr key={l.id} className="hover:bg-gray-50">
+            <Tr key={l.id}>
               <td className="px-4 py-2 font-medium">{l.name}</td>
               <td className="px-4 py-2">{l.internalCode}</td>
               <td className="px-4 py-2">{l.registration ?? '—'}</td>
               <td className="px-4 py-2">{formatCurrency(l.plannedValue)}</td>
               <td className="px-4 py-2 text-green-600">{l.saleValue != null ? formatCurrency(l.saleValue) : '—'}</td>
-              <td className="px-4 py-2"><Badge color={LOT_COLOR[l.status]}>{LOT_LABEL[l.status]}</Badge></td>
+              <td className="px-4 py-2"><Badge dot color={LOT_COLOR[l.status]}>{LOT_LABEL[l.status]}</Badge></td>
               <td className="px-4 py-2 text-right">
                 {canWrite && <ActionsMenu items={[
                   { label: 'Editar', onClick: () => { setForm(l); setError(null); setOpen(true) } },
-                  { label: 'Inativar', danger: true, disabled: l.status === 'CANCELLED', onClick: () => { if (window.confirm(`Inativar o lote "${l.name}"?`)) cancel.mutate(l.id) } },
-                  { label: 'Excluir', danger: true, onClick: () => { if (window.confirm(`Excluir o lote "${l.name}"?`)) remove.mutate(l.id) } },
+                  { label: 'Inativar', danger: true, disabled: l.status === 'CANCELLED', onClick: () => confirmCancel(l) },
+                  { label: 'Excluir', danger: true, onClick: () => confirmRemove(l) },
                 ]} />}
               </td>
-            </tr>
+            </Tr>
           ))}
-          {lots.data?.length === 0 && <tr><td colSpan={7} className="px-4 py-4 text-center text-gray-400">Nenhum lote nesta quadra.</td></tr>}
+          {lots.data?.length === 0 && <tr><td colSpan={7} className="px-4 py-4 text-center text-sm text-gray-400">Nenhum lote nesta quadra.</td></tr>}
         </Table>
       )}
 
@@ -288,7 +326,7 @@ function LotsSection({ development, block, canWrite, onChange }: { development: 
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={save.isPending}>Salvar</Button>
+            <Button type="submit" loading={save.isPending}>Salvar</Button>
           </div>
         </form>
       </Modal>

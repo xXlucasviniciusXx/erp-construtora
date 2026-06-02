@@ -2,11 +2,18 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage, getToken } from '@/lib/api'
 import type { Client, Lot, Page, Sale } from '@/lib/types'
+import { FileSignature } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
 import { Combobox } from '@/components/Combobox'
-import { Badge, Button, Field, Input, Modal, PageHeader, Select, Table } from '@/components/ui'
+import { useToast } from '@/components/Toast'
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { formatCurrency, formatDate } from '@/lib/utils'
+
+const INSTALLMENT_STATUS: Record<string, { label: string; color: string }> = {
+  PAID: { label: 'Paga', color: 'green' }, OVERDUE: { label: 'Vencida', color: 'red' },
+  OPEN: { label: 'Aberta', color: 'gray' }, CANCELLED: { label: 'Cancelada', color: 'gray' },
+}
 
 const PURCHASE_WITH_DOWN = 'Entrada + parcelas'
 const PURCHASE_TYPES = ['À vista', PURCHASE_WITH_DOWN, 'Financiamento próprio', 'Outro']
@@ -33,6 +40,7 @@ const EMPTY: SaleForm = {
 export function SalesPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const canWrite = hasPermission('SALES_WRITE')
   const canContract = hasPermission('CONTRACTS_GENERATE')
 
@@ -58,7 +66,9 @@ export function SalesPage() {
       queryClient.invalidateQueries({ queryKey: ['sales'] })
       queryClient.invalidateQueries({ queryKey: ['lots-all'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] })
-      setModalOpen(false); setForm(EMPTY); setEditingId(null)
+      setModalOpen(false); setForm(EMPTY)
+      toast.success(editingId ? 'Venda atualizada com sucesso.' : 'Venda registrada e parcelas geradas.')
+      setEditingId(null)
     },
     onError: (e) => setError(apiErrorMessage(e)),
   })
@@ -104,7 +114,7 @@ export function SalesPage() {
 
   return (
     <div>
-      <PageHeader title="Vendas" action={canWrite && <Button onClick={openNew}>Nova venda</Button>} />
+      <PageHeader title="Vendas" subtitle="Vendas de lotes com geração automática de parcelas" action={canWrite && <Button onClick={openNew}>Nova venda</Button>} />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Input placeholder="Buscar por cliente ou lote…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -116,15 +126,19 @@ export function SalesPage() {
         </Select>
       </div>
 
-      {sales.isLoading ? <p className="text-gray-500">Carregando…</p> : (
+      {sales.isLoading ? <TableSkeleton rows={6} cols={6} /> : (
         <Table headers={['Cliente', 'Lote', 'Total', 'Parcelas (Qtd / Pagas)', 'Status', 'Ações']}>
           {filtered.map((s) => (
-            <tr key={s.id} className="hover:bg-gray-50">
+            <Tr key={s.id}>
               <td className="px-4 py-2 font-medium">{s.clientName}</td>
               <td className="px-4 py-2">{s.propertyLabel}</td>
               <td className="px-4 py-2">{formatCurrency(s.totalValue)}</td>
               <td className="px-4 py-2">{s.installmentsCount} / <span className="font-medium text-green-600">{s.paidInstallments ?? 0}</span></td>
-              <td className="px-4 py-2"><Badge color="blue">{SALE_STATUS[s.status] ?? s.status}</Badge></td>
+              <td className="px-4 py-2">
+                <Badge dot color={s.status === 'ACTIVE' ? 'blue' : s.status === 'COMPLETED' ? 'green' : 'gray'}>
+                  {SALE_STATUS[s.status] ?? s.status}
+                </Badge>
+              </td>
               <td className="px-4 py-2 text-right">
                 <ActionsMenu items={[
                   { label: 'Visualizar venda', onClick: () => setView(s) },
@@ -132,9 +146,18 @@ export function SalesPage() {
                   { label: 'Gerar contrato', onClick: () => downloadContract(s.id), disabled: !canContract },
                 ]} />
               </td>
-            </tr>
+            </Tr>
           ))}
-          {filtered.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Nenhuma venda encontrada.</td></tr>}
+          {filtered.length === 0 && (
+            <tr><td colSpan={6} className="p-0">
+              <EmptyState
+                icon={FileSignature}
+                title="Nenhuma venda encontrada"
+                description={q || statusFilter ? 'Ajuste a busca ou os filtros.' : 'Registre a primeira venda para gerar as parcelas automaticamente.'}
+                action={canWrite && !q && !statusFilter ? <Button onClick={openNew}>Nova venda</Button> : undefined}
+              />
+            </td></tr>
+          )}
         </Table>
       )}
 
@@ -155,12 +178,16 @@ export function SalesPage() {
           </div>
           <Table headers={['Nº', 'Vencimento', 'Valor', 'Status']}>
             {view.installments.map((i) => (
-              <tr key={i.id} className="hover:bg-gray-50">
+              <Tr key={i.id}>
                 <td className="px-4 py-2">#{i.number}</td>
                 <td className="px-4 py-2">{formatDate(i.dueDate)}</td>
                 <td className="px-4 py-2">{formatCurrency(i.amount)}</td>
-                <td className="px-4 py-2"><Badge color={i.status === 'PAID' ? 'green' : i.status === 'OVERDUE' ? 'red' : 'gray'}>{i.status}</Badge></td>
-              </tr>
+                <td className="px-4 py-2">
+                  <Badge dot color={INSTALLMENT_STATUS[i.status]?.color ?? 'gray'}>
+                    {INSTALLMENT_STATUS[i.status]?.label ?? i.status}
+                  </Badge>
+                </td>
+              </Tr>
             ))}
           </Table>
         </Modal>
@@ -217,7 +244,7 @@ export function SalesPage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={save.isPending}>{editingId ? 'Salvar alterações' : 'Gerar venda e parcelas'}</Button>
+            <Button type="submit" loading={save.isPending}>{editingId ? 'Salvar alterações' : 'Gerar venda e parcelas'}</Button>
           </div>
         </form>
       </Modal>

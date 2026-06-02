@@ -27,7 +27,7 @@ export function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Relatórios" />
+      <PageHeader title="Relatórios" subtitle="Exportações em CSV por período e categoria" />
 
       <Card className="space-y-4">
         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Relatórios por período</h2>

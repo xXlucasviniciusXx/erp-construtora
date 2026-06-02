@@ -1,11 +1,17 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowDownCircle } from 'lucide-react'
 import { api, apiErrorMessage, getToken } from '@/lib/api'
 import type { Client, InstallmentDetail, Page } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
-import { Badge, Button, Field, Input, Modal, PageHeader, Select, Table } from '@/components/ui'
+import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/Confirm'
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
+
+const INST_LABEL: Record<string, string> = { OPEN: 'Aberta', PAID: 'Paga', OVERDUE: 'Vencida', CANCELLED: 'Cancelada' }
+const RECV_LABEL: Record<string, string> = { OPEN: 'Em aberto', RECEIVED: 'Recebida', OVERDUE: 'Atrasada', CANCELLED: 'Cancelada' }
 
 const TABS = [
   { key: 'installments', label: 'Parcelas de Vendas' },
@@ -17,7 +23,7 @@ export function ReceivablePage() {
   const [tab, setTab] = useState<TabKey>('installments')
   return (
     <div>
-      <PageHeader title="Contas a Receber" />
+      <PageHeader title="Contas a Receber" subtitle="Parcelas de vendas e recebíveis avulsos" />
       <div className="mb-4 flex gap-1 border-b border-gray-200 dark:border-gray-700">
         {TABS.map((t) => (
           <button
@@ -39,7 +45,7 @@ export function ReceivablePage() {
 
 async function openContract(saleId: string) {
   const res = await fetch(`${api.defaults.baseURL}/contracts/sales/${saleId}/pdf`, { headers: { Authorization: `Bearer ${getToken()}` } })
-  if (!res.ok) { alert('Falha ao gerar o contrato'); return }
+  if (!res.ok) { return }
   window.open(URL.createObjectURL(await res.blob()))
 }
 const INST_COLOR: Record<string, string> = { OPEN: 'gray', PAID: 'green', OVERDUE: 'red', CANCELLED: 'gray' }
@@ -47,6 +53,7 @@ const INST_COLOR: Record<string, string> = { OPEN: 'gray', PAID: 'green', OVERDU
 function InstallmentsTab() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const canPay = hasPermission('RECEIVABLE_WRITE') || hasPermission('SALES_WRITE')
   const canContract = hasPermission('CONTRACTS_GENERATE')
   const [q, setQ] = useState('')
@@ -63,7 +70,8 @@ function InstallmentsTab() {
 
   const pay = useMutation({
     mutationFn: async (id: string) => api.post(`/installments/${id}/pay`, { paymentDate: new Date().toISOString().slice(0, 10) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['installments-search'] }); queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] }) },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['installments-search'] }); queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] }); toast.success('Recebimento registrado.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
   })
 
   return (
@@ -79,26 +87,30 @@ function InstallmentsTab() {
         <Input type="date" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} />
         <Input type="date" value={dueTo} onChange={(e) => setDueTo(e.target.value)} />
       </div>
-      {isLoading ? <p className="text-gray-500">Carregando…</p> : (
+      {isLoading ? <TableSkeleton rows={6} cols={8} /> : (
         <Table headers={['Cliente', 'Documento', 'Telefone', 'Parcela', 'Valor', 'Vencimento', 'Status', 'Ações']}>
           {data?.map((i) => (
-            <tr key={i.id} className="hover:bg-gray-50">
+            <Tr key={i.id}>
               <td className="px-4 py-2 font-medium">{i.clientName}</td>
               <td className="px-4 py-2">{i.clientDocument}</td>
               <td className="px-4 py-2">{i.clientPhone ?? '—'}</td>
               <td className="px-4 py-2">#{i.number}</td>
               <td className="px-4 py-2">{formatCurrency(i.amount)}</td>
               <td className="px-4 py-2">{formatDate(i.dueDate)}</td>
-              <td className="px-4 py-2"><Badge color={INST_COLOR[i.status]}>{i.status}</Badge></td>
+              <td className="px-4 py-2"><Badge dot color={INST_COLOR[i.status]}>{INST_LABEL[i.status] ?? i.status}</Badge></td>
               <td className="px-4 py-2 text-right">
                 <ActionsMenu items={[
                   ...(canPay && i.status !== 'PAID' ? [{ label: 'Registrar recebimento', onClick: () => pay.mutate(i.id) }] : []),
                   { label: 'Gerar contrato', onClick: () => openContract(i.saleId), disabled: !canContract },
                 ]} />
               </td>
-            </tr>
+            </Tr>
           ))}
-          {data?.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400">Nenhuma parcela encontrada.</td></tr>}
+          {data?.length === 0 && (
+            <tr><td colSpan={8} className="p-0">
+              <EmptyState icon={ArrowDownCircle} title="Nenhuma parcela encontrada" description="Ajuste a busca ou os filtros de período/status." />
+            </td></tr>
+          )}
         </Table>
       )}
     </div>
@@ -125,6 +137,8 @@ const RECV_COLOR: Record<string, string> = { OPEN: 'gray', RECEIVED: 'green', OV
 function StandaloneTab() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<Partial<Receivable>>(EMPTY)
   const [view, setView] = useState<Receivable | null>(null)
@@ -144,18 +158,23 @@ function StandaloneTab() {
 
   const save = useMutation({
     mutationFn: async (p: Partial<Receivable>) => p.id ? api.put(`/accounts-receivable/${p.id}`, p) : api.post('/accounts-receivable', p),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['receivable'] }); setModalOpen(false); setForm(EMPTY) },
+    onSuccess: (_d, p) => { queryClient.invalidateQueries({ queryKey: ['receivable'] }); setModalOpen(false); setForm(EMPTY); toast.success(p.id ? 'Conta atualizada.' : 'Conta criada.') },
     onError: (e) => setError(apiErrorMessage(e)),
   })
   const receive = useMutation({
     mutationFn: async (id: string) => api.post(`/accounts-receivable/${id}/receive`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['receivable'] }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['receivable'] }); toast.success('Recebimento confirmado.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
   })
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/accounts-receivable/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['receivable'] }),
-    onError: (e) => alert(apiErrorMessage(e)),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['receivable'] }); toast.success('Conta excluída.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
   })
+
+  async function confirmRemove(id: string) {
+    if (await confirm({ title: 'Excluir conta', message: 'Excluir esta conta a receber?', confirmLabel: 'Excluir', danger: true })) remove.mutate(id)
+  }
 
   const filtered = useMemo(() => {
     let list = data?.content ?? []
@@ -180,28 +199,37 @@ function StandaloneTab() {
         {canWrite && <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Nova conta</Button>}
       </div>
 
-      {isLoading ? <p className="text-gray-500">Carregando…</p> : (
+      {isLoading ? <TableSkeleton rows={6} cols={6} /> : (
         <Table headers={['Cliente', 'Descrição', 'Valor', 'Vencimento', 'Status', 'Ações']}>
           {filtered.map((r) => (
-            <tr key={r.id} className="hover:bg-gray-50">
+            <Tr key={r.id}>
               <td className="px-4 py-2 font-medium">{r.clientName ?? '—'}</td>
               <td className="px-4 py-2">{r.description ?? '—'}</td>
               <td className="px-4 py-2">{formatCurrency(r.amount)}</td>
               <td className="px-4 py-2">{formatDate(r.dueDate)}</td>
-              <td className="px-4 py-2"><Badge color={RECV_COLOR[r.status]}>{r.status}</Badge></td>
+              <td className="px-4 py-2"><Badge dot color={RECV_COLOR[r.status]}>{RECV_LABEL[r.status] ?? r.status}</Badge></td>
               <td className="px-4 py-2 text-right">
                 <ActionsMenu items={[
                   { label: 'Consultar', onClick: () => setView(r) },
                   ...(canWrite ? [
                     ...(r.status !== 'RECEIVED' ? [{ label: 'Confirmar recebimento', onClick: () => receive.mutate(r.id) }] : []),
                     { label: 'Alterar', onClick: () => { setForm(r); setError(null); setModalOpen(true) } },
-                    { label: 'Excluir', danger: true, onClick: () => { if (window.confirm('Excluir esta conta a receber?')) remove.mutate(r.id) } },
+                    { label: 'Excluir', danger: true, onClick: () => confirmRemove(r.id) },
                   ] : []),
                 ]} />
               </td>
-            </tr>
+            </Tr>
           ))}
-          {filtered.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Nenhuma conta.</td></tr>}
+          {filtered.length === 0 && (
+            <tr><td colSpan={6} className="p-0">
+              <EmptyState
+                icon={ArrowDownCircle}
+                title="Nenhuma conta avulsa"
+                description={q || statusFilter ? 'Ajuste a busca ou os filtros.' : 'Cadastre a primeira conta a receber avulsa.'}
+                action={canWrite && !q && !statusFilter ? <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Nova conta</Button> : undefined}
+              />
+            </td></tr>
+          )}
         </Table>
       )}
 
@@ -209,7 +237,7 @@ function StandaloneTab() {
         <Modal open onClose={() => setView(null)} title="Conta a receber">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <Info label="Cliente" value={view.clientName} />
-            <Info label="Status" value={view.status} />
+            <Info label="Status" value={RECV_LABEL[view.status] ?? view.status} />
             <Info label="Descrição" value={view.description} />
             <Info label="Valor" value={formatCurrency(view.amount)} />
             <Info label="Vencimento" value={formatDate(view.dueDate)} />
@@ -236,7 +264,7 @@ function StandaloneTab() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={save.isPending}>Salvar</Button>
+            <Button type="submit" loading={save.isPending}>Salvar</Button>
           </div>
         </form>
       </Modal>
