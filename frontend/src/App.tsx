@@ -1,24 +1,36 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { ProtectedRoute } from '@/auth/ProtectedRoute'
 import { Layout } from '@/components/Layout'
-import { LoginPage } from '@/pages/LoginPage'
-import { DashboardPage } from '@/pages/DashboardPage'
-import { ClientsPage } from '@/pages/ClientsPage'
-import { DevelopmentsPage } from '@/pages/DevelopmentsPage'
-import { SalesPage } from '@/pages/SalesPage'
-import { PayablePage } from '@/pages/PayablePage'
-import { ReceivablePage } from '@/pages/ReceivablePage'
-import { SuppliersPage } from '@/pages/SuppliersPage'
-import { ReconciliationPage } from '@/pages/ReconciliationPage'
-import { ImportPage } from '@/pages/ImportPage'
-import { ReportsPage } from '@/pages/ReportsPage'
-import { UsersPage } from '@/pages/UsersPage'
-import { SettingsPage } from '@/pages/SettingsPage'
+import { PageFallback } from '@/components/ui'
+
+// Páginas carregadas sob demanda (code-splitting por rota).
+// As páginas usam named exports, então mapeamos para `default` no import dinâmico.
+const LoginPage = lazy(() => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const ClientsPage = lazy(() => import('@/pages/ClientsPage').then((m) => ({ default: m.ClientsPage })))
+const DevelopmentsPage = lazy(() => import('@/pages/DevelopmentsPage').then((m) => ({ default: m.DevelopmentsPage })))
+const SalesPage = lazy(() => import('@/pages/SalesPage').then((m) => ({ default: m.SalesPage })))
+const PayablePage = lazy(() => import('@/pages/PayablePage').then((m) => ({ default: m.PayablePage })))
+const ReceivablePage = lazy(() => import('@/pages/ReceivablePage').then((m) => ({ default: m.ReceivablePage })))
+const SuppliersPage = lazy(() => import('@/pages/SuppliersPage').then((m) => ({ default: m.SuppliersPage })))
+const ReconciliationPage = lazy(() => import('@/pages/ReconciliationPage').then((m) => ({ default: m.ReconciliationPage })))
+const ImportPage = lazy(() => import('@/pages/ImportPage').then((m) => ({ default: m.ImportPage })))
+const ReportsPage = lazy(() => import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })))
+const UsersPage = lazy(() => import('@/pages/UsersPage').then((m) => ({ default: m.UsersPage })))
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
 export function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/login"
+        element={
+          <Suspense fallback={<PageFallback />}>
+            <LoginPage />
+          </Suspense>
+        }
+      />
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route index element={<DashboardPage />} />

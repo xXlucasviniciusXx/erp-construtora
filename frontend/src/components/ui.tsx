@@ -163,6 +163,18 @@ export function Spinner({ className }: { className?: string }) {
   return <Loader2 className={cn('h-5 w-5 animate-spin text-primary', className)} />
 }
 
+/** Fallback de carregamento de página (usado no Suspense das rotas lazy). */
+export function PageFallback() {
+  return (
+    <div className="flex h-64 items-center justify-center">
+      <div className="flex flex-col items-center gap-3 text-gray-400">
+        <Spinner className="h-7 w-7" />
+        <span className="text-sm">Carregando…</span>
+      </div>
+    </div>
+  )
+}
+
 /** Bloco de skeleton de carregamento. */
 export function Skeleton({ className }: { className?: string }) {
   return <div className={cn('skeleton h-4 w-full', className)} />
