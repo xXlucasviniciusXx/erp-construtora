@@ -134,6 +134,20 @@ public class DashboardAnalyticsService {
                 where ap.status='PAID'
                 group by 1 order by 2 desc""", p);
 
+        // Despesas (pagas) por categoria e por centro de custo
+        List<Point> expensesByCategory = points("""
+                select coalesce(cat.grupo || ' / ' || cat.name, 'Sem categoria') as label, sum(ap.amount) as value
+                from accounts_payable ap
+                  left join categories cat on cat.id = ap.category_id
+                where ap.status='PAID'
+                group by 1 order by 2 desc""", p);
+        List<Point> expensesByCostCenter = points("""
+                select coalesce(cc.name, 'Sem centro de custo') as label, sum(ap.amount) as value
+                from accounts_payable ap
+                  left join cost_centers cc on cc.id = ap.cost_center_id
+                where ap.status='PAID'
+                group by 1 order by 2 desc""", p);
+
         // Lucro/prejuízo por empreendimento (caixa): recebido (parcelas pagas) − despesas pagas
         Map<String, Double> receivedByDev = toMap(points("""
                 select dv.name as label, sum(i.amount) as value
@@ -190,7 +204,7 @@ public class DashboardAnalyticsService {
                 delinquent, active, inactive, lotsSold, lotsAvailable,
                 received, toReceive, overdueMonth, delinquencyByDev, salesByMonth,
                 salesByPurchaseType, cashFlow, payablesPaidVsOpen, receivablesReceivedVsOpen, aging,
-                expensesByDevelopment, profitByDevelopment);
+                expensesByDevelopment, profitByDevelopment, expensesByCategory, expensesByCostCenter);
     }
 
     // ---- helpers ----

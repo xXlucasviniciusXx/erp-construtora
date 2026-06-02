@@ -25,7 +25,11 @@ public class AccountPayable {
     @Column(nullable = false)
     private String supplier;
 
-    private String category;
+    /** Categoria (natureza do gasto) — plano de contas. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
     private String description;
 
     @Column(nullable = false)
@@ -44,8 +48,10 @@ public class AccountPayable {
     @Column(name = "payment_method")
     private String paymentMethod;
 
-    @Column(name = "cost_center")
-    private String costCenter;
+    /** Centro de custo (área/responsabilidade). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cost_center_id")
+    private CostCenter costCenter;
 
     /** Empreendimento vinculado (opcional). Nulo = despesa geral/administrativa. */
     @ManyToOne(fetch = FetchType.LAZY)

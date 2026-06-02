@@ -76,7 +76,11 @@ Itens deixados como `TODO` propositalmente para continuação futura.
 - [x] Aplicar juros/multa automaticamente no atraso (taxas por venda, cálculo em tempo real).
 - [ ] Correção monetária por índice (INCC/IGPM) nas parcelas — hoje é apenas informativo.
 - [ ] Relatório de DRE simplificado (receitas − despesas por centro de custo).
-- [ ] Migrar `supplier`/`cost_center` de texto livre para FK (Supplier/CostCenter).
+- [x] Plano de contas estruturado: entidade **Categoria** (grupo → item) e
+      **Centro de Custo** com grupo, ambos FK em Contas a Pagar (V11) — com
+      seeds editáveis pelo admin, filtros, relatórios CSV e indicadores no dashboard.
+- [ ] Migrar `supplier` de texto livre para FK (Supplier).
+- [ ] Categorias de **receita** + aplicar em Contas a Receber (DRE completa).
 - [ ] Mapa no Dashboard (cards empreendimento → quadra → lotes) — em avaliação pelo cliente.
 
 ## Cadastros de referência

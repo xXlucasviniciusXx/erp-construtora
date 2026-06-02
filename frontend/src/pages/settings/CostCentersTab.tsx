@@ -43,10 +43,11 @@ export function CostCentersTab() {
       <div className="mb-3 flex justify-end">
         <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Novo centro de custo</Button>
       </div>
-      {isLoading ? <TableSkeleton rows={4} cols={4} /> : (
-        <Table headers={['Nome', 'Descrição', 'Status', 'Ações']}>
+      {isLoading ? <TableSkeleton rows={4} cols={5} /> : (
+        <Table headers={['Grupo', 'Nome', 'Descrição', 'Status', 'Ações']}>
           {data?.map((c) => (
             <Tr key={c.id}>
+              <td className="px-4 py-2 text-gray-500">{c.grupo ?? '—'}</td>
               <td className="px-4 py-2 font-medium">{c.name}</td>
               <td className="px-4 py-2">{c.description ?? '—'}</td>
               <td className="px-4 py-2"><Badge dot color={c.active ? 'green' : 'gray'}>{c.active ? 'Ativo' : 'Inativo'}</Badge></td>
@@ -58,13 +59,16 @@ export function CostCentersTab() {
               </td>
             </Tr>
           ))}
-          {data?.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-400">Nenhum centro de custo.</td></tr>}
+          {data?.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">Nenhum centro de custo.</td></tr>}
         </Table>
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? 'Editar centro de custo' : 'Novo centro de custo'}>
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate(form) }}>
-          <Field label="Nome"><Input value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Grupo"><Input value={form.grupo ?? ''} onChange={(e) => setForm({ ...form, grupo: e.target.value })} placeholder="Administrativo, Comercial…" /></Field>
+            <Field label="Nome"><Input value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></Field>
+          </div>
           <Field label="Descrição"><Input value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">

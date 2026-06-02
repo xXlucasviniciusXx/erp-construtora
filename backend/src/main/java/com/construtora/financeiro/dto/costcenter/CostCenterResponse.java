@@ -6,5 +6,6 @@ public record CostCenterResponse(
         UUID id,
         String name,
         String description,
+        String grupo,
         boolean active
 ) {}

@@ -107,10 +107,11 @@ GET /api/auth/me   → dados do usuário autenticado
 | POST | `/accounts-payable/{id}/cancel` | Cancela conta | `PAYABLE_WRITE` |
 | DELETE | `/accounts-payable/{id}` | Remove conta | `PAYABLE_WRITE` |
 
-> A conta a pagar pode ser **vinculada a um empreendimento** (`developmentId`, opcional).
-> Sem vínculo, é tratada como **despesa geral/administrativa**. O `PayableResponse`
-> retorna `developmentId` + `developmentName`. O filtro por empreendimento é feito
-> no frontend (a listagem já traz o vínculo).
+> Cada conta a pagar tem 3 dimensões (todas FK): **`categoryId`** (natureza do
+> gasto — plano de contas), **`costCenterId`** (área/responsabilidade) e
+> **`developmentId`** (empreendimento, opcional; nulo = despesa geral/administrativa).
+> O `PayableResponse` traz `categoryId/categoryName/categoryGroup`,
+> `costCenterId/costCenterName` e `developmentId/developmentName`.
 
 ### Contas a Receber
 | Método | Caminho | Descrição | Permissão |
@@ -130,13 +131,21 @@ GET /api/auth/me   → dados do usuário autenticado
 | PUT | `/suppliers/{id}` | Atualiza fornecedor | `PAYABLE_WRITE` |
 | DELETE | `/suppliers/{id}` | Remove fornecedor | `PAYABLE_WRITE` |
 
-### Centros de Custo
+### Centros de Custo (área/responsabilidade)
 | Método | Caminho | Descrição | Permissão |
 |--------|---------|-----------|-----------|
-| GET | `/cost-centers` | Lista centros de custo | `READ` |
-| POST | `/cost-centers` | Cria centro de custo | `PAYABLE_WRITE` |
-| PUT | `/cost-centers/{id}` | Atualiza centro de custo | `PAYABLE_WRITE` |
-| DELETE | `/cost-centers/{id}` | Remove centro de custo | `PAYABLE_WRITE` |
+| GET | `/cost-centers` | Lista centros de custo (com `grupo`) | `READ` |
+| POST | `/cost-centers` | Cria centro de custo | `SETTINGS_MANAGE` |
+| PUT | `/cost-centers/{id}` | Atualiza centro de custo | `SETTINGS_MANAGE` |
+| DELETE | `/cost-centers/{id}` | Remove centro de custo | `SETTINGS_MANAGE` |
+
+### Categorias (plano de contas / natureza do gasto)
+| Método | Caminho | Descrição | Permissão |
+|--------|---------|-----------|-----------|
+| GET | `/categories` | Lista categorias (2 níveis: `grupo` → `name`) | `READ` |
+| POST | `/categories` | Cria categoria | `SETTINGS_MANAGE` |
+| PUT | `/categories/{id}` | Atualiza categoria | `SETTINGS_MANAGE` |
+| DELETE | `/categories/{id}` | Remove categoria | `SETTINGS_MANAGE` |
 
 ### Contas Bancárias
 | Método | Caminho | Descrição | Permissão |
@@ -190,6 +199,8 @@ GET /api/auth/me   → dados do usuário autenticado
 | GET | `/reports/pending-transactions` | Transações bancárias pendentes | `REPORTS_EXPORT` |
 | GET | `/reports/sales-by-development` | Vendas agrupadas por empreendimento | `REPORTS_EXPORT` |
 | GET | `/reports/expenses-by-development` | Despesas pagas por empreendimento | `REPORTS_EXPORT` |
+| GET | `/reports/expenses-by-category` | Despesas pagas por categoria (grupo/item) | `REPORTS_EXPORT` |
+| GET | `/reports/expenses-by-cost-center` | Despesas pagas por centro de custo | `REPORTS_EXPORT` |
 | GET | `/reports/delinquent-clients` | Clientes com parcelas em atraso | `REPORTS_EXPORT` |
 
 ### Configurações
@@ -270,7 +281,8 @@ GET /api/dashboard/analytics?from=2026-01-01&to=2026-12-31
     receivedByMonth[], toReceiveByMonth[], overdueByMonth[],
     delinquencyByDevelopment[], salesByMonth[], salesByPurchaseType[],
     cashFlowForecast[], payablesPaidVsOpen[], receivablesReceivedVsOpen[],
-    overdueByAging[], expensesByDevelopment[], profitByDevelopment[]
+    overdueByAging[], expensesByDevelopment[], profitByDevelopment[],
+    expensesByCategory[], expensesByCostCenter[]
   }
 ```
 

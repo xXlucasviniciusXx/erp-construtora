@@ -44,4 +44,31 @@ public interface AccountPayableRepository extends JpaRepository<AccountPayable, 
             order by amount desc
             """)
     List<Object[]> expensesByDevelopmentPaid();
+
+    /** Despesas PAGAS agrupadas por categoria (grupo / item). */
+    @Query("""
+            select coalesce(c.grupo, '—') as grupo,
+                   coalesce(c.name, 'Sem categoria') as categoria,
+                   count(a) as total,
+                   coalesce(sum(a.amount), 0) as amount
+            from AccountPayable a
+              left join a.category c
+            where a.status = com.construtora.financeiro.model.enums.PayableStatus.PAID
+            group by c.grupo, c.name
+            order by amount desc
+            """)
+    List<Object[]> expensesByCategoryPaid();
+
+    /** Despesas PAGAS agrupadas por centro de custo. */
+    @Query("""
+            select coalesce(cc.name, 'Sem centro de custo') as centro,
+                   count(a) as total,
+                   coalesce(sum(a.amount), 0) as amount
+            from AccountPayable a
+              left join a.costCenter cc
+            where a.status = com.construtora.financeiro.model.enums.PayableStatus.PAID
+            group by cc.name
+            order by amount desc
+            """)
+    List<Object[]> expensesByCostCenterPaid();
 }

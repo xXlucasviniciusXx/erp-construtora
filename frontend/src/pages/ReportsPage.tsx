@@ -46,6 +46,9 @@ export function ReportsPage() {
           <Button variant="outline" onClick={() => download('/reports/reconciliations', 'conciliacoes.csv')}>Conciliações realizadas</Button>
           <Button variant="outline" onClick={() => download('/reports/pending-transactions', 'transacoes-pendentes.csv')}>Transações pendentes</Button>
           <Button variant="outline" onClick={() => download('/reports/sales-by-development', 'vendas-por-empreendimento.csv')}>Vendas por empreendimento</Button>
+          <Button variant="outline" onClick={() => download('/reports/expenses-by-development', 'despesas-por-empreendimento.csv')}>Despesas por empreendimento</Button>
+          <Button variant="outline" onClick={() => download('/reports/expenses-by-category', 'despesas-por-categoria.csv')}>Despesas por categoria</Button>
+          <Button variant="outline" onClick={() => download('/reports/expenses-by-cost-center', 'despesas-por-centro-custo.csv')}>Despesas por centro de custo</Button>
           <Button variant="outline" onClick={() => download('/reports/delinquent-clients', 'clientes-inadimplentes.csv')}>Clientes inadimplentes</Button>
         </div>
       </Card>

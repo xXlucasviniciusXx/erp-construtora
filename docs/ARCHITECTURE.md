@@ -167,15 +167,34 @@ permanecem simples.
 
 ---
 
-## Fornecedores e Centros de Custo
+## Plano de contas: 3 dimensões de Contas a Pagar
 
-Entidades simples criadas na migration V6:
-- `suppliers` — nome, CNPJ/CPF, e-mail, telefone, endereço, categoria, ativo.
-- `cost_centers` — nome, descrição, ativo.
+A migration **V11** estrutura o lançamento de despesas em três dimensões, todas
+**FK** (antes `category`/`cost_center` eram texto livre):
 
-Hoje `accounts_payable.supplier` e `accounts_payable.cost_center` são **texto
-livre** (autocomplete a partir das tabelas mestre), não FKs. Migrá-los para FK é
-uma melhoria futura no backlog.
+| Dimensão | Pergunta | Entidade | Exemplos |
+|----------|----------|----------|----------|
+| **Categoria** | *o quê* (natureza) | `categories` (2 níveis: `grupo` → `name`) | Terraplanagem, Salários, Tarifas Bancárias |
+| **Centro de Custo** | *onde/quem* (área) | `cost_centers` (+ coluna `grupo`) | Obras, Comercial, Administração Geral |
+| **Empreendimento** | *qual obra* (opcional) | `developments` (FK em V10) | Parque das Águas |
+
+A V11 **cria** `categories` (seed com ~70 itens), adiciona `grupo` a
+`cost_centers`, e converte `accounts_payable.category`/`cost_center` em
+`category_id`/`cost_center_id`. Os registros antigos (texto livre) são
+preservados via **backfill**: valores não mapeados viram categorias do grupo
+"Outros" e os centros por empreendimento ("Obra X") são desativados (a dimensão
+empreendimento já é FK própria). `supplier` permanece como texto (autocomplete);
+migrá-lo para FK fica no backlog.
+
+Esse modelo alimenta filtros, relatórios CSV
+(`/reports/expenses-by-category`, `/expenses-by-cost-center`,
+`/expenses-by-development`) e os indicadores do dashboard
+(`expensesByCategory`, `expensesByCostCenter`, `expensesByDevelopment`,
+`profitByDevelopment`).
+
+## Fornecedores
+
+Entidade `suppliers` (V6): nome, CNPJ/CPF, e-mail, telefone, endereço, categoria, ativo.
 
 ## Contas a Pagar × Empreendimento
 

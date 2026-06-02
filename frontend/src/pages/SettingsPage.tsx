@@ -7,10 +7,12 @@ import { Button, Card, Field, Input, PageHeader, Select } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { BankAccountsTab } from './settings/BankAccountsTab'
 import { CostCentersTab } from './settings/CostCentersTab'
+import { CategoriesTab } from './settings/CategoriesTab'
 
 const TABS = [
   { key: 'general', label: 'Geral' },
   { key: 'banks', label: 'Contas Bancárias' },
+  { key: 'categories', label: 'Categorias' },
   { key: 'cost-centers', label: 'Centros de Custo' },
 ] as const
 
@@ -42,6 +44,7 @@ export function SettingsPage() {
 
       {tab === 'general' && <GeneralTab />}
       {tab === 'banks' && <BankAccountsTab />}
+      {tab === 'categories' && <CategoriesTab />}
       {tab === 'cost-centers' && <CostCentersTab />}
     </div>
   )

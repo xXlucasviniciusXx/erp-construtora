@@ -229,6 +229,20 @@ export function DashboardPage() {
               </BarChart>
             </ChartCard>
 
+            <ChartCard title="Despesas por categoria (pagas)" hint="Plano de contas">
+              <BarChart data={data.expensesByCategory.slice(0, 8)} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={140} fontSize={9} />
+                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#7c3aed" name="Despesas" />
+              </BarChart>
+            </ChartCard>
+
+            <ChartCard title="Despesas por centro de custo (pagas)">
+              <BarChart data={data.expensesByCostCenter.slice(0, 8)} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
+                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#0891b2" name="Despesas" />
+              </BarChart>
+            </ChartCard>
+
             <ChartCard title="Clientes (ativos / inativos / inadimplentes)">
               <PieChart>
                 <Pie data={clientPie} dataKey="value" nameKey="label" outerRadius={80} label>

@@ -11,14 +11,14 @@ import java.util.UUID;
 
 public record PayableRequest(
         @NotBlank String supplier,
-        String category,
+        UUID categoryId,
         String description,
         @NotNull @Positive BigDecimal amount,
         @NotNull LocalDate dueDate,
         LocalDate paymentDate,
         PayableStatus status,
         String paymentMethod,
-        String costCenter,
+        UUID costCenterId,
         UUID developmentId,
         String attachmentUrl
 ) {}

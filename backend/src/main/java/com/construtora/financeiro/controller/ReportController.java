@@ -71,6 +71,18 @@ public class ReportController {
         return csv("despesas-por-empreendimento.csv", service.expensesByDevelopment());
     }
 
+    @GetMapping("/expenses-by-category")
+    @Operation(summary = "Despesas pagas por categoria (CSV)")
+    public ResponseEntity<byte[]> expensesByCategory() {
+        return csv("despesas-por-categoria.csv", service.expensesByCategory());
+    }
+
+    @GetMapping("/expenses-by-cost-center")
+    @Operation(summary = "Despesas pagas por centro de custo (CSV)")
+    public ResponseEntity<byte[]> expensesByCostCenter() {
+        return csv("despesas-por-centro-custo.csv", service.expensesByCostCenter());
+    }
+
     @GetMapping("/delinquent-clients")
     @Operation(summary = "Clientes inadimplentes (CSV)")
     public ResponseEntity<byte[]> delinquent() {

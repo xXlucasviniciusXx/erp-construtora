@@ -50,11 +50,12 @@ public class CostCenterService {
     private CostCenter apply(CostCenterRequest r, CostCenter c) {
         c.setName(r.name().trim());
         c.setDescription(r.description());
+        c.setGrupo(r.grupo());
         c.setActive(r.active() == null || r.active());
         return c;
     }
 
     private CostCenterResponse toResponse(CostCenter c) {
-        return new CostCenterResponse(c.getId(), c.getName(), c.getDescription(), c.isActive());
+        return new CostCenterResponse(c.getId(), c.getName(), c.getDescription(), c.getGrupo(), c.isActive());
     }
 }

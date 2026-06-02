@@ -27,5 +27,7 @@ public record DashboardAnalyticsResponse(
         List<Point> receivablesReceivedVsOpen,
         List<Point> overdueByAging,
         List<Point> expensesByDevelopment,
-        List<Point> profitByDevelopment
+        List<Point> profitByDevelopment,
+        List<Point> expensesByCategory,
+        List<Point> expensesByCostCenter
 ) {}

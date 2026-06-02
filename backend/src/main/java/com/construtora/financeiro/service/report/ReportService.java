@@ -38,10 +38,14 @@ public class ReportService {
     public String payableByPeriod(LocalDate start, LocalDate end) {
         List<List<Object>> rows = new ArrayList<>();
         payableRepository.findByDueDateBetween(start, end).forEach(p -> rows.add(List.of(
-                p.getSupplier(), nz(p.getCategory()), nz(p.getDescription()), p.getAmount(),
+                p.getSupplier(),
+                nz(p.getCategory() != null ? p.getCategory().getName() : null),
+                nz(p.getCostCenter() != null ? p.getCostCenter().getName() : null),
+                nz(p.getDevelopment() != null ? p.getDevelopment().getName() : "Geral / Administrativo"),
+                nz(p.getDescription()), p.getAmount(),
                 p.getDueDate(), nz(p.getPaymentDate()), p.getStatus())));
         return CsvWriter.build(
-                List.of("Fornecedor", "Categoria", "Descrição", "Valor", "Vencimento", "Pagamento", "Status"), rows);
+                List.of("Fornecedor", "Categoria", "Centro de Custo", "Empreendimento", "Descrição", "Valor", "Vencimento", "Pagamento", "Status"), rows);
     }
 
     public String receivableByPeriod(LocalDate start, LocalDate end) {
@@ -88,6 +92,18 @@ public class ReportService {
         List<List<Object>> rows = new ArrayList<>();
         payableRepository.expensesByDevelopmentPaid().forEach(o -> rows.add(List.of(nz(o[0]), nz(o[1]), nz(o[2]))));
         return CsvWriter.build(List.of("Empreendimento", "Qtd. Despesas Pagas", "Valor Total"), rows);
+    }
+
+    public String expensesByCategory() {
+        List<List<Object>> rows = new ArrayList<>();
+        payableRepository.expensesByCategoryPaid().forEach(o -> rows.add(List.of(nz(o[0]), nz(o[1]), nz(o[2]), nz(o[3]))));
+        return CsvWriter.build(List.of("Grupo", "Categoria", "Qtd. Despesas Pagas", "Valor Total"), rows);
+    }
+
+    public String expensesByCostCenter() {
+        List<List<Object>> rows = new ArrayList<>();
+        payableRepository.expensesByCostCenterPaid().forEach(o -> rows.add(List.of(nz(o[0]), nz(o[1]), nz(o[2]))));
+        return CsvWriter.build(List.of("Centro de Custo", "Qtd. Despesas Pagas", "Valor Total"), rows);
     }
 
     public String delinquentClients() {

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, XCircle, ArrowUpCircle } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
-import type { CostCenter, Development, Page, Supplier } from '@/lib/types'
+import type { Category, CostCenter, Development, Page, Supplier } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
 import { useToast } from '@/components/Toast'
@@ -13,16 +13,26 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 interface Payable {
   id: string
   supplier: string
-  category?: string
+  categoryId?: string
+  categoryName?: string
+  categoryGroup?: string
   description?: string
   amount: number
   dueDate: string
   paymentDate?: string
   status: 'OPEN' | 'PAID' | 'OVERDUE' | 'CANCELLED'
   paymentMethod?: string
-  costCenter?: string
+  costCenterId?: string
+  costCenterName?: string
   developmentId?: string
   developmentName?: string
+}
+
+/** Agrupa itens por `grupo` para uso em <optgroup>. */
+function byGroup<T extends { grupo?: string; name: string; id: string }>(items: T[]): Record<string, T[]> {
+  const acc: Record<string, T[]> = {}
+  for (const it of items) { const g = it.grupo || 'Outros'; (acc[g] ??= []).push(it) }
+  return acc
 }
 
 const EMPTY: Partial<Payable> = { status: 'OPEN' }
@@ -49,7 +59,11 @@ export function PayablePage() {
   })
   const suppliers = useQuery({ queryKey: ['suppliers'], queryFn: async () => (await api.get<Supplier[]>('/suppliers')).data })
   const costCenters = useQuery({ queryKey: ['cost-centers'], queryFn: async () => (await api.get<CostCenter[]>('/cost-centers')).data })
+  const categories = useQuery({ queryKey: ['categories'], queryFn: async () => (await api.get<Category[]>('/categories')).data })
   const developments = useQuery({ queryKey: ['developments'], queryFn: async () => (await api.get<Development[]>('/developments')).data })
+
+  const activeCategories = (categories.data ?? []).filter((c) => c.active || c.id === form.categoryId)
+  const activeCostCenters = (costCenters.data ?? []).filter((c) => c.active || c.id === form.costCenterId)
 
   const invalidate = () => { queryClient.invalidateQueries({ queryKey: ['payable'] }); queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] }) }
   const save = useMutation({
@@ -99,13 +113,14 @@ export function PayablePage() {
         </Select>
       </div>
 
-      {isLoading ? <TableSkeleton rows={6} cols={7} /> : (
-        <Table headers={['Fornecedor', 'Empreendimento', 'Categoria', 'Valor', 'Vencimento', 'Status', 'Ações']}>
+      {isLoading ? <TableSkeleton rows={6} cols={8} /> : (
+        <Table headers={['Fornecedor', 'Empreendimento', 'Categoria', 'Centro de custo', 'Valor', 'Vencimento', 'Status', 'Ações']}>
           {filtered.map((p) => (
             <Tr key={p.id}>
               <td className="px-4 py-2 font-medium">{p.supplier}</td>
               <td className="px-4 py-2">{p.developmentName ?? <span className="text-gray-400">Geral</span>}</td>
-              <td className="px-4 py-2">{p.category ?? '—'}</td>
+              <td className="px-4 py-2">{p.categoryName ?? <span className="text-gray-400">—</span>}</td>
+              <td className="px-4 py-2">{p.costCenterName ?? <span className="text-gray-400">—</span>}</td>
               <td className="px-4 py-2">{formatCurrency(p.amount)}</td>
               <td className="px-4 py-2">{formatDate(p.dueDate)}</td>
               <td className="px-4 py-2"><Badge dot color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status]}</Badge></td>
@@ -133,7 +148,7 @@ export function PayablePage() {
             </Tr>
           ))}
           {filtered.length === 0 && (
-            <tr><td colSpan={7} className="p-0">
+            <tr><td colSpan={8} className="p-0">
               <EmptyState
                 icon={ArrowUpCircle}
                 title="Nenhuma conta a pagar"
@@ -151,8 +166,8 @@ export function PayablePage() {
             <Info label="Fornecedor" value={view.supplier} />
             <Info label="Status" value={STATUS_LABEL[view.status]} />
             <Info label="Empreendimento" value={view.developmentName ?? 'Geral / Administrativo'} />
-            <Info label="Categoria" value={view.category} />
-            <Info label="Centro de custo" value={view.costCenter} />
+            <Info label="Categoria" value={view.categoryGroup ? `${view.categoryGroup} / ${view.categoryName}` : view.categoryName} />
+            <Info label="Centro de custo" value={view.costCenterName} />
             <Info label="Valor" value={formatCurrency(view.amount)} />
             <Info label="Vencimento" value={formatDate(view.dueDate)} />
             <Info label="Pagamento" value={view.paymentDate ? formatDate(view.paymentDate) : '—'} />
@@ -169,10 +184,25 @@ export function PayablePage() {
             <datalist id="suppliers-list">{suppliers.data?.map((s) => <option key={s.id} value={s.name} />)}</datalist>
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Categoria"><Input value={form.category ?? ''} onChange={(e) => setForm({ ...form, category: e.target.value })} /></Field>
-            <Field label="Centro de custo">
-              <Input list="cost-centers-list" placeholder="Selecione ou digite…" value={form.costCenter ?? ''} onChange={(e) => setForm({ ...form, costCenter: e.target.value })} />
-              <datalist id="cost-centers-list">{costCenters.data?.map((c) => <option key={c.id} value={c.name} />)}</datalist>
+            <Field label="Categoria (natureza do gasto)">
+              <Select value={form.categoryId ?? ''} onChange={(e) => setForm({ ...form, categoryId: e.target.value || undefined })}>
+                <option value="">— Selecione —</option>
+                {Object.entries(byGroup(activeCategories)).map(([g, items]) => (
+                  <optgroup key={g} label={g}>
+                    {items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </optgroup>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Centro de custo (área)">
+              <Select value={form.costCenterId ?? ''} onChange={(e) => setForm({ ...form, costCenterId: e.target.value || undefined })}>
+                <option value="">— Selecione —</option>
+                {Object.entries(byGroup(activeCostCenters)).map(([g, items]) => (
+                  <optgroup key={g} label={g}>
+                    {items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </optgroup>
+                ))}
+              </Select>
             </Field>
           </div>
           <Field label="Empreendimento (opcional)">

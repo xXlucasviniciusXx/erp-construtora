@@ -210,6 +210,8 @@ export interface DashboardAnalytics {
   overdueByAging: Point[]
   expensesByDevelopment: Point[]
   profitByDevelopment: Point[]
+  expensesByCategory: Point[]
+  expensesByCostCenter: Point[]
 }
 
 export interface InstallmentDetail {
@@ -250,6 +252,14 @@ export interface CostCenter {
   id: string
   name: string
   description?: string
+  grupo?: string
+  active: boolean
+}
+
+export interface Category {
+  id: string
+  grupo: string
+  name: string
   active: boolean
 }
 
