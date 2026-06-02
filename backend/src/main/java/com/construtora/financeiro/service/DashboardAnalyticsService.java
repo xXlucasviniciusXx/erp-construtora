@@ -126,6 +126,37 @@ public class DashboardAnalyticsService {
                 new Point("Pagas", big("select coalesce(sum(amount),0) from accounts_payable where status='PAID'", p).doubleValue()),
                 new Point("Em aberto", big("select coalesce(sum(amount),0) from accounts_payable where status in ('OPEN','OVERDUE')", p).doubleValue()));
 
+        // Despesas (pagas) por empreendimento — nulo = "Geral / Administrativo"
+        List<Point> expensesByDevelopment = points("""
+                select coalesce(dv.name, 'Geral / Administrativo') as label, sum(ap.amount) as value
+                from accounts_payable ap
+                  left join developments dv on dv.id = ap.development_id
+                where ap.status='PAID'
+                group by 1 order by 2 desc""", p);
+
+        // Lucro/prejuízo por empreendimento (caixa): recebido (parcelas pagas) − despesas pagas
+        Map<String, Double> receivedByDev = toMap(points("""
+                select dv.name as label, sum(i.amount) as value
+                from installments i
+                  join property_sales s on s.id = i.sale_id
+                  join lots lt on lt.id = s.lot_id
+                  join blocks bk on bk.id = lt.block_id
+                  join developments dv on dv.id = bk.development_id
+                where i.status='PAID'
+                group by dv.name""", p));
+        Map<String, Double> expenseByDev = new LinkedHashMap<>();
+        expensesByDevelopment.forEach(pt -> {
+            if (!"Geral / Administrativo".equals(pt.label())) expenseByDev.put(pt.label(), pt.value());
+        });
+        java.util.TreeSet<String> devNames = new java.util.TreeSet<>();
+        devNames.addAll(receivedByDev.keySet());
+        devNames.addAll(expenseByDev.keySet());
+        List<Point> profitByDevelopment = new ArrayList<>();
+        for (String name : devNames) {
+            profitByDevelopment.add(new Point(name,
+                    receivedByDev.getOrDefault(name, 0.0) - expenseByDev.getOrDefault(name, 0.0)));
+        }
+
         // Contas a receber: recebido x a receber (parcelas + receivables avulsas, com filtro de cliente)
         String recvClientF = clientId != null ? " and client_id = :clientId" : "";
         double receivedTotal = big("""
@@ -158,7 +189,8 @@ public class DashboardAnalyticsService {
                 totalSold, totalReceived, totalOpen, totalOverdue,
                 delinquent, active, inactive, lotsSold, lotsAvailable,
                 received, toReceive, overdueMonth, delinquencyByDev, salesByMonth,
-                salesByPurchaseType, cashFlow, payablesPaidVsOpen, receivablesReceivedVsOpen, aging);
+                salesByPurchaseType, cashFlow, payablesPaidVsOpen, receivablesReceivedVsOpen, aging,
+                expensesByDevelopment, profitByDevelopment);
     }
 
     // ---- helpers ----

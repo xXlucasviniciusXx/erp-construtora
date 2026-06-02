@@ -65,6 +65,12 @@ public class ReportController {
         return csv("vendas-por-empreendimento.csv", service.salesByDevelopment());
     }
 
+    @GetMapping("/expenses-by-development")
+    @Operation(summary = "Despesas pagas por empreendimento (CSV)")
+    public ResponseEntity<byte[]> expensesByDevelopment() {
+        return csv("despesas-por-empreendimento.csv", service.expensesByDevelopment());
+    }
+
     @GetMapping("/delinquent-clients")
     @Operation(summary = "Clientes inadimplentes (CSV)")
     public ResponseEntity<byte[]> delinquent() {

@@ -47,6 +47,11 @@ public class AccountPayable {
     @Column(name = "cost_center")
     private String costCenter;
 
+    /** Empreendimento vinculado (opcional). Nulo = despesa geral/administrativa. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "development_id")
+    private Development development;
+
     @Column(name = "attachment_url")
     private String attachmentUrl;
 

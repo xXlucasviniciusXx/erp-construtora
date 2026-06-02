@@ -212,6 +212,23 @@ export function DashboardPage() {
               </PieChart>
             </ChartCard>
 
+            <ChartCard title="Despesas por empreendimento">
+              <BarChart data={data.expensesByDevelopment} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
+                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#be123c" name="Despesas pagas" />
+              </BarChart>
+            </ChartCard>
+
+            <ChartCard title="Lucro/prejuízo por empreendimento (caixa)" hint="Recebido − despesas pagas">
+              <BarChart data={data.profitByDevelopment} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
+                <Tooltip formatter={(v: number) => brl(v)} />
+                <Bar dataKey="value" name="Lucro/prejuízo">
+                  {data.profitByDevelopment.map((pt, i) => <Cell key={i} fill={pt.value >= 0 ? '#0f766e' : '#be123c'} />)}
+                </Bar>
+              </BarChart>
+            </ChartCard>
+
             <ChartCard title="Clientes (ativos / inativos / inadimplentes)">
               <PieChart>
                 <Pie data={clientPie} dataKey="value" nameKey="label" outerRadius={80} label>

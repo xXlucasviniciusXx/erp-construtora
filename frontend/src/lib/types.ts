@@ -208,6 +208,8 @@ export interface DashboardAnalytics {
   payablesPaidVsOpen: Point[]
   receivablesReceivedVsOpen: Point[]
   overdueByAging: Point[]
+  expensesByDevelopment: Point[]
+  profitByDevelopment: Point[]
 }
 
 export interface InstallmentDetail {

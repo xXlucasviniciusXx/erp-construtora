@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, XCircle, ArrowUpCircle } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
-import type { CostCenter, Page, Supplier } from '@/lib/types'
+import type { CostCenter, Development, Page, Supplier } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
 import { useToast } from '@/components/Toast'
@@ -21,6 +21,8 @@ interface Payable {
   status: 'OPEN' | 'PAID' | 'OVERDUE' | 'CANCELLED'
   paymentMethod?: string
   costCenter?: string
+  developmentId?: string
+  developmentName?: string
 }
 
 const EMPTY: Partial<Payable> = { status: 'OPEN' }
@@ -38,6 +40,7 @@ export function PayablePage() {
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [devFilter, setDevFilter] = useState('')
   const canWrite = hasPermission('PAYABLE_WRITE')
 
   const { data, isLoading } = useQuery({
@@ -46,6 +49,7 @@ export function PayablePage() {
   })
   const suppliers = useQuery({ queryKey: ['suppliers'], queryFn: async () => (await api.get<Supplier[]>('/suppliers')).data })
   const costCenters = useQuery({ queryKey: ['cost-centers'], queryFn: async () => (await api.get<CostCenter[]>('/cost-centers')).data })
+  const developments = useQuery({ queryKey: ['developments'], queryFn: async () => (await api.get<Development[]>('/developments')).data })
 
   const invalidate = () => { queryClient.invalidateQueries({ queryKey: ['payable'] }); queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] }) }
   const save = useMutation({
@@ -71,8 +75,9 @@ export function PayablePage() {
     let list = data?.content ?? []
     if (q) { const t = q.toLowerCase(); list = list.filter((p) => p.supplier.toLowerCase().includes(t) || (p.description ?? '').toLowerCase().includes(t)) }
     if (statusFilter) list = list.filter((p) => p.status === statusFilter)
+    if (devFilter) list = list.filter((p) => (devFilter === '__none__' ? !p.developmentId : p.developmentId === devFilter))
     return list
-  }, [data, q, statusFilter])
+  }, [data, q, statusFilter, devFilter])
 
   return (
     <div>
@@ -87,13 +92,19 @@ export function PayablePage() {
           <option value="OVERDUE">Atrasado</option>
           <option value="CANCELLED">Cancelado</option>
         </Select>
+        <Select value={devFilter} onChange={(e) => setDevFilter(e.target.value)}>
+          <option value="">Todos os empreendimentos</option>
+          <option value="__none__">Geral / Administrativo (sem empreend.)</option>
+          {developments.data?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </Select>
       </div>
 
-      {isLoading ? <TableSkeleton rows={6} cols={6} /> : (
-        <Table headers={['Fornecedor', 'Categoria', 'Valor', 'Vencimento', 'Status', 'Ações']}>
+      {isLoading ? <TableSkeleton rows={6} cols={7} /> : (
+        <Table headers={['Fornecedor', 'Empreendimento', 'Categoria', 'Valor', 'Vencimento', 'Status', 'Ações']}>
           {filtered.map((p) => (
             <Tr key={p.id}>
               <td className="px-4 py-2 font-medium">{p.supplier}</td>
+              <td className="px-4 py-2">{p.developmentName ?? <span className="text-gray-400">Geral</span>}</td>
               <td className="px-4 py-2">{p.category ?? '—'}</td>
               <td className="px-4 py-2">{formatCurrency(p.amount)}</td>
               <td className="px-4 py-2">{formatDate(p.dueDate)}</td>
@@ -122,12 +133,12 @@ export function PayablePage() {
             </Tr>
           ))}
           {filtered.length === 0 && (
-            <tr><td colSpan={6} className="p-0">
+            <tr><td colSpan={7} className="p-0">
               <EmptyState
                 icon={ArrowUpCircle}
                 title="Nenhuma conta a pagar"
-                description={q || statusFilter ? 'Ajuste a busca ou os filtros.' : 'Cadastre a primeira conta a pagar.'}
-                action={canWrite && !q && !statusFilter ? <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Nova conta</Button> : undefined}
+                description={q || statusFilter || devFilter ? 'Ajuste a busca ou os filtros.' : 'Cadastre a primeira conta a pagar.'}
+                action={canWrite && !q && !statusFilter && !devFilter ? <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Nova conta</Button> : undefined}
               />
             </td></tr>
           )}
@@ -139,6 +150,7 @@ export function PayablePage() {
           <div className="grid grid-cols-2 gap-3">
             <Info label="Fornecedor" value={view.supplier} />
             <Info label="Status" value={STATUS_LABEL[view.status]} />
+            <Info label="Empreendimento" value={view.developmentName ?? 'Geral / Administrativo'} />
             <Info label="Categoria" value={view.category} />
             <Info label="Centro de custo" value={view.costCenter} />
             <Info label="Valor" value={formatCurrency(view.amount)} />
@@ -163,6 +175,17 @@ export function PayablePage() {
               <datalist id="cost-centers-list">{costCenters.data?.map((c) => <option key={c.id} value={c.name} />)}</datalist>
             </Field>
           </div>
+          <Field label="Empreendimento (opcional)">
+            <Select value={form.developmentId ?? ''} onChange={(e) => setForm({ ...form, developmentId: e.target.value || undefined })}>
+              <option value="">— Despesa geral / administrativa —</option>
+              {developments.data?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </Select>
+          </Field>
+          {!form.developmentId && (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+              ⚠ Sem empreendimento vinculado: esta conta será registrada como <strong>despesa geral / administrativa</strong>.
+            </p>
+          )}
           <Field label="Descrição"><Input value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Valor"><Input type="number" step="0.01" value={form.amount ?? ''} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} required /></Field>

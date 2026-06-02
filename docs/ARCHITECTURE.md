@@ -173,8 +173,25 @@ Entidades simples criadas na migration V6:
 - `suppliers` — nome, CNPJ/CPF, e-mail, telefone, endereço, categoria, ativo.
 - `cost_centers` — nome, descrição, ativo.
 
-Ambos podem ser associados a contas a pagar (`accounts_payable.supplier_id`,
-`accounts_payable.cost_center_id`).
+Hoje `accounts_payable.supplier` e `accounts_payable.cost_center` são **texto
+livre** (autocomplete a partir das tabelas mestre), não FKs. Migrá-los para FK é
+uma melhoria futura no backlog.
+
+## Contas a Pagar × Empreendimento
+
+A migration **V10** adiciona `accounts_payable.development_id` (FK **nullable**
+para `developments`). O vínculo é **opcional**:
+- Despesa administrativa geral → `development_id` nulo (tratada como
+  "Geral / Administrativo").
+- Despesa de obra/loteamento → vinculada ao empreendimento.
+
+Registros antigos permanecem com `development_id` nulo (compatível). Esse vínculo
+alimenta o filtro por empreendimento na listagem, o relatório
+`/reports/expenses-by-development` e dois indicadores no dashboard:
+- **`expensesByDevelopment`**: despesas pagas agrupadas por empreendimento.
+- **`profitByDevelopment`**: lucro/prejuízo **em caixa** = parcelas recebidas
+  (PAID) − despesas pagas (PAID), por empreendimento. Reflete o caixa real:
+  uma obra pode ficar negativa enquanto os custos saem antes dos recebimentos.
 
 ---
 

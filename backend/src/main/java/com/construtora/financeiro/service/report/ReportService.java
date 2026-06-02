@@ -84,6 +84,12 @@ public class ReportService {
         return CsvWriter.build(List.of("Empreendimento", "Qtd. Vendas", "Valor Total"), rows);
     }
 
+    public String expensesByDevelopment() {
+        List<List<Object>> rows = new ArrayList<>();
+        payableRepository.expensesByDevelopmentPaid().forEach(o -> rows.add(List.of(nz(o[0]), nz(o[1]), nz(o[2]))));
+        return CsvWriter.build(List.of("Empreendimento", "Qtd. Despesas Pagas", "Valor Total"), rows);
+    }
+
     public String delinquentClients() {
         List<List<Object>> rows = new ArrayList<>();
         for (Installment i : installmentRepository.findOverdueUnpaid(LocalDate.now())) {

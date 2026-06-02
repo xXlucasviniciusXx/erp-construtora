@@ -107,6 +107,11 @@ GET /api/auth/me   → dados do usuário autenticado
 | POST | `/accounts-payable/{id}/cancel` | Cancela conta | `PAYABLE_WRITE` |
 | DELETE | `/accounts-payable/{id}` | Remove conta | `PAYABLE_WRITE` |
 
+> A conta a pagar pode ser **vinculada a um empreendimento** (`developmentId`, opcional).
+> Sem vínculo, é tratada como **despesa geral/administrativa**. O `PayableResponse`
+> retorna `developmentId` + `developmentName`. O filtro por empreendimento é feito
+> no frontend (a listagem já traz o vínculo).
+
 ### Contas a Receber
 | Método | Caminho | Descrição | Permissão |
 |--------|---------|-----------|-----------|
@@ -184,6 +189,7 @@ GET /api/auth/me   → dados do usuário autenticado
 | GET | `/reports/reconciliations?from=&to=` | Conciliações realizadas | `REPORTS_EXPORT` |
 | GET | `/reports/pending-transactions` | Transações bancárias pendentes | `REPORTS_EXPORT` |
 | GET | `/reports/sales-by-development` | Vendas agrupadas por empreendimento | `REPORTS_EXPORT` |
+| GET | `/reports/expenses-by-development` | Despesas pagas por empreendimento | `REPORTS_EXPORT` |
 | GET | `/reports/delinquent-clients` | Clientes com parcelas em atraso | `REPORTS_EXPORT` |
 
 ### Configurações
@@ -264,9 +270,13 @@ GET /api/dashboard/analytics?from=2026-01-01&to=2026-12-31
     receivedByMonth[], toReceiveByMonth[], overdueByMonth[],
     delinquencyByDevelopment[], salesByMonth[], salesByPurchaseType[],
     cashFlowForecast[], payablesPaidVsOpen[], receivablesReceivedVsOpen[],
-    overdueByAging[]
+    overdueByAging[], expensesByDevelopment[], profitByDevelopment[]
   }
 ```
+
+> `expensesByDevelopment` = despesas **pagas** por empreendimento (nulo →
+> "Geral / Administrativo"). `profitByDevelopment` = **lucro/prejuízo em caixa**
+> por empreendimento (parcelas recebidas − despesas pagas).
 
 ### Importar extrato (cURL)
 ```bash

@@ -68,11 +68,11 @@ clientes (frontend-only, fallback manual se falhar).
 
 | Módulo | Tela | Destaque |
 |--------|------|----------|
-| **Dashboard** | `/` | 8 cards + 10 gráficos (Recharts) com filtros de período/cliente/lote |
+| **Dashboard** | `/` | 8 cards + 12 gráficos (Recharts) com filtros e drill-down; inclui despesas e lucro/prejuízo por empreendimento |
 | **Clientes** | `/clients` | Cadastro PF/PJ, CEP/CNPJ automático (BrasilAPI), inativação com bloqueio por débitos, menu ⋮ |
 | **Imóveis / Lotes** | `/properties` | Hierarquia 3 níveis: Empreendimento → Quadra → Lote; códigos automáticos (E001-Q01-L001); valores derivados; limites em cascata |
 | **Vendas** | `/sales` | Combobox pesquisável (CMDK) para Cliente e Lote; valor esperado read-only; entrada condicional; edição de venda; contrato PDF/HTML |
-| **Contas a Pagar** | `/payable` | Lançamentos manuais, confirmar pagamento, cancelar, filtros, fornecedor e centro de custo |
+| **Contas a Pagar** | `/payable` | Lançamentos manuais, confirmar pagamento, cancelar, filtros; vínculo opcional com **empreendimento** (ou despesa geral), fornecedor e centro de custo |
 | **Contas a Receber** | `/receivable` | Lançamentos manuais, confirmar recebimento, filtros |
 | **Parcelas** | (aba em Contas a Receber) | Dados do cliente, baixa de parcela, filtros por status/vencimento/nome |
 | **Fornecedores** | `/suppliers` | CRUD com busca textual |
@@ -222,6 +222,8 @@ backend/src/main/java/com/construtora/financeiro/
 | V6 | Tabelas `suppliers` e `cost_centers` |
 | V7 | Coluna `purchase_type` em `property_sales` |
 | V8 | Hierarquia de imóveis: cria `developments` e `blocks`; renomeia `properties` → `lots`; gera códigos internos hierárquicos (E001-Q01-L001); vincula vendas ao novo campo `lot_id` |
+| V9 | Define taxas de encargos (juros 1% a.m. + multa 2%) nas vendas demo zeradas (base para o cálculo de juros/multa por atraso) |
+| V10 | Vínculo `accounts_payable.development_id` (FK nullable) + seeds de despesas de obra por empreendimento |
 
 ---
 

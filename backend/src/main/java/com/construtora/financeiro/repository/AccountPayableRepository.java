@@ -31,4 +31,17 @@ public interface AccountPayableRepository extends JpaRepository<AccountPayable, 
               and a.amount = :amount
             """)
     List<AccountPayable> findReconcilableByAmount(@Param("amount") BigDecimal amount);
+
+    /** Despesas PAGAS agrupadas por empreendimento (nulo = "Geral / Administrativo"). */
+    @Query("""
+            select coalesce(d.name, 'Geral / Administrativo') as development,
+                   count(a) as total,
+                   coalesce(sum(a.amount), 0) as amount
+            from AccountPayable a
+              left join a.development d
+            where a.status = com.construtora.financeiro.model.enums.PayableStatus.PAID
+            group by d.name
+            order by amount desc
+            """)
+    List<Object[]> expensesByDevelopmentPaid();
 }

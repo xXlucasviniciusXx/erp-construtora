@@ -17,5 +17,7 @@ public record PayableResponse(
         PayableStatus status,
         String paymentMethod,
         String costCenter,
+        UUID developmentId,
+        String developmentName,
         String attachmentUrl
 ) {}

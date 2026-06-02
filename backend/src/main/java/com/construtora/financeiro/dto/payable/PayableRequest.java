@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record PayableRequest(
         @NotBlank String supplier,
@@ -18,5 +19,6 @@ public record PayableRequest(
         PayableStatus status,
         String paymentMethod,
         String costCenter,
+        UUID developmentId,
         String attachmentUrl
 ) {}

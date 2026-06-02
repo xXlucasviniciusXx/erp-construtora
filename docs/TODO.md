@@ -25,6 +25,14 @@ Itens deixados como `TODO` propositalmente para continuação futura.
 - Dark mode completo em todas as telas.
 - Menu lateral retrátil (collapsed/expanded) + mobile drawer.
 
+### Encargos, dashboard e Contas a Pagar por empreendimento
+- Juros/multa por atraso calculados em tempo real (taxas por venda), exibidos
+  em parcelas/vendas e usados na conciliação manual (migration V9).
+- Drill-down no dashboard (inadimplência por empreendimento, vendas por forma de compra).
+- Mapa visual de lotes (grid colorido por status) dentro do empreendimento.
+- Contas a Pagar vinculadas a empreendimento (FK opcional, V10): filtro,
+  relatório CSV e indicadores de despesas e lucro/prejuízo (caixa) por empreendimento.
+
 ### Hierarquia de imóveis (Empreendimento → Quadra → Lote) — migration V8
 - Modelo em 3 níveis substituindo a tabela plana `properties`.
 - Códigos internos automáticos e hierárquicos (`E001-Q01-L001`).
@@ -65,9 +73,11 @@ Itens deixados como `TODO` propositalmente para continuação futura.
 
 ## Financeiro
 
-- [ ] Aplicar juros/multa automaticamente no atraso (campos já existem na venda).
+- [x] Aplicar juros/multa automaticamente no atraso (taxas por venda, cálculo em tempo real).
 - [ ] Correção monetária por índice (INCC/IGPM) nas parcelas — hoje é apenas informativo.
 - [ ] Relatório de DRE simplificado (receitas − despesas por centro de custo).
+- [ ] Migrar `supplier`/`cost_center` de texto livre para FK (Supplier/CostCenter).
+- [ ] Mapa no Dashboard (cards empreendimento → quadra → lotes) — em avaliação pelo cliente.
 
 ## Cadastros de referência
 
