@@ -192,6 +192,22 @@ Esse modelo alimenta filtros, relatórios CSV
 (`expensesByCategory`, `expensesByCostCenter`, `expensesByDevelopment`,
 `profitByDevelopment`).
 
+## DRE — Demonstração do Resultado (base caixa)
+
+`DreService` monta o demonstrativo em **base caixa** (SQL nativo via
+`NamedParameterJdbcTemplate`), opcionalmente por período e empreendimento:
+
+- **Receitas** (linhas fixas): *Receita de Vendas* = parcelas com `status=PAID`
+  e `payment_date` no período (join lote→quadra→empreendimento para o filtro);
+  *Outras Receitas* = `accounts_receivable` com `status=RECEIVED` no período.
+- **Despesas**: `accounts_payable` pagas no período, agrupadas pelo **grupo da
+  categoria**.
+- **Resultado** = total de receitas − total de despesas.
+
+O resultado por empreendimento é coerente com o `profitByDevelopment` do
+dashboard (mesma base caixa). Exposto em JSON (`/dre`) e CSV (`/dre/export`),
+e renderizado na tela **DRE** com filtros e margem sobre a receita.
+
 ## Fornecedores
 
 Entidade `suppliers` (V6): nome, CNPJ/CPF, e-mail, telefone, endereço, categoria, ativo.

@@ -78,7 +78,8 @@ clientes (frontend-only, fallback manual se falhar).
 | **Fornecedores** | `/suppliers` | CRUD com busca textual |
 | **Conciliação** | `/reconciliation` | Sugestão por score, conciliação manual/automática, desfazer, histórico |
 | **Importar Extrato** | `/import` | Upload CSV/OFX; parsers plugáveis |
-| **Relatórios** | `/reports` | 7 relatórios exportáveis em CSV |
+| **DRE** | `/dre` | Demonstração do Resultado (base caixa): receitas − despesas = resultado, por período e empreendimento, com margem e export CSV |
+| **Relatórios** | `/reports` | Relatórios exportáveis em CSV (incl. despesas por categoria/centro/empreendimento) |
 | **Usuários** | `/users` | CRUD de usuários com perfis RBAC (ADMIN only) |
 | **Configurações** | `/settings` | Branding, dados da empresa, dark/light; abas de **Categorias**, **Centros de Custo** e contas bancárias |
 

@@ -17,6 +17,7 @@ const SuppliersPage = lazy(() => import('@/pages/SuppliersPage').then((m) => ({ 
 const ReconciliationPage = lazy(() => import('@/pages/ReconciliationPage').then((m) => ({ default: m.ReconciliationPage })))
 const ImportPage = lazy(() => import('@/pages/ImportPage').then((m) => ({ default: m.ImportPage })))
 const ReportsPage = lazy(() => import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })))
+const DrePage = lazy(() => import('@/pages/DrePage').then((m) => ({ default: m.DrePage })))
 const UsersPage = lazy(() => import('@/pages/UsersPage').then((m) => ({ default: m.UsersPage })))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
@@ -43,6 +44,7 @@ export function App() {
           <Route path="reconciliation" element={<ReconciliationPage />} />
           <Route path="import" element={<ImportPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="dre" element={<DrePage />} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute permission="USERS_MANAGE" />}>

@@ -80,7 +80,13 @@ Itens deixados como `TODO` propositalmente para continuação futura.
       **Centro de Custo** com grupo, ambos FK em Contas a Pagar (V11) — com
       seeds editáveis pelo admin, filtros, relatórios CSV e indicadores no dashboard.
 - [ ] Migrar `supplier` de texto livre para FK (Supplier).
-- [ ] Categorias de **receita** + aplicar em Contas a Receber (DRE completa).
+- [x] **DRE (Demonstração do Resultado)** em base caixa: tela própria com
+      receitas − despesas = resultado, filtros de período/empreendimento, margem
+      e export CSV (`/dre`, `/dre/export`).
+- [ ] DRE em **competência** (faturado − incorrido) como visão alternativa.
+- [ ] Categorias de **receita** (FK em Contas a Receber) para detalhar "Outras Receitas".
+- [ ] Separar **Receitas Financeiras** (juros/multas recebidos) — requer gravar
+      principal/juros/multa na baixa da parcela.
 - [ ] Mapa no Dashboard (cards empreendimento → quadra → lotes) — em avaliação pelo cliente.
 
 ## Cadastros de referência

@@ -189,6 +189,16 @@ GET /api/auth/me   → dados do usuário autenticado
 | GET | `/dashboard` | Cards de resumo | `READ` |
 | GET | `/dashboard/analytics?from=&to=&clientId=&propertyId=` | Séries dos gráficos analíticos | `READ` |
 
+### DRE — Demonstração do Resultado (base caixa)
+| Método | Caminho | Descrição | Permissão |
+|--------|---------|-----------|-----------|
+| GET | `/dre?from=&to=&developmentId=` | Receitas recebidas − despesas pagas = resultado | `READ` |
+| GET | `/dre/export?from=&to=&developmentId=` | Exporta o DRE em CSV | `READ` |
+
+> Receitas em linhas fixas: **Receita de Vendas** (parcelas recebidas) + **Outras
+> Receitas** (recebíveis avulsos). Despesas agrupadas por **grupo de categoria**.
+> Resposta: `{ revenues[], totalRevenue, expenses[], totalExpense, result }`.
+
 ### Relatórios (CSV)
 | Método | Caminho | Descrição | Permissão |
 |--------|---------|-----------|-----------|

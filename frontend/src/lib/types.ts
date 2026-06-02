@@ -188,6 +188,14 @@ export interface Point {
   value: number
 }
 
+export interface Dre {
+  revenues: Point[]
+  totalRevenue: number
+  expenses: Point[]
+  totalExpense: number
+  result: number
+}
+
 export interface DashboardAnalytics {
   totalSold: number
   totalReceived: number
