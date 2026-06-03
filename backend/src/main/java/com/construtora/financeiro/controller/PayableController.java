@@ -29,10 +29,13 @@ public class PayableController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista contas a pagar")
+    @Operation(summary = "Lista/filtra contas a pagar (paginado)")
     @PreAuthorize("hasAuthority('READ')")
-    public Page<PayableResponse> list(@PageableDefault(size = 20, sort = "dueDate") Pageable pageable) {
-        return service.findAll(pageable);
+    public Page<PayableResponse> list(@RequestParam(required = false) String q,
+                                      @RequestParam(required = false) com.construtora.financeiro.model.enums.PayableStatus status,
+                                      @RequestParam(required = false) String developmentId,
+                                      @PageableDefault(size = 20, sort = "dueDate") Pageable pageable) {
+        return service.search(q, status, developmentId, pageable);
     }
 
     @GetMapping("/{id}")

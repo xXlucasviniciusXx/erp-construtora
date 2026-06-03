@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDownCircle } from 'lucide-react'
 import { api, apiErrorMessage, getToken } from '@/lib/api'
@@ -7,7 +7,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/Confirm'
-import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 
 const INST_LABEL: Record<string, string> = { OPEN: 'Aberta', PAID: 'Paga', OVERDUE: 'Vencida', CANCELLED: 'Cancelada' }
@@ -60,11 +60,12 @@ function InstallmentsTab() {
   const [status, setStatus] = useState('')
   const [dueFrom, setDueFrom] = useState('')
   const [dueTo, setDueTo] = useState('')
+  const [page, setPage] = useState(0)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['installments-search', q, status, dueFrom, dueTo],
-    queryFn: async () => (await api.get<InstallmentDetail[]>('/installments', {
-      params: { q: q || undefined, status: status || undefined, dueFrom: dueFrom || undefined, dueTo: dueTo || undefined },
+    queryKey: ['installments-search', q, status, dueFrom, dueTo, page],
+    queryFn: async () => (await api.get<Page<InstallmentDetail>>('/installments', {
+      params: { q: q || undefined, status: status || undefined, dueFrom: dueFrom || undefined, dueTo: dueTo || undefined, page, size: 20 },
     })).data,
   })
 
@@ -77,19 +78,19 @@ function InstallmentsTab() {
   return (
     <div>
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Input placeholder="Cliente (nome / CPF / CNPJ)" value={q} onChange={(e) => setQ(e.target.value)} />
-        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+        <Input placeholder="Cliente (nome / CPF / CNPJ)" value={q} onChange={(e) => { setQ(e.target.value); setPage(0) }} />
+        <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(0) }}>
           <option value="">Todos os status</option>
           <option value="OVERDUE">Atrasada</option>
           <option value="OPEN">Em aberto</option>
           <option value="PAID">Paga</option>
         </Select>
-        <Input type="date" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} />
-        <Input type="date" value={dueTo} onChange={(e) => setDueTo(e.target.value)} />
+        <Input type="date" value={dueFrom} onChange={(e) => { setDueFrom(e.target.value); setPage(0) }} />
+        <Input type="date" value={dueTo} onChange={(e) => { setDueTo(e.target.value); setPage(0) }} />
       </div>
       {isLoading ? <TableSkeleton rows={6} cols={9} /> : (
         <Table headers={['Cliente', 'Documento', 'Parcela', 'Valor', 'Atraso', 'Encargos', 'Total atualizado', 'Status', 'Ações']}>
-          {data?.map((i) => {
+          {data?.content.map((i) => {
             const encargos = (i.penaltyAmount ?? 0) + (i.interestAmount ?? 0)
             return (
             <Tr key={i.id}>
@@ -109,13 +110,14 @@ function InstallmentsTab() {
               </td>
             </Tr>
           )})}
-          {data?.length === 0 && (
+          {data?.content.length === 0 && (
             <tr><td colSpan={9} className="p-0">
               <EmptyState icon={ArrowDownCircle} title="Nenhuma parcela encontrada" description="Ajuste a busca ou os filtros de período/status." />
             </td></tr>
           )}
         </Table>
       )}
+      {data && <Pagination page={data.number} totalPages={data.totalPages} totalElements={data.totalElements} onChange={setPage} />}
     </div>
   )
 }
@@ -148,11 +150,14 @@ function StandaloneTab() {
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(0)
   const canWrite = hasPermission('RECEIVABLE_WRITE')
 
   const { data, isLoading } = useQuery({
-    queryKey: ['receivable'],
-    queryFn: async () => (await api.get<Page<Receivable>>('/accounts-receivable', { params: { size: 200 } })).data,
+    queryKey: ['receivable', q, statusFilter, page],
+    queryFn: async () => (await api.get<Page<Receivable>>('/accounts-receivable', {
+      params: { q: q || undefined, status: statusFilter || undefined, page, size: 20 },
+    })).data,
   })
   const clients = useQuery({
     queryKey: ['clients-all'],
@@ -179,19 +184,14 @@ function StandaloneTab() {
     if (await confirm({ title: 'Excluir conta', message: 'Excluir esta conta a receber?', confirmLabel: 'Excluir', danger: true })) remove.mutate(id)
   }
 
-  const filtered = useMemo(() => {
-    let list = data?.content ?? []
-    if (q) { const t = q.toLowerCase(); list = list.filter((r) => (r.clientName ?? '').toLowerCase().includes(t) || (r.description ?? '').toLowerCase().includes(t)) }
-    if (statusFilter) list = list.filter((r) => r.status === statusFilter)
-    return list
-  }, [data, q, statusFilter])
+  const filtered = data?.content ?? []  // filtrado/paginado no servidor
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:max-w-lg">
-          <Input placeholder="Buscar por cliente ou descrição…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <Input placeholder="Buscar por cliente ou descrição…" value={q} onChange={(e) => { setQ(e.target.value); setPage(0) }} />
+          <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}>
             <option value="">Todos os status</option>
             <option value="OPEN">Em aberto</option>
             <option value="RECEIVED">Recebida</option>
@@ -235,6 +235,7 @@ function StandaloneTab() {
           )}
         </Table>
       )}
+      {data && <Pagination page={data.number} totalPages={data.totalPages} totalElements={data.totalElements} onChange={setPage} />}
 
       {view && (
         <Modal open onClose={() => setView(null)} title="Conta a receber">

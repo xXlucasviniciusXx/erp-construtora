@@ -113,7 +113,12 @@ Itens deixados como `TODO` propositalmente para continuação futura.
 - [ ] Auditoria automática via AOP em vez de chamadas manuais.
 - [ ] Upload de logo/comprovantes via storage em vez de URL externa.
 - [ ] CEP/CNPJ via proxy no backend (cache + resiliência) em vez de chamada direta.
-- [ ] Paginação e filtros server-side em todas as listagens grandes.
+- [x] Paginação e filtros **server-side** nas listagens de maior volume:
+      Clientes, Contas a Pagar, Contas a Receber e Parcelas (componente
+      `Pagination` reutilizável; filtros q/status/empreendimento no backend).
+- [ ] Estender paginação server-side a Vendas, Fornecedores e Transações bancárias.
+- [ ] Combobox server-side (busca remota) nos selects de Cliente/Lote em Vendas
+      (hoje carregam até 500 itens de uma vez).
 - [ ] Code-splitting do bundle (Recharts e React Router lazy loading).
 
 ## Qualidade / DevOps

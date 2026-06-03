@@ -29,10 +29,12 @@ public class ReceivableController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista contas a receber")
+    @Operation(summary = "Lista/filtra contas a receber (paginado)")
     @PreAuthorize("hasAuthority('READ')")
-    public Page<ReceivableResponse> list(@PageableDefault(size = 20, sort = "dueDate") Pageable pageable) {
-        return service.findAll(pageable);
+    public Page<ReceivableResponse> list(@RequestParam(required = false) String q,
+                                         @RequestParam(required = false) com.construtora.financeiro.model.enums.ReceivableStatus status,
+                                         @PageableDefault(size = 20, sort = "dueDate") Pageable pageable) {
+        return service.search(q, status, pageable);
     }
 
     @GetMapping("/{id}")

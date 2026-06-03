@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, XCircle, ArrowUpCircle } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
@@ -7,7 +7,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/Confirm'
-import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 interface Payable {
@@ -51,11 +51,14 @@ export function PayablePage() {
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [devFilter, setDevFilter] = useState('')
+  const [page, setPage] = useState(0)
   const canWrite = hasPermission('PAYABLE_WRITE')
 
   const { data, isLoading } = useQuery({
-    queryKey: ['payable'],
-    queryFn: async () => (await api.get<Page<Payable>>('/accounts-payable', { params: { size: 200 } })).data,
+    queryKey: ['payable', q, statusFilter, devFilter, page],
+    queryFn: async () => (await api.get<Page<Payable>>('/accounts-payable', {
+      params: { q: q || undefined, status: statusFilter || undefined, developmentId: devFilter || undefined, page, size: 20 },
+    })).data,
   })
   const suppliers = useQuery({ queryKey: ['suppliers'], queryFn: async () => (await api.get<Supplier[]>('/suppliers')).data })
   const costCenters = useQuery({ queryKey: ['cost-centers'], queryFn: async () => (await api.get<CostCenter[]>('/cost-centers')).data })
@@ -85,30 +88,24 @@ export function PayablePage() {
     if (await confirm({ title: 'Excluir conta', message: 'Excluir esta conta a pagar?', confirmLabel: 'Excluir', danger: true })) remove.mutate(p.id)
   }
 
-  const filtered = useMemo(() => {
-    let list = data?.content ?? []
-    if (q) { const t = q.toLowerCase(); list = list.filter((p) => p.supplier.toLowerCase().includes(t) || (p.description ?? '').toLowerCase().includes(t)) }
-    if (statusFilter) list = list.filter((p) => p.status === statusFilter)
-    if (devFilter) list = list.filter((p) => (devFilter === '__none__' ? !p.developmentId : p.developmentId === devFilter))
-    return list
-  }, [data, q, statusFilter, devFilter])
+  const filtered = data?.content ?? []  // já filtrado/paginado no servidor
 
   return (
     <div>
       <PageHeader title="Contas a Pagar" subtitle="Despesas e obrigações da empresa" action={canWrite && <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Nova conta</Button>} />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Input placeholder="Buscar por fornecedor ou descrição…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <Input placeholder="Buscar por fornecedor ou descrição…" value={q} onChange={(e) => { setQ(e.target.value); setPage(0) }} />
+        <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}>
           <option value="">Todos os status</option>
           <option value="OPEN">Em aberto</option>
           <option value="PAID">Pago</option>
           <option value="OVERDUE">Atrasado</option>
           <option value="CANCELLED">Cancelado</option>
         </Select>
-        <Select value={devFilter} onChange={(e) => setDevFilter(e.target.value)}>
+        <Select value={devFilter} onChange={(e) => { setDevFilter(e.target.value); setPage(0) }}>
           <option value="">Todos os empreendimentos</option>
-          <option value="__none__">Geral / Administrativo (sem empreend.)</option>
+          <option value="none">Geral / Administrativo (sem empreend.)</option>
           {developments.data?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </Select>
       </div>
@@ -159,6 +156,7 @@ export function PayablePage() {
           )}
         </Table>
       )}
+      {data && <Pagination page={data.number} totalPages={data.totalPages} totalElements={data.totalElements} onChange={setPage} />}
 
       {view && (
         <Modal open onClose={() => setView(null)} title="Conta a pagar">

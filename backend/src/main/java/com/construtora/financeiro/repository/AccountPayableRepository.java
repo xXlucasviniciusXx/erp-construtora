@@ -2,6 +2,8 @@ package com.construtora.financeiro.repository;
 
 import com.construtora.financeiro.model.AccountPayable;
 import com.construtora.financeiro.model.enums.PayableStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,6 +18,26 @@ public interface AccountPayableRepository extends JpaRepository<AccountPayable, 
     List<AccountPayable> findByDueDateBetween(LocalDate start, LocalDate end);
 
     List<AccountPayable> findByStatus(PayableStatus status);
+
+    /**
+     * Busca paginada com filtros opcionais: texto (fornecedor/descrição), status e
+     * empreendimento. {@code onlyGeral=true} traz só as despesas sem empreendimento.
+     */
+    @Query("""
+            select a from AccountPayable a
+              left join a.development d
+            where (:q = ''
+                   or lower(a.supplier) like lower(concat('%', :q, '%'))
+                   or lower(coalesce(a.description, '')) like lower(concat('%', :q, '%')))
+              and (:status is null or a.status = :status)
+              and ((:onlyGeral = true and d is null)
+                   or (:onlyGeral = false and (:devId is null or d.id = :devId)))
+            """)
+    Page<AccountPayable> search(@Param("q") String q,
+                                @Param("status") PayableStatus status,
+                                @Param("devId") UUID devId,
+                                @Param("onlyGeral") boolean onlyGeral,
+                                Pageable pageable);
 
     @Query("""
             select coalesce(sum(a.amount), 0) from AccountPayable a

@@ -42,13 +42,13 @@ public class InstallmentService {
                 .map(mapper::toInstallmentResponse).toList();
     }
 
-    /** Lista parcelas (com dados do cliente) aplicando filtros opcionais. */
+    /** Lista parcelas (com dados do cliente) aplicando filtros opcionais, paginado. */
     @Transactional(readOnly = true)
-    public List<InstallmentDetailResponse> search(String q, InstallmentStatus status,
-                                                  LocalDate dueFrom, LocalDate dueTo) {
+    public org.springframework.data.domain.Page<InstallmentDetailResponse> search(
+            String q, InstallmentStatus status, LocalDate dueFrom, LocalDate dueTo,
+            org.springframework.data.domain.Pageable pageable) {
         String query = (q != null && !q.isBlank()) ? q.trim() : "";
-        return repository.search(query, status, dueFrom, dueTo).stream()
-                .map(mapper::toDetailResponse).toList();
+        return repository.search(query, status, dueFrom, dueTo, pageable).map(mapper::toDetailResponse);
     }
 
     /** Confirma o pagamento de uma parcela e dispara a notificação de confirmação. */

@@ -8,7 +8,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/Confirm'
-import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 const EMPTY: Partial<Client> = { personType: 'PF', status: 'ACTIVE' }
@@ -20,6 +20,7 @@ export function ClientsPage() {
   const confirm = useConfirm()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(0)
   const [editOpen, setEditOpen] = useState(false)
   const [form, setForm] = useState<Partial<Client>>(EMPTY)
   const [error, setError] = useState<string | null>(null)
@@ -56,9 +57,11 @@ export function ClientsPage() {
   }
 
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', query],
+    queryKey: ['clients', query, statusFilter, page],
     queryFn: async () =>
-      (await api.get<Page<Client>>('/clients', { params: { q: query || undefined, size: 50 } })).data,
+      (await api.get<Page<Client>>('/clients', {
+        params: { q: query || undefined, status: statusFilter || undefined, page, size: 20 },
+      })).data,
   })
 
   const save = useMutation({
@@ -110,8 +113,8 @@ export function ClientsPage() {
       )}
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Input placeholder="Buscar por nome ou documento…" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <Input placeholder="Buscar por nome ou documento…" value={query} onChange={(e) => { setQuery(e.target.value); setPage(0) }} />
+        <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}>
           <option value="">Todos os status</option>
           <option value="ACTIVE">Ativos</option>
           <option value="INACTIVE">Inativos</option>
@@ -122,7 +125,7 @@ export function ClientsPage() {
         <TableSkeleton rows={6} cols={6} />
       ) : (
         <Table headers={['Nome', 'Documento', 'Tipo', 'E-mail', 'Status', 'Ações']}>
-          {data?.content.filter((c) => !statusFilter || c.status === statusFilter).map((c) => (
+          {data?.content.map((c) => (
             <Tr key={c.id}>
               <td className="px-4 py-2 font-medium">{c.name}</td>
               <td className="px-4 py-2">{c.document}</td>
@@ -167,6 +170,7 @@ export function ClientsPage() {
           )}
         </Table>
       )}
+      {data && <Pagination page={data.number} totalPages={data.totalPages} totalElements={data.totalElements} onChange={setPage} />}
 
       {/* ---- Modal: criar/editar ---- */}
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title={form.id ? 'Editar cliente' : 'Novo cliente'}>

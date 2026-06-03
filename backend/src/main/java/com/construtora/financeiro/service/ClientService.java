@@ -41,11 +41,9 @@ public class ClientService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ClientResponse> search(String query, Pageable pageable) {
-        Page<Client> page = (query == null || query.isBlank())
-                ? repository.findAll(pageable)
-                : repository.findByNameContainingIgnoreCaseOrDocumentContaining(query, query, pageable);
-        return page.map(mapper::toResponse);
+    public Page<ClientResponse> search(String query, com.construtora.financeiro.model.enums.ClientStatus status, Pageable pageable) {
+        String q = (query != null && !query.isBlank()) ? query.trim() : "";
+        return repository.search(q, status, pageable).map(mapper::toResponse);
     }
 
     @Transactional(readOnly = true)

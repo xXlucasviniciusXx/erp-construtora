@@ -38,7 +38,7 @@ GET /api/auth/me   → dados do usuário autenticado
 ### Clientes
 | Método | Caminho | Descrição | Permissão |
 |--------|---------|-----------|-----------|
-| GET | `/clients?q=&page=&size=` | Lista paginada com busca | `READ` |
+| GET | `/clients?q=&status=&page=&size=` | Lista paginada com busca + filtro de status | `READ` |
 | GET | `/clients/{id}` | Detalha cliente | `READ` |
 | POST | `/clients` | Cria cliente | `CLIENTS_WRITE` |
 | PUT | `/clients/{id}` | Atualiza cliente | `CLIENTS_WRITE` |
@@ -92,14 +92,14 @@ GET /api/auth/me   → dados do usuário autenticado
 ### Parcelas
 | Método | Caminho | Descrição | Permissão |
 |--------|---------|-----------|-----------|
-| GET | `/installments?q=&status=&dueFrom=&dueTo=` | Lista com dados do cliente e filtros | `READ` |
+| GET | `/installments?q=&status=&dueFrom=&dueTo=&page=&size=` | Lista paginada com dados do cliente e filtros | `READ` |
 | GET | `/installments/overdue` | Parcelas em atraso | `READ` |
 | POST | `/installments/{id}/pay` | Confirma pagamento de parcela | `RECEIVABLE_WRITE` ou `SALES_WRITE` |
 
 ### Contas a Pagar
 | Método | Caminho | Descrição | Permissão |
 |--------|---------|-----------|-----------|
-| GET | `/accounts-payable` | Lista contas a pagar | `READ` |
+| GET | `/accounts-payable?q=&status=&developmentId=&page=&size=` | Lista paginada com filtros (`developmentId=none` = só Geral) | `READ` |
 | GET | `/accounts-payable/{id}` | Detalha conta | `READ` |
 | POST | `/accounts-payable` | Cria conta a pagar | `PAYABLE_WRITE` |
 | PUT | `/accounts-payable/{id}` | Atualiza conta | `PAYABLE_WRITE` |
@@ -116,7 +116,7 @@ GET /api/auth/me   → dados do usuário autenticado
 ### Contas a Receber
 | Método | Caminho | Descrição | Permissão |
 |--------|---------|-----------|-----------|
-| GET | `/accounts-receivable` | Lista contas a receber | `READ` |
+| GET | `/accounts-receivable?q=&status=&page=&size=` | Lista paginada com filtros | `READ` |
 | GET | `/accounts-receivable/{id}` | Detalha conta | `READ` |
 | POST | `/accounts-receivable` | Cria conta a receber | `RECEIVABLE_WRITE` |
 | PUT | `/accounts-receivable/{id}` | Atualiza conta | `RECEIVABLE_WRITE` |

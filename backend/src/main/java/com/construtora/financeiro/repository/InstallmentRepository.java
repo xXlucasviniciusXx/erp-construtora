@@ -2,6 +2,8 @@ package com.construtora.financeiro.repository;
 
 import com.construtora.financeiro.model.Installment;
 import com.construtora.financeiro.model.enums.InstallmentStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -64,8 +66,8 @@ public interface InstallmentRepository extends JpaRepository<Installment, UUID> 
             """)
     List<Installment> findOverdueUnpaid(@Param("today") LocalDate today);
 
-    /** Busca de parcelas com filtros opcionais (cliente por nome/documento, status, período). */
-    @Query("""
+    /** Busca paginada de parcelas com filtros opcionais (cliente por nome/documento, status, período). */
+    @Query(value = """
             select i from Installment i
             where (:status is null or i.status = :status)
               and (:dueFrom is null or i.dueDate >= :dueFrom)
@@ -73,10 +75,19 @@ public interface InstallmentRepository extends JpaRepository<Installment, UUID> 
               and (:q = ''
                    or lower(i.sale.client.name) like lower(concat('%', :q, '%'))
                    or i.sale.client.document like concat('%', :q, '%'))
-            order by i.dueDate asc
+            """,
+            countQuery = """
+            select count(i) from Installment i
+            where (:status is null or i.status = :status)
+              and (:dueFrom is null or i.dueDate >= :dueFrom)
+              and (:dueTo is null or i.dueDate <= :dueTo)
+              and (:q = ''
+                   or lower(i.sale.client.name) like lower(concat('%', :q, '%'))
+                   or i.sale.client.document like concat('%', :q, '%'))
             """)
-    List<Installment> search(@Param("q") String q,
+    Page<Installment> search(@Param("q") String q,
                              @Param("status") InstallmentStatus status,
                              @Param("dueFrom") LocalDate dueFrom,
-                             @Param("dueTo") LocalDate dueTo);
+                             @Param("dueTo") LocalDate dueTo,
+                             Pageable pageable);
 }

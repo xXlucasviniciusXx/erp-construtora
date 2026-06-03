@@ -8,6 +8,9 @@ import com.construtora.financeiro.service.InstallmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -35,14 +38,15 @@ public class InstallmentController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista parcelas com dados do cliente e filtros (q, status, vencimento)")
+    @Operation(summary = "Lista parcelas com dados do cliente e filtros (q, status, vencimento) — paginado")
     @PreAuthorize("hasAuthority('READ')")
-    public List<InstallmentDetailResponse> search(
+    public Page<InstallmentDetailResponse> search(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) InstallmentStatus status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueFrom,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueTo) {
-        return service.search(q, status, dueFrom, dueTo);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueTo,
+            @PageableDefault(size = 20, sort = "dueDate") Pageable pageable) {
+        return service.search(q, status, dueFrom, dueTo, pageable);
     }
 
     @PostMapping("/{id}/pay")

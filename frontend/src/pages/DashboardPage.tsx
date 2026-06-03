@@ -60,7 +60,7 @@ export function DashboardPage() {
   })
   const overdueInst = useQuery({
     queryKey: ['installments-overdue'],
-    queryFn: async () => (await api.get<InstallmentDetail[]>('/installments', { params: { status: 'OVERDUE' } })).data,
+    queryFn: async () => (await api.get<Page<InstallmentDetail>>('/installments', { params: { status: 'OVERDUE', size: 1000 } })).data.content,
   })
   const [drill, setDrill] = useState<DrillState | null>(null)
 

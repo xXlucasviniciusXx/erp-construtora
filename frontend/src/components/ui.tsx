@@ -2,7 +2,7 @@ import {
   forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode,
   type SelectHTMLAttributes, type HTMLAttributes,
 } from 'react'
-import { Loader2, X, Inbox } from 'lucide-react'
+import { Loader2, X, Inbox, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /* Conjunto enxuto de primitivos de UI no estilo shadcn (Tailwind puro), com suporte a tema claro/escuro. */
@@ -196,6 +196,32 @@ export function TableSkeleton({ rows = 5, cols = 4 }: { rows?: number; cols?: nu
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+/** Controles de paginação server-side (anterior/próxima + contagem). */
+export function Pagination({
+  page, totalPages, totalElements, onChange,
+}: { page: number; totalPages: number; totalElements: number; onChange: (page: number) => void }) {
+  if (totalElements === 0) return null
+  const btn = 'inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:hover:bg-gray-700'
+  return (
+    <div className="mt-3 flex items-center justify-between gap-3 text-sm text-gray-500 dark:text-gray-400">
+      <span>
+        {totalElements} registro{totalElements === 1 ? '' : 's'}
+        {totalPages > 1 && <> · página {page + 1} de {totalPages}</>}
+      </span>
+      {totalPages > 1 && (
+        <div className="flex gap-2">
+          <button className={btn} disabled={page <= 0} onClick={() => onChange(page - 1)}>
+            <ChevronLeft className="h-4 w-4" /> Anterior
+          </button>
+          <button className={btn} disabled={page >= totalPages - 1} onClick={() => onChange(page + 1)}>
+            Próxima <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

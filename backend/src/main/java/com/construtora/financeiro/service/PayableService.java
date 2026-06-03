@@ -30,8 +30,14 @@ public class PayableService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PayableResponse> findAll(Pageable pageable) {
-        return repository.findAll(pageable).map(mapper::toResponse);
+    public Page<PayableResponse> search(String q, PayableStatus status, String developmentId, Pageable pageable) {
+        String query = (q != null && !q.isBlank()) ? q.trim() : "";
+        boolean onlyGeral = "none".equalsIgnoreCase(developmentId);
+        UUID devId = null;
+        if (!onlyGeral && developmentId != null && !developmentId.isBlank()) {
+            try { devId = UUID.fromString(developmentId); } catch (IllegalArgumentException ignored) { }
+        }
+        return repository.search(query, status, devId, onlyGeral, pageable).map(mapper::toResponse);
     }
 
     @Transactional(readOnly = true)

@@ -39,8 +39,9 @@ public class ReceivableService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ReceivableResponse> findAll(Pageable pageable) {
-        return repository.findAll(pageable).map(mapper::toResponse);
+    public Page<ReceivableResponse> search(String q, com.construtora.financeiro.model.enums.ReceivableStatus status, Pageable pageable) {
+        String query = (q != null && !q.isBlank()) ? q.trim() : "";
+        return repository.search(query, status, pageable).map(mapper::toResponse);
     }
 
     @Transactional(readOnly = true)

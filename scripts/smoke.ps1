@@ -44,10 +44,14 @@ Check "contas a pagar trazem categoria/centro/empreendimento" {
     $p.Count -gt 0 -and ($pay.content | Where-Object { $_.categoryName }).Count -gt 0
 }
 
-# --- Parcelas com encargos por atraso ---
-$over = Invoke-RestMethod -Uri "$base/installments?status=OVERDUE" -Headers $h
+# --- Parcelas: paginação server-side + encargos por atraso ---
+$instPage = Invoke-RestMethod -Uri "$base/installments?size=20" -Headers $h
+Check "parcelas paginadas (totalPages/totalElements presentes)" {
+    ($null -ne $instPage.totalElements) -and ($instPage.content.Count -le 20)
+}
+$over = Invoke-RestMethod -Uri "$base/installments?status=OVERDUE&size=50" -Headers $h
 Check "parcelas atrasadas calculam juros/multa (updatedAmount > amount)" {
-    $i = $over | Where-Object { $_.daysLate -gt 0 } | Select-Object -First 1
+    $i = $over.content | Where-Object { $_.daysLate -gt 0 } | Select-Object -First 1
     $i -and ($i.updatedAmount -gt $i.amount)
 }
 

@@ -30,8 +30,9 @@ public class ClientController {
     @Operation(summary = "Lista/pesquisa clientes (paginado)")
     @PreAuthorize("hasAuthority('READ')")
     public Page<ClientResponse> list(@RequestParam(required = false) String q,
+                                     @RequestParam(required = false) com.construtora.financeiro.model.enums.ClientStatus status,
                                      @PageableDefault(size = 20, sort = "name") Pageable pageable) {
-        return service.search(q, pageable);
+        return service.search(q, status, pageable);
     }
 
     @GetMapping("/{id}")
