@@ -229,7 +229,16 @@ backend/src/main/java/com/construtora/financeiro/
 
 ---
 
-## 11. Boas práticas
+## 11. Testes e CI
+
+- **Testes unitários** do núcleo financeiro (`backend/src/test`): `LateFeeCalculator`
+  (juros/multa) e geração de parcelas/entrada — rode com `mvn -f backend/pom.xml test`.
+- **CI** (`.github/workflows/ci.yml`): a cada push/PR roda os testes do backend e o
+  build do frontend.
+- **Smoke test** end-to-end via API (`scripts/smoke.ps1`): com o backend no ar,
+  valida cadastros, vínculos FK, encargos, parcelas, dashboard, DRE, conciliação e CSV.
+
+## 12. Boas práticas
 
 - Camadas separadas (Controller → Service → Repository) com DTOs isolando entidades.
 - Senhas com **BCrypt**; **JWT** com expiração configurável; CORS restrito.
@@ -243,7 +252,7 @@ backend/src/main/java/com/construtora/financeiro/
 
 ---
 
-## 12. Fluxo de demonstração sugerido
+## 13. Fluxo de demonstração sugerido
 
 1. Login como admin em https://erp-construtora-three.vercel.app.
 2. **Imóveis / Lotes** → veja os 3 empreendimentos demo com quadras e lotes;
@@ -257,7 +266,7 @@ backend/src/main/java/com/construtora/financeiro/
 
 ---
 
-## 13. Versionamento / GitHub
+## 14. Versionamento / GitHub
 
 - Branches sugeridas: `main` (estável), `develop` (integração), `feature/*`.
 - Estratégia de commits em [`docs/GIT.md`](docs/GIT.md).

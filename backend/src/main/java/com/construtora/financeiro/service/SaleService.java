@@ -151,7 +151,8 @@ public class SaleService {
         return mapper.toResponse(saleRepository.save(sale));
     }
 
-    private BigDecimal resolveDownPayment(SaleRequest request) {
+    // package-private static: sem estado de instância, para permitir teste unitário direto.
+    static BigDecimal resolveDownPayment(SaleRequest request) {
         // Entrada só vale para "Entrada + parcelas"; nas demais formas é zerada.
         boolean allowsDown = PURCHASE_WITH_DOWNPAYMENT.equalsIgnoreCase(request.purchaseType());
         if (!allowsDown) return BigDecimal.ZERO;
@@ -162,7 +163,7 @@ public class SaleService {
      * Gera as parcelas dividindo (valor vendido - entrada) pela quantidade.
      * O resíduo de arredondamento é somado à última parcela para fechar o total.
      */
-    private void generateInstallments(PropertySale sale) {
+    static void generateInstallments(PropertySale sale) {
         int count = sale.getInstallmentsCount();
         if (count <= 0) {
             return;

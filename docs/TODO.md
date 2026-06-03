@@ -118,9 +118,15 @@ Itens deixados como `TODO` propositalmente para continuação futura.
 
 ## Qualidade / DevOps
 
-- [ ] Testes de integração: cobertura dos serviços críticos (reconciliação,
-      geração de parcelas, parsers, dashboard, cascade hierarchy).
+- [x] Testes unitários do núcleo financeiro: `LateFeeCalculator` (juros/multa) e
+      geração de parcelas/entrada (`SaleService`) — 14 testes.
+- [x] **CI (GitHub Actions)**: roda `mvn test` (backend) e `npm run build`
+      (frontend) a cada push/PR em `main`/`develop`.
+- [x] Smoke test end-to-end via API (`scripts/smoke.ps1`) — 13 verificações
+      cobrindo cadastros, FKs, encargos, parcelas, dashboard, DRE, conciliação e CSV.
+- [ ] Testes de integração com Testcontainers (Postgres) p/ migrations, dashboard
+      nativo, reconciliação e cascade hierarchy.
 - [ ] Geração de tipos TypeScript do frontend a partir do OpenAPI
       (`openapi-typescript` + `npm run gen-types`).
-- [ ] Pipeline CI/CD (GitHub Actions: build + test + deploy no push a `main`).
+- [ ] Deploy automático no push a `main` (estender o CI).
 - [ ] Health check dedicado em `/actuator/health` com detalhe de banco.
