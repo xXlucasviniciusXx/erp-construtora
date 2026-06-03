@@ -56,7 +56,7 @@ export function DashboardPage() {
   // Fontes para o drill-down (clicar no gráfico → lista detalhada)
   const allSales = useQuery({
     queryKey: ['sales-all'],
-    queryFn: async () => (await api.get<Sale[]>('/sales')).data,
+    queryFn: async () => (await api.get<Page<Sale>>('/sales', { params: { size: 2000 } })).data.content,
   })
   const overdueInst = useQuery({
     queryKey: ['installments-overdue'],

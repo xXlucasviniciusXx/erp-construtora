@@ -257,7 +257,7 @@ function Info({ label, value }: { label: string; value?: string | null }) {
 function ClientView({ client }: { client: Client }) {
   const sales = useQuery({
     queryKey: ['client-sales', client.id],
-    queryFn: async () => (await api.get<Sale[]>('/sales', { params: { clientId: client.id } })).data,
+    queryFn: async () => (await api.get<Page<Sale>>('/sales', { params: { clientId: client.id, size: 500 } })).data.content,
   })
   return (
     <div className="space-y-4">

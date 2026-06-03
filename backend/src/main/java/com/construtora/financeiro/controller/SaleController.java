@@ -5,9 +5,13 @@ import com.construtora.financeiro.dto.sale.SaleRequest;
 import com.construtora.financeiro.dto.sale.SaleResponse;
 import com.construtora.financeiro.service.InstallmentService;
 import com.construtora.financeiro.service.SaleService;
+import com.construtora.financeiro.model.enums.SaleStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -29,10 +33,13 @@ public class SaleController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista vendas (opcionalmente por cliente)")
+    @Operation(summary = "Lista/filtra vendas (paginado): cliente, status, texto")
     @PreAuthorize("hasAuthority('READ')")
-    public List<SaleResponse> list(@RequestParam(required = false) UUID clientId) {
-        return clientId != null ? saleService.findByClient(clientId) : saleService.findAll();
+    public Page<SaleResponse> list(@RequestParam(required = false) String q,
+                                   @RequestParam(required = false) SaleStatus status,
+                                   @RequestParam(required = false) UUID clientId,
+                                   @PageableDefault(size = 20, sort = "saleDate") Pageable pageable) {
+        return saleService.search(q, status, clientId, pageable);
     }
 
     @GetMapping("/{id}")

@@ -116,7 +116,8 @@ Itens deixados como `TODO` propositalmente para continuação futura.
 - [x] Paginação e filtros **server-side** nas listagens de maior volume:
       Clientes, Contas a Pagar, Contas a Receber e Parcelas (componente
       `Pagination` reutilizável; filtros q/status/empreendimento no backend).
-- [ ] Estender paginação server-side a Vendas, Fornecedores e Transações bancárias.
+- [x] Estendida a paginação server-side a Vendas, Fornecedores e Transações
+      bancárias (consumidores de drill-down/datalist ajustados para `.content`).
 - [ ] Combobox server-side (busca remota) nos selects de Cliente/Lote em Vendas
       (hoje carregam até 500 itens de uma vez).
 - [ ] Code-splitting do bundle (Recharts e React Router lazy loading).

@@ -60,7 +60,7 @@ export function PayablePage() {
       params: { q: q || undefined, status: statusFilter || undefined, developmentId: devFilter || undefined, page, size: 20 },
     })).data,
   })
-  const suppliers = useQuery({ queryKey: ['suppliers'], queryFn: async () => (await api.get<Supplier[]>('/suppliers')).data })
+  const suppliers = useQuery({ queryKey: ['suppliers-all'], queryFn: async () => (await api.get<Page<Supplier>>('/suppliers', { params: { size: 500 } })).data.content })
   const costCenters = useQuery({ queryKey: ['cost-centers'], queryFn: async () => (await api.get<CostCenter[]>('/cost-centers')).data })
   const categories = useQuery({ queryKey: ['categories'], queryFn: async () => (await api.get<Category[]>('/categories')).data })
   const developments = useQuery({ queryKey: ['developments'], queryFn: async () => (await api.get<Development[]>('/developments')).data })

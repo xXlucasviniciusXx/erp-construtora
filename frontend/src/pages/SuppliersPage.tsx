@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
-import type { Supplier } from '@/lib/types'
+import type { Page, Supplier } from '@/lib/types'
 import { Truck } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/Confirm'
-import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Table, TableSkeleton, Tr } from '@/components/ui'
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Table, TableSkeleton, Tr } from '@/components/ui'
 
 const EMPTY: Partial<Supplier> = { active: true }
 
@@ -17,14 +17,15 @@ export function SuppliersPage() {
   const toast = useToast()
   const confirm = useConfirm()
   const [q, setQ] = useState('')
+  const [page, setPage] = useState(0)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<Partial<Supplier>>(EMPTY)
   const [error, setError] = useState<string | null>(null)
   const canWrite = hasPermission('PAYABLE_WRITE')
 
   const { data, isLoading } = useQuery({
-    queryKey: ['suppliers', q],
-    queryFn: async () => (await api.get<Supplier[]>('/suppliers', { params: { q: q || undefined } })).data,
+    queryKey: ['suppliers', q, page],
+    queryFn: async () => (await api.get<Page<Supplier>>('/suppliers', { params: { q: q || undefined, page, size: 20 } })).data,
   })
 
   const save = useMutation({
@@ -56,12 +57,12 @@ export function SuppliersPage() {
       />
 
       <div className="mb-4 max-w-sm">
-        <Input placeholder="Buscar fornecedor…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input placeholder="Buscar fornecedor…" value={q} onChange={(e) => { setQ(e.target.value); setPage(0) }} />
       </div>
 
       {isLoading ? <TableSkeleton rows={5} cols={7} /> : (
         <Table headers={['Nome', 'Documento', 'Categoria', 'Telefone', 'Cidade/UF', 'Status', 'Ações']}>
-          {data?.map((s) => (
+          {data?.content.map((s) => (
             <Tr key={s.id}>
               <td className="px-4 py-2 font-medium">{s.name}</td>
               <td className="px-4 py-2">{s.document ?? '—'}</td>
@@ -81,7 +82,7 @@ export function SuppliersPage() {
               </td>
             </Tr>
           ))}
-          {data?.length === 0 && (
+          {data?.content.length === 0 && (
             <tr><td colSpan={7} className="p-0">
               <EmptyState
                 icon={Truck}
@@ -93,6 +94,7 @@ export function SuppliersPage() {
           )}
         </Table>
       )}
+      {data && <Pagination page={data.number} totalPages={data.totalPages} totalElements={data.totalElements} onChange={setPage} />}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? 'Editar fornecedor' : 'Novo fornecedor'}>
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate(form) }}>

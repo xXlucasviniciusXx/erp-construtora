@@ -47,13 +47,11 @@ public class SaleService {
     }
 
     @Transactional(readOnly = true)
-    public List<SaleResponse> findAll() {
-        return saleRepository.findAll().stream().map(mapper::toResponse).toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<SaleResponse> findByClient(UUID clientId) {
-        return saleRepository.findByClientId(clientId).stream().map(mapper::toResponse).toList();
+    public org.springframework.data.domain.Page<SaleResponse> search(
+            String q, com.construtora.financeiro.model.enums.SaleStatus status, UUID clientId,
+            org.springframework.data.domain.Pageable pageable) {
+        String query = (q != null && !q.isBlank()) ? q.trim() : "";
+        return saleRepository.search(query, status, clientId, pageable).map(mapper::toResponse);
     }
 
     @Transactional(readOnly = true)

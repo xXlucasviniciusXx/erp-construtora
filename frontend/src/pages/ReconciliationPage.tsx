@@ -2,10 +2,10 @@ import { Fragment, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Banknote } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
-import type { BankTransaction, ManualTarget, Suggestion } from '@/lib/types'
+import type { BankTransaction, ManualTarget, Page, Suggestion } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
 import { useToast } from '@/components/Toast'
-import { Badge, Button, Card, EmptyState, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, PageHeader, Pagination, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 
 const TABS = [
@@ -24,6 +24,7 @@ export function ReconciliationPage() {
   const canWrite = hasPermission('RECONCILIATION_WRITE')
 
   const [status, setStatus] = useState<Status>('PENDING')
+  const [page, setPage] = useState(0)
   const [expand, setExpand] = useState<{ id: string; mode: 'suggest' | 'manual' } | null>(null)
   const [suggestions, setSuggestions] = useState<Record<string, Suggestion[]>>({})
   const [targets, setTargets] = useState<Record<string, ManualTarget[]>>({})
@@ -31,8 +32,8 @@ export function ReconciliationPage() {
   const [error, setError] = useState<string | null>(null)
 
   const txns = useQuery({
-    queryKey: ['recon-txns', status],
-    queryFn: async () => (await api.get<BankTransaction[]>('/bank-transactions', { params: { status } })).data,
+    queryKey: ['recon-txns', status, page],
+    queryFn: async () => (await api.get<Page<BankTransaction>>('/bank-transactions', { params: { status, page, size: 20 } })).data,
   })
 
   const invalidate = () => {
@@ -100,7 +101,7 @@ export function ReconciliationPage() {
         {TABS.map((t) => (
           <button
             key={t.key}
-            onClick={() => { setStatus(t.key); setExpand(null) }}
+            onClick={() => { setStatus(t.key); setExpand(null); setPage(0) }}
             className={cn(
               'border-b-2 px-4 py-2 text-sm font-medium transition',
               status === t.key ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
@@ -116,7 +117,7 @@ export function ReconciliationPage() {
           <TableSkeleton rows={5} cols={6} />
         ) : (
           <Table headers={['Data', 'Descrição', 'Documento', 'Valor', 'Tipo', 'Ações']}>
-            {txns.data?.map((t) => (
+            {txns.data?.content.map((t) => (
               <Fragment key={t.id}>
                 <Tr className="align-top">
                   <td className="px-4 py-2">{formatDate(t.transactionDate)}</td>
@@ -203,13 +204,14 @@ export function ReconciliationPage() {
                 </Tr>
               </Fragment>
             ))}
-            {txns.data?.length === 0 && (
+            {txns.data?.content.length === 0 && (
               <tr><td colSpan={6} className="p-0">
                 <EmptyState icon={Banknote} title="Nenhuma transação" description="Não há transações nesta aba. Importe um extrato para iniciar a conciliação." />
               </td></tr>
             )}
           </Table>
         )}
+        {txns.data && <Pagination page={txns.data.number} totalPages={txns.data.totalPages} totalElements={txns.data.totalElements} onChange={setPage} />}
       </Card>
 
       <ReconciliationHistory />

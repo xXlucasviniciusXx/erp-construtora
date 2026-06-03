@@ -22,12 +22,13 @@ public class BankTransactionService {
         this.mapper = mapper;
     }
 
-    public List<BankTransactionResponse> findByAccount(UUID bankAccountId) {
-        return repository.findByBankAccountIdOrderByTransactionDateDesc(bankAccountId)
-                .stream().map(mapper::toResponse).toList();
+    public org.springframework.data.domain.Page<BankTransactionResponse> findByAccount(
+            UUID bankAccountId, org.springframework.data.domain.Pageable pageable) {
+        return repository.findByBankAccountIdOrderByTransactionDateDesc(bankAccountId, pageable).map(mapper::toResponse);
     }
 
-    public List<BankTransactionResponse> findByStatus(TransactionStatus status) {
-        return repository.findByStatus(status).stream().map(mapper::toResponse).toList();
+    public org.springframework.data.domain.Page<BankTransactionResponse> findByStatus(
+            TransactionStatus status, org.springframework.data.domain.Pageable pageable) {
+        return repository.findByStatusOrderByTransactionDateDesc(status, pageable).map(mapper::toResponse);
     }
 }

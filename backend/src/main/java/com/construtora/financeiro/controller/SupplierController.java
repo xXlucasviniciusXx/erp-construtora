@@ -25,10 +25,12 @@ public class SupplierController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista fornecedores")
+    @Operation(summary = "Lista/pesquisa fornecedores (paginado)")
     @PreAuthorize("hasAuthority('READ')")
-    public List<SupplierResponse> list(@RequestParam(required = false) String q) {
-        return service.findAll(q);
+    public org.springframework.data.domain.Page<SupplierResponse> list(
+            @RequestParam(required = false) String q,
+            @org.springframework.data.web.PageableDefault(size = 20, sort = "name") org.springframework.data.domain.Pageable pageable) {
+        return service.search(q, pageable);
     }
 
     @PostMapping

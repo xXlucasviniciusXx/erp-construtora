@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage, getToken } from '@/lib/api'
 import type { Client, Lot, Page, Sale } from '@/lib/types'
@@ -7,7 +7,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
 import { Combobox } from '@/components/Combobox'
 import { useToast } from '@/components/Toast'
-import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 const INSTALLMENT_STATUS: Record<string, { label: string; color: string }> = {
@@ -54,8 +54,14 @@ export function SalesPage() {
   const [view, setView] = useState<Sale | null>(null)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(0)
 
-  const sales = useQuery({ queryKey: ['sales'], queryFn: async () => (await api.get<Sale[]>('/sales')).data })
+  const sales = useQuery({
+    queryKey: ['sales', q, statusFilter, page],
+    queryFn: async () => (await api.get<Page<Sale>>('/sales', {
+      params: { q: q || undefined, status: statusFilter || undefined, page, size: 20 },
+    })).data,
+  })
   const clients = useQuery({
     queryKey: ['clients-all'],
     queryFn: async () => (await api.get<Page<Client>>('/clients', { params: { size: 500 } })).data.content,
@@ -76,12 +82,7 @@ export function SalesPage() {
     onError: (e) => setError(apiErrorMessage(e)),
   })
 
-  const filtered = useMemo(() => {
-    let list = sales.data ?? []
-    if (q) { const t = q.toLowerCase(); list = list.filter((s) => s.clientName.toLowerCase().includes(t) || s.propertyLabel.toLowerCase().includes(t)) }
-    if (statusFilter) list = list.filter((s) => s.status === statusFilter)
-    return list
-  }, [sales.data, q, statusFilter])
+  const filtered = sales.data?.content ?? []  // filtrado/paginado no servidor
 
   // ---- helpers do formulário ----
   const selectedLot = lots.data?.find((l) => l.id === form.lotId)
@@ -121,8 +122,8 @@ export function SalesPage() {
       <PageHeader title="Vendas" subtitle="Vendas de lotes com geração automática de parcelas" action={canWrite && <Button onClick={openNew}>Nova venda</Button>} />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Input placeholder="Buscar por cliente ou lote…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <Input placeholder="Buscar por cliente ou lote…" value={q} onChange={(e) => { setQ(e.target.value); setPage(0) }} />
+        <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}>
           <option value="">Todos os status</option>
           <option value="ACTIVE">Ativa</option>
           <option value="COMPLETED">Quitada</option>
@@ -164,6 +165,7 @@ export function SalesPage() {
           )}
         </Table>
       )}
+      {sales.data && <Pagination page={sales.data.number} totalPages={sales.data.totalPages} totalElements={sales.data.totalElements} onChange={setPage} />}
 
       {/* Modal: visualizar venda (detalhes + parcelas + saldos) */}
       {view && (

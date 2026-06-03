@@ -22,11 +22,9 @@ public class SupplierService {
     }
 
     @Transactional(readOnly = true)
-    public List<SupplierResponse> findAll(String q) {
-        List<Supplier> list = (q == null || q.isBlank())
-                ? repository.findAllByOrderByName()
-                : repository.findByNameContainingIgnoreCaseOrderByName(q.trim());
-        return list.stream().map(this::toResponse).toList();
+    public org.springframework.data.domain.Page<SupplierResponse> search(String q, org.springframework.data.domain.Pageable pageable) {
+        String query = (q != null && !q.isBlank()) ? q.trim() : "";
+        return repository.search(query, pageable).map(this::toResponse);
     }
 
     public SupplierResponse create(SupplierRequest request) {

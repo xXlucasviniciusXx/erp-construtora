@@ -5,10 +5,12 @@ import com.construtora.financeiro.model.enums.TransactionStatus;
 import com.construtora.financeiro.service.BankTransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -23,16 +25,17 @@ public class BankTransactionController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista transações por conta ou por status")
+    @Operation(summary = "Lista transações por conta ou por status (paginado)")
     @PreAuthorize("hasAuthority('READ')")
-    public List<BankTransactionResponse> list(@RequestParam(required = false) UUID bankAccountId,
-                                              @RequestParam(required = false) TransactionStatus status) {
+    public Page<BankTransactionResponse> list(@RequestParam(required = false) UUID bankAccountId,
+                                              @RequestParam(required = false) TransactionStatus status,
+                                              @PageableDefault(size = 20) Pageable pageable) {
         if (status != null) {
-            return service.findByStatus(status);
+            return service.findByStatus(status, pageable);
         }
         if (bankAccountId != null) {
-            return service.findByAccount(bankAccountId);
+            return service.findByAccount(bankAccountId, pageable);
         }
-        return service.findByStatus(TransactionStatus.PENDING);
+        return service.findByStatus(TransactionStatus.PENDING, pageable);
     }
 }

@@ -55,9 +55,10 @@ Check "parcelas atrasadas calculam juros/multa (updatedAmount > amount)" {
     $i -and ($i.updatedAmount -gt $i.amount)
 }
 
-# --- Venda: parcelas geram e somam o financiado ---
-$sales = Invoke-RestMethod -Uri "$base/sales" -Headers $h
-$saleId = ($sales | Where-Object { $_.installmentsCount -gt 0 } | Select-Object -First 1).id
+# --- Venda: paginação + parcelas geram e somam o financiado ---
+$sales = Invoke-RestMethod -Uri "$base/sales?size=50" -Headers $h
+Check "vendas paginadas (totalElements presente)" { $null -ne $sales.totalElements }
+$saleId = ($sales.content | Where-Object { $_.installmentsCount -gt 0 } | Select-Object -First 1).id
 $sale = Invoke-RestMethod -Uri "$base/sales/$saleId" -Headers $h
 Check "parcelas da venda somam (total - entrada)" {
     $somaParcelas = ($sale.installments | Measure-Object -Property amount -Sum).Sum
