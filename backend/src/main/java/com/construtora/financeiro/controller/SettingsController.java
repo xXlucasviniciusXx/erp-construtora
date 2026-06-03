@@ -1,5 +1,6 @@
 package com.construtora.financeiro.controller;
 
+import com.construtora.financeiro.dto.settings.PublicSettingsResponse;
 import com.construtora.financeiro.dto.settings.SettingsRequest;
 import com.construtora.financeiro.dto.settings.SettingsResponse;
 import com.construtora.financeiro.service.SettingsService;
@@ -21,14 +22,14 @@ public class SettingsController {
     }
 
     @GetMapping("/public")
-    @Operation(summary = "Configuração visual pública (para branding da tela de login)")
-    public SettingsResponse getPublic() {
-        return service.get();
+    @Operation(summary = "Branding público (tela de login) — sem dados sensíveis")
+    public PublicSettingsResponse getPublic() {
+        return service.getPublic();
     }
 
     @GetMapping
-    @Operation(summary = "Configuração completa")
-    @PreAuthorize("hasAuthority('READ')")
+    @Operation(summary = "Configuração completa (inclui SMTP, sem a senha)")
+    @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
     public SettingsResponse get() {
         return service.get();
     }

@@ -80,6 +80,7 @@ clientes (frontend-only, fallback manual se falhar).
 | **Importar Extrato** | `/import` | Upload CSV/OFX; parsers plugáveis |
 | **DRE** | `/dre` | Demonstração do Resultado (base caixa): receitas − despesas = resultado, por período e empreendimento, com margem e export CSV |
 | **Relatórios** | `/reports` | Relatórios exportáveis em CSV (incl. despesas por categoria/centro/empreendimento) |
+| **Notificações** | `/notifications` | Histórico de e-mails (enviados/pendentes/falha), reenvio e visualização; SMTP configurável na tela de Configurações |
 | **Usuários** | `/users` | CRUD de usuários com perfis RBAC (ADMIN only) |
 | **Configurações** | `/settings` | Branding, dados da empresa, dark/light; abas de **Categorias**, **Centros de Custo** e contas bancárias |
 
@@ -226,6 +227,7 @@ backend/src/main/java/com/construtora/financeiro/
 | V9 | Define taxas de encargos (juros 1% a.m. + multa 2%) nas vendas demo zeradas (base para o cálculo de juros/multa por atraso) |
 | V10 | Vínculo `accounts_payable.development_id` (FK nullable) + seeds de despesas de obra por empreendimento |
 | V11 | Plano de contas: cria `categories` (grupo → item, ~70 seeds), adiciona `grupo` a `cost_centers`, converte `accounts_payable.category`/`cost_center` em FK com backfill dos dados antigos |
+| V12 | Configuração de SMTP em `system_settings` (mail_enabled/host/port/username/password/from/reminder_days) — editável pela tela de Configurações |
 
 ---
 

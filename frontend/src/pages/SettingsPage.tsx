@@ -8,9 +8,11 @@ import { cn } from '@/lib/utils'
 import { BankAccountsTab } from './settings/BankAccountsTab'
 import { CostCentersTab } from './settings/CostCentersTab'
 import { CategoriesTab } from './settings/CategoriesTab'
+import { EmailTab } from './settings/EmailTab'
 
 const TABS = [
   { key: 'general', label: 'Geral' },
+  { key: 'email', label: 'Notificações / E-mail' },
   { key: 'banks', label: 'Contas Bancárias' },
   { key: 'categories', label: 'Categorias' },
   { key: 'cost-centers', label: 'Centros de Custo' },
@@ -43,6 +45,7 @@ export function SettingsPage() {
       </div>
 
       {tab === 'general' && <GeneralTab />}
+      {tab === 'email' && <EmailTab />}
       {tab === 'banks' && <BankAccountsTab />}
       {tab === 'categories' && <CategoriesTab />}
       {tab === 'cost-centers' && <CostCentersTab />}

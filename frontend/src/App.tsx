@@ -20,6 +20,7 @@ const ReportsPage = lazy(() => import('@/pages/ReportsPage').then((m) => ({ defa
 const DrePage = lazy(() => import('@/pages/DrePage').then((m) => ({ default: m.DrePage })))
 const UsersPage = lazy(() => import('@/pages/UsersPage').then((m) => ({ default: m.UsersPage })))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
 
 export function App() {
   return (
@@ -55,6 +56,7 @@ export function App() {
       <Route element={<ProtectedRoute permission="SETTINGS_MANAGE" />}>
         <Route element={<Layout />}>
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
       </Route>
     </Routes>

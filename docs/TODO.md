@@ -67,9 +67,14 @@ Itens deixados como `TODO` propositalmente para continuação futura.
 
 ## Notificações
 
-- [ ] Templates HTML (Thymeleaf) para os e-mails.
-- [ ] Fila de envio com retry e dead-letter.
-- [ ] Preferências de notificação por cliente.
+- [x] Envio real por SMTP **configurável pela aplicação** (Configurações →
+      Notificações / E-mail); sender construído a partir do banco.
+- [x] Templates **HTML** com a identidade do sistema.
+- [x] **Lembrete de vencimento** (N dias antes, job diário) além do aviso de atraso.
+- [x] **Histórico** de notificações (tela) com status, visualização e **reenvio**.
+- [x] **E-mail de teste** nas Configurações para validar o SMTP.
+- [ ] Fila de envio assíncrona com retry e dead-letter (hoje o envio é síncrono).
+- [ ] Preferências de notificação por cliente (opt-out).
 
 ## Financeiro
 

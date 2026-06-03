@@ -216,9 +216,26 @@ GET /api/auth/me   → dados do usuário autenticado
 ### Configurações
 | Método | Caminho | Descrição | Permissão |
 |--------|---------|-----------|-----------|
-| GET | `/settings/public` | Branding público (sem auth) | — |
-| GET | `/settings` | Todas as configurações | `READ` |
-| PUT | `/settings` | Atualiza configurações | `SETTINGS_MANAGE` |
+| GET | `/settings/public` | **Apenas branding** (sem auth; sem dados sensíveis) | — |
+| GET | `/settings` | Configuração completa, **inclui SMTP** (sem a senha) | `SETTINGS_MANAGE` |
+| PUT | `/settings` | Atualiza configurações (branding, empresa e **SMTP**) | `SETTINGS_MANAGE` |
+
+> O SMTP é configurado **pela aplicação** (não por variáveis de ambiente):
+> `mailEnabled`, `mailHost`, `mailPort`, `mailUsername`, `mailPassword`
+> (write-only — nunca retorna; `mailPasswordSet` indica se está definida),
+> `mailFrom`, `mailReminderDays`. Com `mailEnabled=false` ou host vazio, os
+> e-mails ficam em **modo simulado** (registrados como `PENDING` e logados).
+
+### Notificações (e-mail)
+| Método | Caminho | Descrição | Permissão |
+|--------|---------|-----------|-----------|
+| GET | `/notifications?status=&eventType=&page=&size=` | Histórico paginado de e-mails | `SETTINGS_MANAGE` |
+| POST | `/notifications/{id}/resend` | Reenvia uma notificação | `SETTINGS_MANAGE` |
+| POST | `/notifications/test?to=` | Envia um e-mail de teste (valida o SMTP) | `SETTINGS_MANAGE` |
+
+> Eventos automáticos: `PAYMENT_OVERDUE` (atraso), `PAYMENT_DUE_SOON` (lembrete
+> N dias antes do vencimento — job diário), `PAYMENT_CONFIRMED`, `SALE_CREATED`,
+> `CONTRACT_GENERATED`. E-mails em **HTML** com a identidade do sistema.
 
 ---
 

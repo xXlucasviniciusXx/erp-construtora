@@ -11,5 +11,13 @@ public record SettingsResponse(
         String companyAddress,
         String companyPhone,
         String companyEmail,
-        String footerText
+        String footerText,
+        // ---- SMTP (senha nunca é retornada; só indica se está definida) ----
+        Boolean mailEnabled,
+        String mailHost,
+        Integer mailPort,
+        String mailUsername,
+        String mailFrom,
+        Integer mailReminderDays,
+        Boolean mailPasswordSet
 ) {}

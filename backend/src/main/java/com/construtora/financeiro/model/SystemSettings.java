@@ -51,6 +51,29 @@ public class SystemSettings {
     @Column(name = "footer_text")
     private String footerText;
 
+    // ---- Configuração de e-mail (SMTP), editável pela tela de Configurações ----
+    @Column(name = "mail_enabled", nullable = false)
+    private boolean mailEnabled = false;
+
+    @Column(name = "mail_host")
+    private String mailHost;
+
+    @Column(name = "mail_port")
+    private Integer mailPort = 587;
+
+    @Column(name = "mail_username")
+    private String mailUsername;
+
+    @Column(name = "mail_password")
+    private String mailPassword;
+
+    @Column(name = "mail_from")
+    private String mailFrom;
+
+    /** Dias de antecedência para o lembrete de vencimento. */
+    @Column(name = "mail_reminder_days", nullable = false)
+    private Integer mailReminderDays = 3;
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;

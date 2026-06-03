@@ -29,4 +29,13 @@ public class OverdueScheduler {
             log.info("{} parcela(s) marcada(s) como atrasada(s)", count);
         }
     }
+
+    // Todo dia às 06:30 — lembretes de vencimento próximo (N dias configurável)
+    @Scheduled(cron = "0 30 6 * * *")
+    public void sendDueSoonReminders() {
+        int count = installmentService.remindDueSoon();
+        if (count > 0) {
+            log.info("{} lembrete(s) de vencimento enviado(s)", count);
+        }
+    }
 }

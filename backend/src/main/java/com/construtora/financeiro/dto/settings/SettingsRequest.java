@@ -13,5 +13,13 @@ public record SettingsRequest(
         String companyAddress,
         String companyPhone,
         String companyEmail,
-        String footerText
+        String footerText,
+        // ---- SMTP ----
+        Boolean mailEnabled,
+        String mailHost,
+        Integer mailPort,
+        String mailUsername,
+        String mailPassword,   // só atualiza quando enviado (não-vazio)
+        String mailFrom,
+        Integer mailReminderDays
 ) {}

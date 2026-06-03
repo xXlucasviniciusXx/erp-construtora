@@ -81,6 +81,19 @@ public class InstallmentService {
         return due.size();
     }
 
+    /**
+     * Envia lembretes para parcelas em aberto que vencem nos próximos N dias
+     * (N configurável nas Configurações). Disparado pelo job agendado.
+     */
+    @Transactional(readOnly = true)
+    public int remindDueSoon() {
+        int daysBefore = notificationService.reminderDays();
+        LocalDate target = LocalDate.now().plusDays(daysBefore);
+        List<Installment> due = repository.findByStatusAndDueDate(InstallmentStatus.OPEN, target);
+        due.forEach(i -> notificationService.notifyDueSoon(i, daysBefore));
+        return due.size();
+    }
+
     public Installment getEntity(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("Parcela", id));

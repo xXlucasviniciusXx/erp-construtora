@@ -242,6 +242,23 @@ método `esc()` para evitar quebra de XML.
 
 ---
 
+## Notificações por e-mail
+
+`NotificationService` centraliza os e-mails transacionais (HTML, com a
+identidade do sistema). A configuração de **SMTP é lida do banco**
+(`system_settings`), editável na tela **Configurações → Notificações / E-mail** —
+não depende mais de variáveis de ambiente. O `JavaMailSender` é construído sob
+demanda a partir dessas configurações.
+
+- **Modo simulado**: se `mailEnabled=false` ou sem host, a notificação é
+  registrada como `PENDING` e logada (sem envio real).
+- **Eventos**: atraso, **lembrete N dias antes do vencimento** (job diário
+  `OverdueScheduler.sendDueSoonReminders`), pagamento confirmado, venda e contrato.
+- **Histórico**: tudo é persistido em `email_notifications` (status SENT/PENDING/
+  FAILED + erro) e exposto na tela **Notificações**, com reenvio e visualização.
+- **Segurança**: `/settings/public` expõe só branding; a config de SMTP fica no
+  `/settings` (SETTINGS_MANAGE) e a **senha nunca é retornada** (write-only).
+
 ## Consulta CEP/CNPJ
 
 O cadastro de clientes consulta a **BrasilAPI** diretamente do frontend

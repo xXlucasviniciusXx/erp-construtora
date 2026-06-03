@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Building2, FileSignature, ArrowDownCircle,
   ArrowUpCircle, Banknote, Upload, BarChart3, Settings, ShieldCheck, LogOut, Menu,
-  ChevronLeft, ChevronRight, Sun, Moon, Truck, Scale,
+  ChevronLeft, ChevronRight, Sun, Moon, Truck, Scale, Mail,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { useSettings } from '@/theme/SettingsContext'
@@ -29,6 +29,7 @@ const NAV: NavItem[] = [
   { to: '/import', label: 'Importar Extrato', icon: Upload, permission: 'RECONCILIATION_WRITE' },
   { to: '/dre', label: 'DRE', icon: Scale, permission: 'READ' },
   { to: '/reports', label: 'Relatórios', icon: BarChart3, permission: 'READ' },
+  { to: '/notifications', label: 'Notificações', icon: Mail, permission: 'SETTINGS_MANAGE' },
   { to: '/users', label: 'Usuários', icon: ShieldCheck, permission: 'USERS_MANAGE' },
   { to: '/settings', label: 'Configurações', icon: Settings, permission: 'SETTINGS_MANAGE' },
 ]

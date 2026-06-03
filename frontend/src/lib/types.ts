@@ -283,6 +283,27 @@ export interface SystemSettings {
   companyPhone?: string
   companyEmail?: string
   footerText?: string
+  // SMTP (a senha nunca volta do servidor; mailPasswordSet indica se já está definida)
+  mailEnabled?: boolean
+  mailHost?: string
+  mailPort?: number
+  mailUsername?: string
+  mailPassword?: string
+  mailFrom?: string
+  mailReminderDays?: number
+  mailPasswordSet?: boolean
+}
+
+export interface EmailNotification {
+  id: string
+  recipient: string
+  subject: string
+  body: string
+  eventType: string
+  status: 'PENDING' | 'SENT' | 'FAILED'
+  error?: string
+  createdAt: string
+  sentAt?: string
 }
 
 export interface AppUser {

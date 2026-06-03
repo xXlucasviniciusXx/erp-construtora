@@ -21,6 +21,9 @@ public interface InstallmentRepository extends JpaRepository<Installment, UUID> 
 
     List<Installment> findByStatusAndDueDateBefore(InstallmentStatus status, LocalDate date);
 
+    /** Parcelas que vencem exatamente em uma data (para o lembrete proativo). */
+    List<Installment> findByStatusAndDueDate(InstallmentStatus status, LocalDate dueDate);
+
     @Query("""
             select coalesce(sum(i.amount), 0) from Installment i
             where i.status = :status and i.dueDate between :start and :end
