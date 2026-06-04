@@ -315,17 +315,13 @@ export function DashboardPage() {
   )
 }
 
-/** Converte "Jan/26" → prefixo "01/2026" para comparar com saleDate / paymentDate */
+/**
+ * Retorna o prefixo de mês para filtrar datas ISO (ex.: "2025-12").
+ * O backend gera os labels com to_char(date,'YYYY-MM'), então o label
+ * já é o prefixo correto — basta repassá-lo.
+ */
 function labelToMonthPrefix(label: string): string {
-  const MONTHS: Record<string, string> = {
-    Jan: '01', Fev: '02', Feb: '02', Mar: '03', Abr: '04', Apr: '04',
-    Mai: '05', May: '05', Jun: '06', Jul: '07', Ago: '08', Aug: '08',
-    Set: '09', Sep: '09', Out: '10', Oct: '10', Nov: '11', Dez: '12', Dec: '12',
-  }
-  const [mon, yr] = label.split('/')
-  const m = MONTHS[mon] ?? '01'
-  const y = yr?.length === 2 ? '20' + yr : yr ?? ''
-  return `${y}-${m}` // "2026-01"
+  return label // "2025-12" → saleDate.startsWith("2025-12") funciona direto
 }
 
 function DrillModal({ drill, sales, overdue, paid, onClose }: {
