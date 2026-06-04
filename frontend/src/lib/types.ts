@@ -409,4 +409,16 @@ export interface NamedItem {
   name: string
   active: boolean
   sortOrder: number
+  sgsCode?: number | null   // só índices de correção
+}
+
+/** Cotação oficial (BCB) de um índice de correção. */
+export interface IndexQuote {
+  id: string
+  name: string
+  sgsCode?: number | null
+  accumulated12m?: number | null
+  lastValue?: number | null
+  lastRef?: string | null
+  available: boolean
 }

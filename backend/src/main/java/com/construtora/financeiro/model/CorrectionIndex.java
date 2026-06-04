@@ -24,4 +24,8 @@ public class CorrectionIndex {
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder = 0;
+
+    /** Código da série temporal no BCB (SGS). Nulo = índice sem fonte oficial. */
+    @Column(name = "sgs_code")
+    private Integer sgsCode;
 }
