@@ -3,10 +3,15 @@ package com.construtora.financeiro.service;
 import com.construtora.financeiro.dto.settings.PublicSettingsResponse;
 import com.construtora.financeiro.dto.settings.SettingsRequest;
 import com.construtora.financeiro.dto.settings.SettingsResponse;
+import com.construtora.financeiro.exception.BusinessException;
 import com.construtora.financeiro.model.SystemSettings;
 import com.construtora.financeiro.repository.SystemSettingsRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.Set;
 
 @Service
 @Transactional
@@ -52,6 +57,35 @@ public class SettingsService {
         if (r.mailPassword() != null && !r.mailPassword().isBlank()) s.setMailPassword(r.mailPassword());
         s.setMailFrom(r.mailFrom());
         if (r.mailReminderDays() != null) s.setMailReminderDays(r.mailReminderDays());
+        return toResponse(repository.save(s));
+    }
+
+    private static final Set<String> ALLOWED_MIME = Set.of("image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/webp");
+    private static final long MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2 MB
+
+    /** Faz upload do logo e o armazena no banco. Retorna a config atualizada. */
+    public SettingsResponse uploadLogo(MultipartFile file) throws IOException {
+        String mime = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
+        if (!ALLOWED_MIME.contains(mime)) {
+            throw new BusinessException("Tipo de arquivo não permitido. Use PNG, JPEG, GIF, SVG ou WebP.");
+        }
+        if (file.getSize() > MAX_LOGO_BYTES) {
+            throw new BusinessException("O arquivo é muito grande. Limite: 2 MB.");
+        }
+        SystemSettings s = current();
+        s.setLogoData(file.getBytes());
+        s.setLogoMime(mime);
+        // Aponta logo_url para o endpoint que serve o logo armazenado
+        s.setLogoUrl("/api/assets/logo");
+        return toResponse(repository.save(s));
+    }
+
+    /** Remove o logo armazenado no banco (a logo_url volta a ser o campo manual). */
+    public SettingsResponse deleteLogo() {
+        SystemSettings s = current();
+        s.setLogoData(null);
+        s.setLogoMime(null);
+        if ("/api/assets/logo".equals(s.getLogoUrl())) s.setLogoUrl(null);
         return toResponse(repository.save(s));
     }
 

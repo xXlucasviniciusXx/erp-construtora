@@ -7,8 +7,12 @@ import com.construtora.financeiro.service.SettingsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/settings")
@@ -39,5 +43,24 @@ public class SettingsController {
     @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
     public SettingsResponse update(@Valid @RequestBody SettingsRequest request) {
         return service.update(request);
+    }
+
+    /**
+     * Upload do logo do sistema. Aceita PNG, JPEG ou SVG (máx. 2 MB).
+     * O arquivo é salvo no banco; GET /api/assets/logo devolve a imagem.
+     */
+    @PostMapping(value = "/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Faz upload do logo (armazenado no banco)")
+    @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
+    public SettingsResponse uploadLogo(@RequestParam("file") MultipartFile file) throws IOException {
+        return service.uploadLogo(file);
+    }
+
+    /** Remove o logo salvo no banco (volta a usar logo_url ou fica sem logo). */
+    @DeleteMapping("/logo")
+    @Operation(summary = "Remove o logo salvo no banco")
+    @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
+    public SettingsResponse deleteLogo() {
+        return service.deleteLogo();
     }
 }

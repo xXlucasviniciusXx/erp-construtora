@@ -12,6 +12,7 @@ public record ReceivableRequest(
         UUID clientId,
         UUID saleId,
         UUID installmentId,
+        UUID categoryId,           // categoria de receita (opcional)
         String description,
         @NotNull @Positive BigDecimal amount,
         @NotNull LocalDate dueDate,

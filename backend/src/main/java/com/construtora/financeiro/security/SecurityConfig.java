@@ -31,6 +31,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_PATHS = {
             "/api/auth/**",
             "/api/settings/public",
+            "/api/assets/**",         // logo e arquivos armazenados no banco (exibidos no login)
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",

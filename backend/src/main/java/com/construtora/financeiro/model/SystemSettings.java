@@ -74,6 +74,15 @@ public class SystemSettings {
     @Column(name = "mail_reminder_days", nullable = false)
     private Integer mailReminderDays = 3;
 
+    // ---- Upload de logo (armazenado no banco, sem dependência de storage externo) ----
+    /** Binário da imagem do logo. Prevalece sobre logo_url quando não nulo. */
+    @Column(name = "logo_data")
+    private byte[] logoData;
+
+    /** MIME type da imagem (ex.: image/png, image/jpeg). */
+    @Column(name = "logo_mime")
+    private String logoMime;
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { SystemSettings } from '@/lib/types'
 import { useSettings } from '@/theme/SettingsContext'
@@ -86,9 +86,8 @@ function GeneralTab() {
         <Field label="Nome do sistema">
           <Input value={form.systemName} onChange={(e) => setForm({ ...form, systemName: e.target.value })} required />
         </Field>
-        <Field label="URL do logo">
-          <Input value={form.logoUrl ?? ''} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="https://…" />
-        </Field>
+        <LogoField form={form} setForm={setForm} />
+
         <div className="grid grid-cols-3 gap-3">
           <Field label="Cor primária">
             <Input type="color" value={form.primaryColor ?? '#1e40af'} onChange={(e) => setForm({ ...form, primaryColor: e.target.value })} />
@@ -123,5 +122,80 @@ function GeneralTab() {
         </div>
       </form>
     </Card>
+  )
+}
+
+/** Campo de logo: URL manual + upload de arquivo armazenado no banco. */
+function LogoField({ form, setForm }: { form: SystemSettings; setForm: (f: SystemSettings) => void }) {
+  const queryClient = useQueryClient()
+  const { refetch: refetchSettings } = useQuery({ queryKey: ['settings'], queryFn: () => null, enabled: false })
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true); setUploadError(null)
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const { data } = await api.post<SystemSettings>('/settings/logo', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setForm({ ...form, logoUrl: data.logoUrl ?? form.logoUrl })
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: ['public-settings'] })
+    } catch (err) {
+      setUploadError(apiErrorMessage(err))
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  async function removeLogo() {
+    try {
+      const { data } = await api.delete<SystemSettings>('/settings/logo')
+      setForm({ ...form, logoUrl: data.logoUrl ?? '' })
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+    } catch (err) {
+      setUploadError(apiErrorMessage(err))
+    }
+  }
+
+  const isUploaded = form.logoUrl === '/api/assets/logo'
+
+  return (
+    <div className="space-y-1.5">
+      <Field label="Logo do sistema">
+        <div className="flex gap-2">
+          <Input
+            value={isUploaded ? '' : (form.logoUrl ?? '')}
+            onChange={(e) => setForm({ ...form, logoUrl: e.target.value })}
+            placeholder={isUploaded ? '← logo enviado pelo sistema' : 'https://…'}
+            disabled={isUploaded}
+          />
+          <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} loading={uploading}>
+            {isUploaded ? 'Trocar' : 'Upload'}
+          </Button>
+          {isUploaded && (
+            <Button type="button" variant="outline" onClick={removeLogo}>Remover</Button>
+          )}
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+      </Field>
+      {isUploaded && (
+        <p className="text-xs text-green-600 dark:text-green-400">
+          ✓ Logo personalizado armazenado no sistema.
+        </p>
+      )}
+      {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
+      {form.logoUrl && !isUploaded && (
+        <img src={form.logoUrl} alt="Preview do logo" className="mt-1 h-10 rounded border object-contain dark:border-gray-700" />
+      )}
+      {isUploaded && (
+        <img src="/api/assets/logo" alt="Logo do sistema" className="mt-1 h-10 rounded border object-contain dark:border-gray-700" />
+      )}
+    </div>
   )
 }
