@@ -26,7 +26,7 @@ public class LotController {
 
     @GetMapping
     @Operation(summary = "Lista lotes (por quadra, por empreendimento ou todos)")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_VIEW')")
     public List<LotResponse> list(@RequestParam(required = false) UUID blockId,
                                   @RequestParam(required = false) UUID developmentId) {
         if (blockId != null) return service.findByBlock(blockId);
@@ -36,7 +36,7 @@ public class LotController {
 
     @PostMapping
     @Operation(summary = "Cria lote (respeita o limite de lotes do empreendimento)")
-    @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
     @ResponseStatus(HttpStatus.CREATED)
     public LotResponse create(@Valid @RequestBody LotRequest request) {
         return service.create(request);
@@ -44,21 +44,21 @@ public class LotController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Atualiza lote")
-    @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
     public LotResponse update(@PathVariable UUID id, @Valid @RequestBody LotRequest request) {
         return service.update(id, request);
     }
 
     @PatchMapping("/{id}/cancel")
     @Operation(summary = "Inativa/cancela lote")
-    @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
     public LotResponse cancel(@PathVariable UUID id) {
         return service.cancel(id);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove lote")
-    @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {
         service.delete(id);

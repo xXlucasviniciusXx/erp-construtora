@@ -26,21 +26,21 @@ public class DevelopmentController {
 
     @GetMapping
     @Operation(summary = "Lista empreendimentos (com valores derivados)")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_VIEW')")
     public List<DevelopmentResponse> list() {
         return service.findAll();
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Detalha empreendimento")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_VIEW')")
     public DevelopmentResponse get(@PathVariable UUID id) {
         return service.findById(id);
     }
 
     @PostMapping
     @Operation(summary = "Cria empreendimento")
-    @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
     @ResponseStatus(HttpStatus.CREATED)
     public DevelopmentResponse create(@Valid @RequestBody DevelopmentRequest request) {
         return service.create(request);
@@ -48,14 +48,14 @@ public class DevelopmentController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Atualiza empreendimento")
-    @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
     public DevelopmentResponse update(@PathVariable UUID id, @Valid @RequestBody DevelopmentRequest request) {
         return service.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove empreendimento")
-    @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {
         service.delete(id);

@@ -31,35 +31,35 @@ public class ReconciliationController {
 
     @GetMapping("/pendencies")
     @Operation(summary = "Transações pendentes de conciliação")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_VIEW')")
     public List<BankTransactionResponse> pendencies() {
         return service.pendencies();
     }
 
     @GetMapping("/history")
     @Operation(summary = "Histórico de conciliações")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_VIEW')")
     public List<ReconciliationResponse> history() {
         return service.history();
     }
 
     @GetMapping("/transactions/{transactionId}/suggestions")
     @Operation(summary = "Gera sugestões de conciliação para uma transação")
-    @PreAuthorize("hasAnyAuthority('RECONCILIATION_WRITE','RECONCILIATION_VALIDATE')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_EDIT')")
     public List<SuggestionResponse> suggestions(@PathVariable UUID transactionId) {
         return service.generateSuggestions(transactionId);
     }
 
     @GetMapping("/transactions/{transactionId}/targets")
     @Operation(summary = "Lista lançamentos em aberto para conciliação manual")
-    @PreAuthorize("hasAnyAuthority('RECONCILIATION_WRITE','RECONCILIATION_VALIDATE')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_EDIT')")
     public List<ManualTargetResponse> targets(@PathVariable UUID transactionId) {
         return service.manualTargets(transactionId);
     }
 
     @PostMapping("/transactions/{transactionId}/reconcile")
     @Operation(summary = "Concilia manualmente uma transação a um lançamento")
-    @PreAuthorize("hasAuthority('RECONCILIATION_WRITE')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_EDIT')")
     public ReconciliationResponse reconcile(@PathVariable UUID transactionId,
                                             @Valid @RequestBody ReconcileRequest request) {
         return service.reconcile(transactionId, request, ReconciliationMode.MANUAL);
@@ -67,7 +67,7 @@ public class ReconciliationController {
 
     @PatchMapping("/transactions/{transactionId}/status")
     @Operation(summary = "Marca transação como PENDING, IGNORED ou DIVERGENT (motivo opcional)")
-    @PreAuthorize("hasAuthority('RECONCILIATION_WRITE')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_EDIT')")
     public BankTransactionResponse updateStatus(@PathVariable UUID transactionId,
                                                 @RequestParam TransactionStatus status,
                                                 @RequestParam(required = false) String notes) {
@@ -76,7 +76,7 @@ public class ReconciliationController {
 
     @PostMapping("/{reconciliationId}/undo")
     @Operation(summary = "Desfaz uma conciliação")
-    @PreAuthorize("hasAuthority('RECONCILIATION_WRITE')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_EDIT')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void undo(@PathVariable UUID reconciliationId) {
         service.undo(reconciliationId);

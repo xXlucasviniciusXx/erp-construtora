@@ -21,7 +21,7 @@ export function SuppliersPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<Partial<Supplier>>(EMPTY)
   const [error, setError] = useState<string | null>(null)
-  const canWrite = hasPermission('PAYABLE_WRITE')
+  const canWrite = hasPermission('FORNECEDORES_EDIT')
 
   const { data, isLoading } = useQuery({
     queryKey: ['suppliers', q, page],

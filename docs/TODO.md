@@ -127,6 +127,122 @@ Itens deixados como `TODO` propositalmente para continuação futura.
       (hoje carregam até 500 itens de uma vez).
 - [ ] Code-splitting do bundle (Recharts e React Router lazy loading).
 
+## Estratégia comercial / Licenciamento por módulos (ESPECIFICAÇÃO — implementar por fases)
+
+> Especificação oficial do licenciamento. Objetivo: comercializar o sistema em
+> planos, liberando só os módulos contratados por cliente. A **Fase 1 já está
+> pronta**; as demais não devem ser iniciadas sem decisão explícita.
+
+### ✅ DECISÃO — Modelo de implantação: VM por cliente (silo)
+Cada cliente roda **sua própria VM + seu próprio banco**. Isolamento é **físico**
+(bancos separados), não lógico. Consequências:
+- **Multitenant (`tenant_id`) NÃO será feito** — a Fase 3 fica descartada (mantida
+  abaixo só como alternativa caso o modelo mude para "muitos clientes / infra única").
+- O sistema atual (single-tenant) **já atende** esse modelo sem reescrita de queries.
+- Trade-off aceito: custo de infra por cliente + atualizar N VMs (mitigado por deploy
+  automatizado via imagem Docker) + backup/monitoramento por VM.
+- A **chave de licenciamento** (Fase 2) é o que configura o plano de cada VM.
+- A **app de gestão (Fase 5)** vira o painel central de todas as VMs/clientes.
+
+### Os eixos (independentes — não confundir)
+| Eixo | Responde | Exemplos | Onde mora |
+|------|----------|----------|-----------|
+| **Plano** (tier comercial) | quais módulos a EMPRESA contratou (teto) | Essencial / Profissional / Premium | tabela `license` |
+| **Papel + permissão por módulo** | o que CADA usuário vê/edita dentro do teto | Admin, Financeiro, Corretor (só leitura) | papéis/permissões |
+| ~~Tenant (multitenant)~~ | ~~de QUEM são os dados~~ | **resolvido por VM separada** (não por `tenant_id`) | — |
+
+Regra de ouro: o **Plano** define o teto da empresa; o **Papel** recorta por
+usuário DENTRO do teto; o isolamento entre empresas é **por VM** (não por `tenant_id`).
+"Perfil de negócio" (Contabilidade/Construtora/Comercial) NÃO é um eixo separado — é só
+um *preset* que aplica um Plano + ajusta módulos.
+
+### Distribuição de módulos por plano (cumulativo)
+**🟢 ESSENCIAL** (foco contábil/financeiro) — todos já construídos:
+`DASHBOARD`, `CLIENTES`, `FORNECEDORES`, `CONTAS_PAGAR`, `CONTAS_RECEBER`,
+`CONCILIACAO`, `DRE`, `RELATORIOS`, `NOTIFICACOES`.
+
+**🔵 PROFISSIONAL** (= Essencial + construtora/imobiliária) — já construídos:
+`EMPREENDIMENTOS`, `MAPA` (lotes), `VENDAS`/contratos/parcelas, encargos (juros/multa).
+
+**🟣 PREMIUM** (= Profissional + avançado) — **ainda a construir** (Fase 4):
+`PORTAL_CLIENTE` (web do comprador), `COBRANCA` (boleto/PIX via **Asaas** + baixa
+automática), `CORRECAO_MONETARIA` (INCC/IGPM real nas parcelas), `ASSINATURA`
+(assinatura eletrônica de contratos), `APP_MOBILE` (app do cliente — futuro).
+> Ligar a flag Premium NÃO cria estas funcionalidades — elas precisam ser
+> desenvolvidas (Fase 4). Hoje existem só como flags "Em breve" no catálogo.
+
+### Licença
+- Campos: plano, status, data início/validade, período (12/24/36 meses),
+  máx. usuários, limites (clientes/empreendimentos), observações.
+- Descontos por período (2 anos ~10%, 3 anos ~15–20%).
+- Bloqueio escalonado (Fase 2): aviso → tolerância (7/15/30 dias) → só leitura → bloqueio total.
+
+---
+
+### Fases de implementação
+
+- [x] **Fase 1 — Fundação (FEITA)** (migration V13): tabelas `modules` (catálogo +
+      flag `active`) e `license` (plano/validade/status, linha única). Backend
+      `LicensingService`/`LicensingController` (`/api/licensing/me`, `/modules/{code}`,
+      `/license`). Frontend `LicensingContext.canAccess()`, `ModuleGuard` nas rotas,
+      `NAV` filtra por módulo, banner de vencimento e aba **Configurações → Módulos &
+      Licença**. **Gating só no frontend**; plano ainda é rótulo solto. Tudo nasce ATIVO.
+
+- [x] **Fase 2 — Planos amarrados + permissões por módulo + enforcement + chave (FEITA)**
+      (migration V14). Detalhes:
+  - [x] **Plano → pacote de módulos** (`PlanModules`): `POST /licensing/plan` e a chave
+        ligam automaticamente o conjunto do plano (Essencial/Profissional/Premium).
+  - [x] **Permissões por módulo** `<MODULO>_VIEW` / `<MODULO>_EDIT` (substituem o `READ`
+        global e os `*_WRITE` avulsos). CRUD de **perfis de acesso** com grade VER/EDITAR
+        em **Configurações → Perfis de Acesso** (`/api/roles`, `/api/roles/permissions`);
+        ADMIN protegido. Todos os controllers e o frontend migrados para os novos códigos.
+  - [x] **Chave de licenciamento** (token **HMAC-SHA256 offline**, `LicenseKeyService`):
+        aplicar (`POST /licensing/license/key`) e gerar (`.../key/generate`) em
+        Configurações → Módulos & Licença. Aplica plano + validade + cliente + limites.
+  - [x] **Enforcement no backend** (`LicenseEnforcementInterceptor`): recusa endpoint de
+        módulo desligado; núcleo (auth/licensing/settings/users/roles) sempre liberado.
+  - [x] **Bloqueio escalonado** por vencimento: dentro da tolerância → só aviso; após a
+        tolerância ou SUSPENSA → modo **somente-leitura**; CANCELADA → **bloqueio total**.
+  - ⚠️ Requer **deploy atômico** (V14 + código novo juntos): a migração apaga os códigos
+        antigos (`READ`, `*_WRITE`), então não pode rodar sozinha contra um app antigo.
+  - [ ] *Follow-up*: telas que cruzam módulos (Dashboard chama `/sales` e `/installments`;
+        Relatórios) podem retornar 403 quando o plano NÃO inclui o módulo de origem
+        (ex.: Essencial sem VENDAS). Tratar erro por-consulta no front ou condicionar a
+        consulta a `canAccess()`. Não afeta o cliente atual (Profissional, com Vendas).
+
+- [ ] **Fase 3 — Provisionamento de VM por cliente** (substitui o multitenant): script/
+      processo para subir uma VM nova (imagem Docker + banco) a cada venda e **deploy
+      automatizado** da mesma imagem para as N VMs existentes (CI → atualizar cada VM).
+      Backup e monitoramento por VM.
+      > ~~Alternativa multitenant (DESCARTADA): `tenant_id` nas tabelas + escopo nas
+      > queries + login por tenant. Só reabrir se o modelo mudar para infra única com
+      > muitos clientes.~~
+
+- [ ] **Fase 4 — Construir os módulos Premium** (independente das Fases 2/3; já
+      beneficia o cliente atual): **Portal do Cliente (web)** (login do comprador:
+      contrato, parcelas, 2ª via boleto/PIX, comunicados, dados cadastrais) → base
+      reutilizável para o **App Android** (React Native/Flutter + FCM); **Cobrança
+      Asaas** (geração de boleto/PIX e baixa automática); **Correção monetária**
+      (INCC/IGPM); **Assinatura eletrônica** de contratos.
+
+- [ ] **Fase 5 — Aplicação web de gestão de licenças** (2º sistema, separado; central
+      no modelo VM-por-cliente): painel do FORNECEDOR (você) para **gerar, cobrar e
+      gerenciar** as chaves/licenças de todos os clientes — emissão de chave por plano,
+      controle de vencimento e renovação, cobrança/faturamento, dashboard de clientes
+      ativos/inadimplentes e **inventário das VMs** (qual cliente, qual plano, qual
+      versão). A Fase 2 cria a "chave" que esta app passa a gerar automaticamente,
+      substituindo o processo manual.
+
+### Nota de alinhamento (estado atual)
+Base aproveitável: papéis/permissões (`hasPermission`), Configurações por sistema,
+notificações por e-mail, API REST coesa e a Fundação (Fase 1) de módulos/licença.
+Como o isolamento é **por VM** (decisão acima), o sistema single-tenant atual já serve —
+**não há multitenant a fazer**. Faltam: amarrar plano↔módulos + permissões por módulo +
+chave de licenciamento + enforcement (Fase 2), provisionamento/deploy das VMs (Fase 3),
+os módulos Premium (Fase 4) e a app de gestão de licenças (Fase 5).
+
+---
+
 ## Qualidade / DevOps
 
 - [x] Testes unitários do núcleo financeiro: `LateFeeCalculator` (juros/multa) e

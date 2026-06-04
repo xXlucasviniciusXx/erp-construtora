@@ -52,7 +52,7 @@ export function PayablePage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [devFilter, setDevFilter] = useState('')
   const [page, setPage] = useState(0)
-  const canWrite = hasPermission('PAYABLE_WRITE')
+  const canWrite = hasPermission('CONTAS_PAGAR_EDIT')
 
   const { data, isLoading } = useQuery({
     queryKey: ['payable', q, statusFilter, devFilter, page],

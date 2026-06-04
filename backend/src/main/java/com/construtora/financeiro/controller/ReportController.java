@@ -16,7 +16,7 @@ import java.time.LocalDate;
 @RestController
 @RequestMapping("/api/reports")
 @Tag(name = "Reports", description = "Relatórios exportáveis em CSV")
-@PreAuthorize("hasAnyAuthority('REPORTS_EXPORT','READ')")
+@PreAuthorize("hasAuthority('RELATORIOS_VIEW')")
 public class ReportController {
 
     private final ReportService service;

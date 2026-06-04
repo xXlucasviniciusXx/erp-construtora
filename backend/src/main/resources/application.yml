@@ -59,6 +59,10 @@ app:
     enabled: ${MAIL_ENABLED:false}      # No POC fica desligado por padrao; loga em vez de enviar
   storage:
     upload-dir: ${APP_UPLOAD_DIR:./uploads}
+  license:
+    # Segredo para assinar/validar a chave de licenciamento (HMAC-SHA256). Em
+    # produção, defina LICENSE_SECRET por VM (ou o mesmo segredo no painel da Fase 5).
+    secret: ${LICENSE_SECRET:troque-este-segredo-de-licenca-por-um-valor-aleatorio-256-bits}
 
 # ---- Documentacao ----
 springdoc:

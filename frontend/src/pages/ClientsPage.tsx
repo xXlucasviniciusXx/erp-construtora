@@ -28,7 +28,7 @@ export function ClientsPage() {
   const [viewClient, setViewClient] = useState<Client | null>(null)
   const [lookupMsg, setLookupMsg] = useState<string | null>(null)
 
-  const canWrite = hasPermission('CLIENTS_WRITE')
+  const canWrite = hasPermission('CLIENTES_EDIT')
 
   async function handleCepBlur(cep: string) {
     if (!cep) return

@@ -15,7 +15,7 @@ const LOT_LABEL: Record<LotStatus, string> = { AVAILABLE: 'Disponível', RESERVE
 
 export function DevelopmentsPage() {
   const { hasPermission } = useAuth()
-  const canWrite = hasPermission('PROPERTIES_WRITE')
+  const canWrite = hasPermission('EMPREENDIMENTOS_EDIT')
   const [manage, setManage] = useState<Development | null>(null)
 
   if (manage) return <DevelopmentManager development={manage} canWrite={canWrite} onBack={() => setManage(null)} />

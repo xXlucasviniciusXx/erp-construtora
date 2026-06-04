@@ -26,14 +26,14 @@ public class BankAccountController {
 
     @GetMapping
     @Operation(summary = "Lista contas bancárias")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_VIEW')")
     public List<BankAccountResponse> list() {
         return service.findAll();
     }
 
     @PostMapping
     @Operation(summary = "Cria conta bancária")
-    @PreAuthorize("hasAuthority('RECONCILIATION_WRITE')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_EDIT')")
     @ResponseStatus(HttpStatus.CREATED)
     public BankAccountResponse create(@Valid @RequestBody BankAccountRequest request) {
         return service.create(request);
@@ -41,14 +41,14 @@ public class BankAccountController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Atualiza conta bancária")
-    @PreAuthorize("hasAuthority('RECONCILIATION_WRITE')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_EDIT')")
     public BankAccountResponse update(@PathVariable UUID id, @Valid @RequestBody BankAccountRequest request) {
         return service.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove conta bancária")
-    @PreAuthorize("hasAuthority('RECONCILIATION_WRITE')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_EDIT')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {
         service.delete(id);

@@ -24,14 +24,14 @@ public class StatementImportController {
 
     @GetMapping
     @Operation(summary = "Histórico de importações da conta")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_VIEW')")
     public List<ImportResultResponse> history(@PathVariable UUID bankAccountId) {
         return service.history(bankAccountId);
     }
 
     @PostMapping(consumes = "multipart/form-data")
     @Operation(summary = "Importa um arquivo de extrato (.csv ou .ofx)")
-    @PreAuthorize("hasAuthority('RECONCILIATION_WRITE')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_EDIT')")
     public ImportResultResponse importFile(@PathVariable UUID bankAccountId,
                                            @RequestParam("file") MultipartFile file) {
         return service.importFile(bankAccountId, file);

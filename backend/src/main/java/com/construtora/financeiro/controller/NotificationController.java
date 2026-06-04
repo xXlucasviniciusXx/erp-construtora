@@ -26,7 +26,7 @@ public class NotificationController {
 
     @GetMapping
     @Operation(summary = "Histórico de notificações (paginado, filtros status/evento)")
-    @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
+    @PreAuthorize("hasAuthority('NOTIFICACOES_VIEW')")
     public Page<EmailNotificationResponse> list(@RequestParam(required = false) String status,
                                                 @RequestParam(required = false) String eventType,
                                                 @PageableDefault(size = 20) Pageable pageable) {
@@ -35,14 +35,14 @@ public class NotificationController {
 
     @PostMapping("/{id}/resend")
     @Operation(summary = "Reenvia uma notificação")
-    @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
+    @PreAuthorize("hasAuthority('NOTIFICACOES_VIEW')")
     public EmailNotificationResponse resend(@PathVariable UUID id) {
         return toResponse(service.resend(id));
     }
 
     @PostMapping("/test")
     @Operation(summary = "Envia um e-mail de teste para validar o SMTP")
-    @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
+    @PreAuthorize("hasAuthority('NOTIFICACOES_VIEW')")
     public EmailNotificationResponse test(@RequestParam String to) {
         return toResponse(service.sendTest(to));
     }

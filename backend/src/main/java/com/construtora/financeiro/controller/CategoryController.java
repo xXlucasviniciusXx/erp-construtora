@@ -26,7 +26,7 @@ public class CategoryController {
 
     @GetMapping
     @Operation(summary = "Lista categorias (grupo → item)")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CONTAS_PAGAR_VIEW')")
     public List<CategoryResponse> list() {
         return service.findAll();
     }

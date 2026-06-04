@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ShieldCheck } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
-import type { AppUser } from '@/lib/types'
+import type { AppUser, Role } from '@/lib/types'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/Confirm'
 import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 
-const ROLES = ['ADMIN', 'FINANCEIRO', 'CONTABILIDADE', 'COMERCIAL', 'VISUALIZADOR']
+const FALLBACK_ROLES = ['ADMIN', 'FINANCEIRO', 'CONTABILIDADE', 'COMERCIAL', 'VISUALIZADOR']
 interface UserForm { id?: string; name: string; email: string; password?: string; role: string; active: boolean }
 const EMPTY: UserForm = { name: '', email: '', password: '', role: 'VISUALIZADOR', active: true }
 
@@ -23,6 +23,12 @@ export function UsersPage() {
     queryKey: ['users'],
     queryFn: async () => (await api.get<AppUser[]>('/users')).data,
   })
+
+  const { data: roles } = useQuery({
+    queryKey: ['roles'],
+    queryFn: async () => (await api.get<Role[]>('/roles')).data,
+  })
+  const roleNames = roles?.map((r) => r.name) ?? FALLBACK_ROLES
 
   const save = useMutation({
     mutationFn: async (p: UserForm) => (p.id ? api.put(`/users/${p.id}`, p) : api.post('/users', p)),
@@ -75,7 +81,7 @@ export function UsersPage() {
           <div className="grid grid-cols-2 gap-3">
             <Field label="Perfil">
               <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                {roleNames.map((r) => <option key={r} value={r}>{r}</option>)}
               </Select>
             </Field>
             <Field label="Ativo">

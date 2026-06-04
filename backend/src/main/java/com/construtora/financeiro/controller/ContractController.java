@@ -25,7 +25,7 @@ public class ContractController {
 
     @GetMapping(value = "/sales/{saleId}/html", produces = MediaType.TEXT_HTML_VALUE)
     @Operation(summary = "Gera contrato em HTML")
-    @PreAuthorize("hasAnyAuthority('CONTRACTS_GENERATE','READ')")
+    @PreAuthorize("hasAuthority('VENDAS_VIEW')")
     public ResponseEntity<String> html(@PathVariable UUID saleId) {
         return ResponseEntity.ok()
                 .contentType(new MediaType("text", "html", StandardCharsets.UTF_8))
@@ -34,7 +34,7 @@ public class ContractController {
 
     @GetMapping(value = "/sales/{saleId}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     @Operation(summary = "Gera contrato em PDF")
-    @PreAuthorize("hasAuthority('CONTRACTS_GENERATE')")
+    @PreAuthorize("hasAuthority('VENDAS_EDIT')")
     public ResponseEntity<byte[]> pdf(@PathVariable UUID saleId) {
         byte[] pdf = service.generatePdf(saleId);
         return ResponseEntity.ok()

@@ -90,6 +90,30 @@ Check "CSV despesas por categoria com cabeçalho" { $csv -match 'Grupo' -and $cs
 $dreCsv = Invoke-RestMethod -Uri "$base/dre/export" -Headers $h
 Check "CSV do DRE exporta" { $dreCsv -match 'RESULTADO' }
 
+# --- Licenciamento (V13): módulos + licença ---
+$lic = Invoke-RestMethod -Uri "$base/licensing/me" -Headers $h
+Check "licensing/me traz módulos e licença" {
+    ($lic.modules.Count -ge 11) -and ($null -ne $lic.license) -and ($lic.license.plan.Length -gt 0)
+}
+Check "módulos principais nascem ativos" {
+    $dash = $lic.modules | Where-Object { $_.code -eq 'DASHBOARD' } | Select-Object -First 1
+    $dash -and $dash.active -eq $true
+}
+
+# --- Fase 2: perfis de acesso, permissões por módulo e chave de licenciamento ---
+$roles = Invoke-RestMethod -Uri "$base/roles" -Headers $h
+Check "perfis de acesso listados (ADMIN protegido)" {
+    ($roles | Where-Object { $_.name -eq 'ADMIN' -and $_.system }).Count -eq 1
+}
+$perms = Invoke-RestMethod -Uri "$base/roles/permissions" -Headers $h
+Check "catálogo de permissões por módulo (VIEW/EDIT)" {
+    ($perms | Where-Object { $_.code -eq 'CLIENTES_EDIT' -and $_.action -eq 'EDIT' }).Count -eq 1 -and
+    ($perms | Where-Object { $_.code -eq 'READ' }).Count -eq 0
+}
+$genBody = '{"plan":"PROFISSIONAL","periodMonths":12}'
+$gen = Invoke-RestMethod -Uri "$base/licensing/license/key/generate" -Method Post -Body ([Text.Encoding]::UTF8.GetBytes($genBody)) -ContentType 'application/json' -Headers $h
+Check "gera chave de licenciamento assinada (token HMAC)" { $gen.key -match '\.' -and $gen.key.Length -gt 30 }
+
 Write-Host ""
 Write-Host "Resultado: $pass passaram, $fail falharam" -ForegroundColor $(if ($fail -eq 0) { 'Green' } else { 'Red' })
 if ($fail -gt 0) { exit 1 }
