@@ -2,6 +2,7 @@ package com.construtora.financeiro.repository;
 
 import com.construtora.financeiro.model.Lot;
 import com.construtora.financeiro.model.enums.PropertyStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -23,6 +24,24 @@ public interface LotRepository extends JpaRepository<Lot, UUID> {
     long countByBlockDevelopmentId(UUID developmentId);
 
     List<Lot> findByBlockDevelopmentIdOrderByInternalCode(UUID developmentId);
+
+    /**
+     * Busca textual full: nome do lote, código interno, nome da quadra ou nome do empreendimento.
+     * Usado pelo endpoint GET /lots?q= para o combobox server-side em Vendas.
+     */
+    @Query("""
+            SELECT l FROM Lot l
+            JOIN l.block b
+            JOIN b.development d
+            WHERE l.status <> com.construtora.financeiro.model.enums.PropertyStatus.CANCELLED
+              AND (:q = '' OR
+                   LOWER(l.name) LIKE LOWER(CONCAT('%', :q, '%')) OR
+                   LOWER(l.internalCode) LIKE LOWER(CONCAT('%', :q, '%')) OR
+                   LOWER(b.name) LIKE LOWER(CONCAT('%', :q, '%')) OR
+                   LOWER(d.name) LIKE LOWER(CONCAT('%', :q, '%')))
+            ORDER BY d.name, b.name, l.internalCode
+            """)
+    List<Lot> searchByQuery(@Param("q") String q, Pageable pageable);
 
     /** Valor previsto total do empreendimento = soma dos valores previstos dos lotes. */
     @Query("select coalesce(sum(l.plannedValue), 0) from Lot l where l.block.development.id = :devId")
