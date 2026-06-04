@@ -11,5 +11,6 @@ public record AuthResponse(
         String name,
         String email,
         String role,
-        List<String> permissions
+        List<String> permissions,
+        String refreshToken      // null em endpoints que não emitem refresh token
 ) {}

@@ -16,7 +16,8 @@ public class LotMapper {
                 l.getId(), block.getId(), block.getName(), dev.getId(), dev.getName(),
                 l.getName(), l.getInternalCode(), l.getRegistration(), l.getUnit(), l.getAddress(),
                 l.getTotalArea(), l.getBuiltArea(), l.getPlannedValue(), l.getSaleValue(),
-                l.getStatus(), l.getContractExtra(), l.getNotes(), label(l));
+                l.getStatus(), l.getContractExtra(), l.getNotes(), label(l),
+                l.getReservationExpiresAt());
     }
 
     /** Rótulo "Empreendimento / Q<quadra> / <lote>" usado na venda e no contrato. */

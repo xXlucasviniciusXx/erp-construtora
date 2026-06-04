@@ -2,6 +2,7 @@ package com.construtora.financeiro.controller;
 
 import com.construtora.financeiro.dto.auth.AuthResponse;
 import com.construtora.financeiro.dto.auth.LoginRequest;
+import com.construtora.financeiro.dto.auth.RefreshRequest;
 import com.construtora.financeiro.security.AppUserDetails;
 import com.construtora.financeiro.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,9 +28,31 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Login com e-mail e senha, retorna JWT")
+    @Operation(summary = "Login com e-mail e senha, retorna JWT + refresh token")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    /**
+     * Emite um novo par de tokens (access + refresh) a partir de um refresh token válido.
+     * Não requer JWT — o refresh token é a credencial.
+     */
+    @PostMapping("/refresh")
+    @Operation(summary = "Renova o access token usando o refresh token")
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshRequest request) {
+        return ResponseEntity.ok(authService.refresh(request.refreshToken()));
+    }
+
+    /**
+     * Revoga todos os refresh tokens do usuário autenticado (logout seguro).
+     * O JWT em si não pode ser revogado (stateless), mas sem refresh token o usuário
+     * precisará fazer login novamente após a expiração do JWT.
+     */
+    @PostMapping("/logout")
+    @Operation(summary = "Revoga o refresh token do usuário (logout)")
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal AppUserDetails principal) {
+        authService.logout(principal);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me")

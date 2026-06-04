@@ -1,6 +1,7 @@
 package com.construtora.financeiro.controller;
 
 import com.construtora.financeiro.dto.lot.LotRequest;
+import com.construtora.financeiro.dto.lot.LotReserveRequest;
 import com.construtora.financeiro.dto.lot.LotResponse;
 import com.construtora.financeiro.service.LotService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -54,6 +55,20 @@ public class LotController {
     @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
     public LotResponse cancel(@PathVariable UUID id) {
         return service.cancel(id);
+    }
+
+    @PatchMapping("/{id}/reserve")
+    @Operation(summary = "Reserva lote AVAILABLE por N horas (padrão: 24 h)")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
+    public LotResponse reserve(@PathVariable UUID id, @RequestBody(required = false) LotReserveRequest req) {
+        return service.reserve(id, req != null ? req : new LotReserveRequest(null));
+    }
+
+    @PatchMapping("/{id}/release")
+    @Operation(summary = "Libera reserva manualmente, devolvendo lote a AVAILABLE")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
+    public LotResponse release(@PathVariable UUID id) {
+        return service.release(id);
     }
 
     @DeleteMapping("/{id}")

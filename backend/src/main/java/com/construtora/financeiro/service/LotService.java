@@ -1,6 +1,7 @@
 package com.construtora.financeiro.service;
 
 import com.construtora.financeiro.dto.lot.LotRequest;
+import com.construtora.financeiro.dto.lot.LotReserveRequest;
 import com.construtora.financeiro.dto.lot.LotResponse;
 import com.construtora.financeiro.exception.BusinessException;
 import com.construtora.financeiro.exception.ResourceNotFoundException;
@@ -13,6 +14,7 @@ import com.construtora.financeiro.repository.LotRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -62,13 +64,44 @@ public class LotService {
 
     public LotResponse update(UUID id, LotRequest r) {
         Lot lot = getEntity(id);
-        apply(r, lot);   // saleValue e internalCode não são alterados aqui
+        apply(r, lot);
         return mapper.toResponse(repository.save(lot));
     }
 
     public LotResponse cancel(UUID id) {
         Lot lot = getEntity(id);
         lot.setStatus(PropertyStatus.CANCELLED);
+        lot.setReservationExpiresAt(null);
+        return mapper.toResponse(repository.save(lot));
+    }
+
+    /**
+     * Reserva um lote AVAILABLE por {@code req.resolvedHours()} horas.
+     * Após esse prazo, o scheduler libera o lote automaticamente.
+     */
+    public LotResponse reserve(UUID id, LotReserveRequest req) {
+        Lot lot = getEntity(id);
+        if (lot.getStatus() != PropertyStatus.AVAILABLE) {
+            throw new BusinessException(
+                    "Somente lotes disponíveis podem ser reservados. Status atual: " + lot.getStatus());
+        }
+        lot.setStatus(PropertyStatus.RESERVED);
+        lot.setReservationExpiresAt(LocalDateTime.now().plusHours(req.resolvedHours()));
+        return mapper.toResponse(repository.save(lot));
+    }
+
+    /**
+     * Libera uma reserva manualmente, devolvendo o lote ao status AVAILABLE.
+     * Falha silenciosamente se o lote não estiver RESERVED (já foi liberado ou vendido).
+     */
+    public LotResponse release(UUID id) {
+        Lot lot = getEntity(id);
+        if (lot.getStatus() != PropertyStatus.RESERVED) {
+            throw new BusinessException(
+                    "Somente lotes reservados podem ser liberados. Status atual: " + lot.getStatus());
+        }
+        lot.setStatus(PropertyStatus.AVAILABLE);
+        lot.setReservationExpiresAt(null);
         return mapper.toResponse(repository.save(lot));
     }
 
@@ -93,6 +126,9 @@ public class LotService {
         lot.setNotes(r.notes());
         if (r.status() != null) {
             lot.setStatus(r.status());
+            if (r.status() != PropertyStatus.RESERVED) {
+                lot.setReservationExpiresAt(null); // limpa expiração se saiu de RESERVED
+            }
         } else if (lot.getStatus() == null) {
             lot.setStatus(PropertyStatus.AVAILABLE);
         }
