@@ -26,13 +26,22 @@ public class LotController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista lotes (por quadra, por empreendimento ou todos)")
+    @Operation(summary = "Lista lotes. Suporta ?blockId=, ?developmentId= ou ?q= (busca textual)")
     @PreAuthorize("hasAuthority('EMPREENDIMENTOS_VIEW')")
     public List<LotResponse> list(@RequestParam(required = false) UUID blockId,
-                                  @RequestParam(required = false) UUID developmentId) {
+                                  @RequestParam(required = false) UUID developmentId,
+                                  @RequestParam(required = false) String q) {
         if (blockId != null) return service.findByBlock(blockId);
         if (developmentId != null) return service.findByDevelopment(developmentId);
+        if (q != null) return service.search(q);   // busca textual (combobox server-side)
         return service.findAll();
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Retorna um lote pelo ID (usado para pré-carregar o combobox)")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_VIEW')")
+    public LotResponse findById(@PathVariable UUID id) {
+        return service.findById(id);
     }
 
     @PostMapping

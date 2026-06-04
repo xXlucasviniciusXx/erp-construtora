@@ -11,6 +11,7 @@ import com.construtora.financeiro.model.Development;
 import com.construtora.financeiro.model.Lot;
 import com.construtora.financeiro.model.enums.PropertyStatus;
 import com.construtora.financeiro.repository.LotRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +46,18 @@ public class LotService {
     @Transactional(readOnly = true)
     public List<LotResponse> findAll() {
         return repository.findAll().stream().map(mapper::toResponse).toList();
+    }
+
+    /**
+     * Busca textual para o combobox server-side.
+     * Retorna até 30 lotes não-cancelados que contenham {@code q} no nome, código,
+     * quadra ou empreendimento. Se {@code q} for nulo/vazio, retorna os 30 primeiros.
+     */
+    @Transactional(readOnly = true)
+    public List<LotResponse> search(String q) {
+        String term = (q == null || q.isBlank()) ? "" : q.trim();
+        return repository.searchByQuery(term, PageRequest.of(0, 30))
+                .stream().map(mapper::toResponse).toList();
     }
 
     public LotResponse create(LotRequest r) {
@@ -107,6 +120,11 @@ public class LotService {
 
     public void delete(UUID id) {
         repository.delete(getEntity(id));
+    }
+
+    @Transactional(readOnly = true)
+    public LotResponse findById(UUID id) {
+        return mapper.toResponse(getEntity(id));
     }
 
     public Lot getEntity(UUID id) {

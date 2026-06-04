@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage, getToken } from '@/lib/api'
 import type { Client, Lot, NamedItem, Page, Sale } from '@/lib/types'
+import type { ComboOption } from '@/components/Combobox'
 import { FileSignature } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
@@ -57,17 +58,55 @@ export function SalesPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(0)
 
+  // ---- search state para os comboboxes (server-side) ----
+  const [clientSearch, setClientSearch] = useState('')
+  const [lotSearch, setLotSearch] = useState('')
+  /** Semente: item selecionado atualmente (para mostrar a label mesmo antes de buscar) */
+  const [clientSeed, setClientSeed] = useState<ComboOption | null>(null)
+  const [lotSeed, setLotSeed] = useState<ComboOption | null>(null)
+
   const sales = useQuery({
     queryKey: ['sales', q, statusFilter, page],
     queryFn: async () => (await api.get<Page<Sale>>('/sales', {
       params: { q: q || undefined, status: statusFilter || undefined, page, size: 20 },
     })).data,
   })
-  const clients = useQuery({
-    queryKey: ['clients-all'],
-    queryFn: async () => (await api.get<Page<Client>>('/clients', { params: { size: 500 } })).data.content,
+
+  // Clientes — server-side: busca apenas quando o modal está aberto
+  const clientsQuery = useQuery({
+    queryKey: ['clients-search', clientSearch],
+    queryFn: async () => (await api.get<Page<Client>>('/clients', {
+      params: { q: clientSearch || undefined, size: 20 },
+    })).data.content,
+    enabled: modalOpen,
+    staleTime: 10_000,
   })
-  const lots = useQuery({ queryKey: ['lots-all'], queryFn: async () => (await api.get<Lot[]>('/lots')).data })
+
+  // Lotes — server-side: busca apenas quando o modal está aberto
+  const lotsQuery = useQuery({
+    queryKey: ['lots-search', lotSearch],
+    queryFn: async () => (await api.get<Lot[]>('/lots', {
+      params: { q: lotSearch || undefined },
+    })).data,
+    enabled: modalOpen,
+    staleTime: 10_000,
+  })
+
+  // Opções com semente: garante que a seleção atual apareça mesmo antes de digitar
+  const clientOptions = useMemo<ComboOption[]>(() => {
+    const opts: ComboOption[] = (clientsQuery.data ?? []).map((c) => ({ value: c.id, label: c.name, hint: c.document }))
+    if (clientSeed && !opts.find((o) => o.value === clientSeed.value)) return [clientSeed, ...opts]
+    return opts
+  }, [clientsQuery.data, clientSeed])
+
+  const lotOptions = useMemo<ComboOption[]>(() => {
+    const opts: ComboOption[] = (lotsQuery.data ?? [])
+      .filter((l) => l.status === 'AVAILABLE' || l.id === form.lotId)
+      .map((l) => ({ value: l.id, label: l.label, hint: `${l.internalCode} · previsto ${formatCurrency(l.plannedValue)}` }))
+    if (lotSeed && !opts.find((o) => o.value === lotSeed.value)) return [lotSeed, ...opts]
+    return opts
+  }, [lotsQuery.data, lotSeed, form.lotId])
+
   const paymentMethods = useQuery({
     queryKey: ['payment-methods'],
     queryFn: async () => (await api.get<NamedItem[]>('/lists/payment-methods')).data,
@@ -84,7 +123,7 @@ export function SalesPage() {
       editingId ? api.put(`/sales/${editingId}`, payload) : api.post('/sales', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales'] })
-      queryClient.invalidateQueries({ queryKey: ['lots-all'] })
+      queryClient.invalidateQueries({ queryKey: ['lots-search'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] })
       setModalOpen(false); setForm(EMPTY)
       toast.success(editingId ? 'Venda atualizada com sucesso.' : 'Venda registrada e parcelas geradas.')
@@ -96,12 +135,15 @@ export function SalesPage() {
   const filtered = sales.data?.content ?? []  // filtrado/paginado no servidor
 
   // ---- helpers do formulário ----
-  const selectedLot = lots.data?.find((l) => l.id === form.lotId)
-  const expectedValue = selectedLot?.plannedValue ?? 0
+  // plannedValue do lote selecionado (para exibir o "valor esperado")
+  const expectedValue = lotsQuery.data?.find((l) => l.id === form.lotId)?.plannedValue ?? 0
   const entradaDisabled = form.purchaseType !== PURCHASE_WITH_DOWN
 
   function openNew() {
-    setEditingId(null); setForm(EMPTY); setError(null); setModalOpen(true)
+    setEditingId(null); setForm(EMPTY); setError(null)
+    setClientSearch(''); setLotSearch('')
+    setClientSeed(null); setLotSeed(null)
+    setModalOpen(true)
   }
   function openEdit(s: Sale) {
     setEditingId(s.id)
@@ -112,21 +154,21 @@ export function SalesPage() {
       correctionIndex: s.correctionIndex ?? 'Sem correção',
       interestRate: s.interestRate ?? 0, penaltyRate: s.penaltyRate ?? 0,
     })
+    // Semear os comboboxes com a seleção atual para exibir a label sem precisar buscar
+    setClientSeed({ value: s.clientId, label: s.clientName, hint: '' })
+    setLotSeed({ value: s.lotId, label: s.propertyLabel, hint: '' })
+    setClientSearch(''); setLotSearch('')
     setError(null); setModalOpen(true)
   }
   function onSelectLot(id: string) {
-    const lot = lots.data?.find((l) => l.id === id)
-    setForm((f) => ({ ...f, lotId: id, totalValue: f.totalValue || (lot?.plannedValue ?? 0) }))
+    const lot = lotsQuery.data?.find((l) => l.id === id)
+    setLotSeed(lot ? { value: lot.id, label: lot.label, hint: '' } : null)
+    setForm((f) => ({ ...f, lotId: id, totalValue: f.totalValue || Number(lot?.plannedValue ?? 0) }))
   }
   function downloadContract(saleId: string) {
     fetch(`${api.defaults.baseURL}/contracts/sales/${saleId}/pdf`, { headers: { Authorization: `Bearer ${getToken()}` } })
       .then((r) => r.blob()).then((blob) => window.open(URL.createObjectURL(blob)))
   }
-
-  const availableLotOptions = (lots.data ?? [])
-    .filter((l) => l.status === 'AVAILABLE' || l.id === form.lotId)
-    .map((l) => ({ value: l.id, label: l.label, hint: `${l.internalCode} · previsto ${formatCurrency(l.plannedValue)}` }))
-  const clientOptions = (clients.data ?? []).map((c) => ({ value: c.id, label: c.name, hint: c.document }))
 
   return (
     <div>
@@ -220,12 +262,30 @@ export function SalesPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Editar venda' : 'Nova venda'}>
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate(form) }}>
           <Field label="Cliente">
-            <Combobox options={clientOptions} value={form.clientId} disabled={!!editingId}
-              onChange={(v) => setForm({ ...form, clientId: v })} placeholder="Buscar cliente…" />
+            <Combobox
+              options={clientOptions}
+              value={form.clientId}
+              disabled={!!editingId}
+              onChange={(v) => {
+                const opt = clientOptions.find((o) => o.value === v)
+                setClientSeed(opt ?? null)
+                setForm({ ...form, clientId: v })
+              }}
+              placeholder="Buscar cliente…"
+              onSearch={setClientSearch}
+              loading={clientsQuery.isFetching}
+            />
           </Field>
           <Field label="Lote (disponíveis)">
-            <Combobox options={availableLotOptions} value={form.lotId} disabled={!!editingId}
-              onChange={onSelectLot} placeholder="Buscar lote…" />
+            <Combobox
+              options={lotOptions}
+              value={form.lotId}
+              disabled={!!editingId}
+              onChange={onSelectLot}
+              placeholder="Buscar lote…"
+              onSearch={setLotSearch}
+              loading={lotsQuery.isFetching}
+            />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Valor esperado de venda (do lote)">
