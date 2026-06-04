@@ -34,12 +34,13 @@ public class DreController {
     }
 
     @GetMapping
-    @Operation(summary = "DRE por período e empreendimento (receitas − despesas)")
+    @Operation(summary = "DRE por período, empreendimento e base (CAIXA ou COMPETENCIA)")
     @PreAuthorize("hasAuthority('DRE_VIEW')")
     public DreResponse dre(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-                           @RequestParam(required = false) UUID developmentId) {
-        return service.dre(from, to, developmentId);
+                           @RequestParam(required = false) UUID developmentId,
+                           @RequestParam(required = false, defaultValue = "CAIXA") DreService.Basis basis) {
+        return service.dre(from, to, developmentId, basis);
     }
 
     @GetMapping("/export")
@@ -47,8 +48,9 @@ public class DreController {
     @PreAuthorize("hasAuthority('DRE_VIEW')")
     public ResponseEntity<byte[]> export(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-                                         @RequestParam(required = false) UUID developmentId) {
-        DreResponse d = service.dre(from, to, developmentId);
+                                         @RequestParam(required = false) UUID developmentId,
+                                         @RequestParam(required = false, defaultValue = "CAIXA") DreService.Basis basis) {
+        DreResponse d = service.dre(from, to, developmentId, basis);
         List<List<Object>> rows = new ArrayList<>();
         for (Point r : d.revenues()) rows.add(List.of("RECEITA", r.label(), r.value()));
         rows.add(List.of("RECEITA", "TOTAL DE RECEITAS", d.totalRevenue()));

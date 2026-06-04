@@ -2,6 +2,7 @@ package com.construtora.financeiro.model;
 
 import com.construtora.financeiro.model.enums.ReceivableStatus;
 import jakarta.persistence.*;
+import jakarta.persistence.FetchType;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
@@ -33,6 +34,11 @@ public class AccountReceivable {
     @ManyToOne
     @JoinColumn(name = "installment_id")
     private Installment installment;
+
+    /** Categoria de receita (opcional — detalha "Outras Receitas" no DRE). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
 
     private String description;
 

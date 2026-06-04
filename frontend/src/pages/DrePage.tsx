@@ -6,10 +6,13 @@ import type { Development, Dre } from '@/lib/types'
 import { Button, Card, Field, Input, PageHeader, Select, Skeleton } from '@/components/ui'
 import { formatCurrency } from '@/lib/utils'
 
+type Basis = 'CAIXA' | 'COMPETENCIA'
+
 export function DrePage() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [developmentId, setDevelopmentId] = useState('')
+  const [basis, setBasis] = useState<Basis>('CAIXA')
 
   const developments = useQuery({
     queryKey: ['developments'],
@@ -20,19 +23,21 @@ export function DrePage() {
     from: from || undefined,
     to: to || undefined,
     developmentId: developmentId || undefined,
+    basis,
   }
   const { data, isLoading } = useQuery({
-    queryKey: ['dre', from, to, developmentId],
+    queryKey: ['dre', from, to, developmentId, basis],
     queryFn: async () => (await api.get<Dre>('/dre', { params })).data,
   })
 
-  function clear() { setFrom(''); setTo(''); setDevelopmentId('') }
+  function clear() { setFrom(''); setTo(''); setDevelopmentId(''); setBasis('CAIXA') }
 
   function exportCsv() {
     const qs = new URLSearchParams()
     if (from) qs.set('from', from)
     if (to) qs.set('to', to)
     if (developmentId) qs.set('developmentId', developmentId)
+    qs.set('basis', basis)
     fetch(`${api.defaults.baseURL}/dre/export?${qs.toString()}`, { headers: { Authorization: `Bearer ${getToken()}` } })
       .then((r) => r.blob())
       .then((blob) => {
@@ -49,19 +54,27 @@ export function DrePage() {
     <div className="space-y-6">
       <PageHeader
         title="DRE — Demonstração do Resultado"
-        subtitle="Base caixa: receitas recebidas − despesas pagas no período"
+        subtitle={basis === 'CAIXA'
+          ? 'Base caixa: receitas recebidas − despesas pagas no período'
+          : 'Base competência: receitas e despesas pelo vencimento no período'}
         action={<Button variant="outline" onClick={exportCsv}><Download className="h-4 w-4" /> Exportar CSV</Button>}
       />
 
       {/* Filtros */}
       <Card>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Field label="Período de"><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
           <Field label="até"><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
           <Field label="Empreendimento">
             <Select value={developmentId} onChange={(e) => setDevelopmentId(e.target.value)}>
               <option value="">Todos (consolidado)</option>
               {developments.data?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Base de cálculo">
+            <Select value={basis} onChange={(e) => setBasis(e.target.value as Basis)}>
+              <option value="CAIXA">Caixa (recebido/pago)</option>
+              <option value="COMPETENCIA">Competência (vencimento)</option>
             </Select>
           </Field>
           <div className="flex items-end">

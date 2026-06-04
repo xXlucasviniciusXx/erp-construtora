@@ -6,7 +6,9 @@ import com.construtora.financeiro.exception.ResourceNotFoundException;
 import com.construtora.financeiro.mapper.ReceivableMapper;
 import com.construtora.financeiro.model.AccountReceivable;
 import com.construtora.financeiro.model.enums.ReceivableStatus;
+import com.construtora.financeiro.annotation.Auditable;
 import com.construtora.financeiro.repository.AccountReceivableRepository;
+import com.construtora.financeiro.repository.CategoryRepository;
 import com.construtora.financeiro.repository.ClientRepository;
 import com.construtora.financeiro.repository.InstallmentRepository;
 import com.construtora.financeiro.repository.PropertySaleRepository;
@@ -26,15 +28,17 @@ public class ReceivableService {
     private final ClientRepository clientRepository;
     private final PropertySaleRepository saleRepository;
     private final InstallmentRepository installmentRepository;
+    private final CategoryRepository categoryRepository;
     private final ReceivableMapper mapper;
 
     public ReceivableService(AccountReceivableRepository repository, ClientRepository clientRepository,
                              PropertySaleRepository saleRepository, InstallmentRepository installmentRepository,
-                             ReceivableMapper mapper) {
+                             CategoryRepository categoryRepository, ReceivableMapper mapper) {
         this.repository = repository;
         this.clientRepository = clientRepository;
         this.saleRepository = saleRepository;
         this.installmentRepository = installmentRepository;
+        this.categoryRepository = categoryRepository;
         this.mapper = mapper;
     }
 
@@ -49,14 +53,17 @@ public class ReceivableService {
         return mapper.toResponse(getEntity(id));
     }
 
+    @Auditable(action = "RECEIVABLE_CREATE", entity = "accounts_receivable")
     public ReceivableResponse create(ReceivableRequest request) {
         return mapper.toResponse(repository.save(apply(request, new AccountReceivable())));
     }
 
+    @Auditable(action = "RECEIVABLE_UPDATE", entity = "accounts_receivable")
     public ReceivableResponse update(UUID id, ReceivableRequest request) {
         return mapper.toResponse(repository.save(apply(request, getEntity(id))));
     }
 
+    @Auditable(action = "RECEIVABLE_CONFIRM", entity = "accounts_receivable")
     public ReceivableResponse confirmReceive(UUID id, LocalDate receiveDate) {
         AccountReceivable a = getEntity(id);
         a.setStatus(ReceivableStatus.RECEIVED);
@@ -64,6 +71,7 @@ public class ReceivableService {
         return mapper.toResponse(repository.save(a));
     }
 
+    @Auditable(action = "RECEIVABLE_DELETE", entity = "accounts_receivable")
     public void delete(UUID id) {
         repository.delete(getEntity(id));
     }
@@ -80,6 +88,8 @@ public class ReceivableService {
                 ? saleRepository.findById(r.saleId()).orElse(null) : null);
         a.setInstallment(r.installmentId() != null
                 ? installmentRepository.findById(r.installmentId()).orElse(null) : null);
+        a.setCategory(r.categoryId() != null
+                ? categoryRepository.findById(r.categoryId()).orElse(null) : null);
         a.setDescription(r.description());
         a.setAmount(r.amount());
         a.setDueDate(r.dueDate());

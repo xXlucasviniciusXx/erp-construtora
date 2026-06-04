@@ -13,6 +13,7 @@ import com.construtora.financeiro.model.enums.InstallmentStatus;
 import com.construtora.financeiro.model.enums.PropertyStatus;
 import com.construtora.financeiro.repository.LotRepository;
 import com.construtora.financeiro.repository.PropertySaleRepository;
+import com.construtora.financeiro.annotation.Auditable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +60,7 @@ public class SaleService {
         return mapper.toResponse(getEntity(id));
     }
 
+    @Auditable(action = "SALE_CREATE", entity = "property_sales")
     public SaleResponse create(SaleRequest request) {
         Client client = clientService.getEntity(request.clientId());
         Lot lot = lotService.getEntity(request.lotId());
@@ -103,6 +105,7 @@ public class SaleService {
      * Havendo parcela paga, bloqueia a alteração de valor/quantidade (os demais
      * campos seguem editáveis). O valor vendido reflete no lote/empreendimento.
      */
+    @Auditable(action = "SALE_UPDATE", entity = "property_sales")
     public SaleResponse update(UUID id, SaleRequest request) {
         PropertySale sale = getEntity(id);
         Lot lot = sale.getLot();
@@ -183,6 +186,7 @@ public class SaleService {
         }
     }
 
+    @Auditable(action = "SALE_DELETE", entity = "property_sales")
     public void delete(UUID id) {
         PropertySale sale = getEntity(id);
         Lot lot = sale.getLot();

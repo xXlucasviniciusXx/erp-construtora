@@ -196,6 +196,7 @@ export interface Dre {
   expenses: Point[]
   totalExpense: number
   result: number
+  basis: 'CAIXA' | 'COMPETENCIA'
 }
 
 export interface DashboardAnalytics {

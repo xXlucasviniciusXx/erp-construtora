@@ -1,5 +1,6 @@
 package com.construtora.financeiro.service.reconciliation;
 
+import com.construtora.financeiro.annotation.Auditable;
 import com.construtora.financeiro.dto.bank.BankTransactionResponse;
 import com.construtora.financeiro.dto.reconciliation.ManualTargetResponse;
 import com.construtora.financeiro.dto.reconciliation.ReconcileRequest;
@@ -122,6 +123,7 @@ public class ReconciliationService {
     }
 
     /** Concilia uma transação a um lançamento (alvo). Marca ambos como liquidados. */
+    @Auditable(action = "RECONCILIATION_DONE", entity = "reconciliations")
     public ReconciliationResponse reconcile(UUID transactionId, ReconcileRequest request, ReconciliationMode mode) {
         BankTransaction txn = getTransaction(transactionId);
         if (txn.getStatus() == TransactionStatus.RECONCILED) {
@@ -147,6 +149,7 @@ public class ReconciliationService {
     }
 
     /** Desfaz uma conciliação, revertendo transação e alvo aos estados em aberto. */
+    @Auditable(action = "RECONCILIATION_UNDO", entity = "reconciliations")
     public void undo(UUID reconciliationId) {
         Reconciliation reconciliation = reconciliationRepository.findById(reconciliationId)
                 .orElseThrow(() -> ResourceNotFoundException.of("Conciliação", reconciliationId));
