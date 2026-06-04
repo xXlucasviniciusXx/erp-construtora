@@ -52,7 +52,7 @@ function UpsellCard({ title, plan = 'Profissional' }: { title: string; plan?: st
   )
 }
 
-type DrillState = { kind: 'overdue' | 'sales'; key: string; title: string }
+type DrillState = { kind: 'overdue' | 'sales' | 'salesByMonth' | 'receivedByMonth'; key: string; title: string }
 
 export function DashboardPage() {
   const { canAccess } = useLicensing()
@@ -87,6 +87,11 @@ export function DashboardPage() {
   const overdueInst = useQuery({
     queryKey: ['installments-overdue'],
     queryFn: async () => (await api.get<Page<InstallmentDetail>>('/installments', { params: { status: 'OVERDUE', size: 1000 } })).data.content,
+    enabled: canVendas,
+  })
+  const paidInst = useQuery({
+    queryKey: ['installments-paid'],
+    queryFn: async () => (await api.get<Page<InstallmentDetail>>('/installments', { params: { status: 'PAID', size: 2000 } })).data.content,
     enabled: canVendas,
   })
   const [drill, setDrill] = useState<DrillState | null>(null)
@@ -164,10 +169,12 @@ export function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ChartCard title="Recebido por mês">
+            <ChartCard title="Recebido por mês" hint="Clique numa barra para ver as parcelas">
               <BarChart data={data.receivedByMonth}>
                 <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
-                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#0f766e" name="Recebido" />
+                <Tooltip formatter={(v: number) => brl(v)} />
+                <Bar dataKey="value" fill="#0f766e" name="Recebido" cursor="pointer"
+                  onClick={(d: any) => setDrill({ kind: 'receivedByMonth', key: d?.payload?.label, title: `Parcelas recebidas — ${d?.payload?.label}` })} />
               </BarChart>
             </ChartCard>
 
@@ -186,10 +193,12 @@ export function DashboardPage() {
             </ChartCard>
 
             {canVendas ? (
-              <ChartCard title="Vendas por mês">
+              <ChartCard title="Vendas por mês" hint="Clique numa barra para ver as vendas">
                 <BarChart data={data.salesByMonth}>
                   <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
-                  <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#0891b2" name="Vendas" />
+                  <Tooltip formatter={(v: number) => brl(v)} />
+                  <Bar dataKey="value" fill="#0891b2" name="Vendas" cursor="pointer"
+                    onClick={(d: any) => setDrill({ kind: 'salesByMonth', key: d?.payload?.label, title: `Vendas — ${d?.payload?.label}` })} />
                 </BarChart>
               </ChartCard>
             ) : <UpsellCard title="Vendas por mês" />}
@@ -298,6 +307,7 @@ export function DashboardPage() {
           drill={drill}
           sales={allSales.data ?? []}
           overdue={overdueInst.data ?? []}
+          paid={paidInst.data ?? []}
           onClose={() => setDrill(null)}
         />
       )}
@@ -305,9 +315,74 @@ export function DashboardPage() {
   )
 }
 
-function DrillModal({ drill, sales, overdue, onClose }: {
-  drill: DrillState; sales: Sale[]; overdue: InstallmentDetail[]; onClose: () => void
+/** Converte "Jan/26" → prefixo "01/2026" para comparar com saleDate / paymentDate */
+function labelToMonthPrefix(label: string): string {
+  const MONTHS: Record<string, string> = {
+    Jan: '01', Fev: '02', Feb: '02', Mar: '03', Abr: '04', Apr: '04',
+    Mai: '05', May: '05', Jun: '06', Jul: '07', Ago: '08', Aug: '08',
+    Set: '09', Sep: '09', Out: '10', Oct: '10', Nov: '11', Dez: '12', Dec: '12',
+  }
+  const [mon, yr] = label.split('/')
+  const m = MONTHS[mon] ?? '01'
+  const y = yr?.length === 2 ? '20' + yr : yr ?? ''
+  return `${y}-${m}` // "2026-01"
+}
+
+function DrillModal({ drill, sales, overdue, paid, onClose }: {
+  drill: DrillState; sales: Sale[]; overdue: InstallmentDetail[]; paid: InstallmentDetail[]; onClose: () => void
 }) {
+  if (drill.kind === 'salesByMonth') {
+    const prefix = labelToMonthPrefix(drill.key)
+    const rows = sales.filter((s) => s.saleDate?.startsWith(prefix))
+    const total = rows.reduce((s, v) => s + v.totalValue, 0)
+    const STATUS: Record<string, string> = { ACTIVE: 'Ativa', COMPLETED: 'Quitada', CANCELLED: 'Cancelada' }
+    return (
+      <Modal open onClose={onClose} title={drill.title} size="xl">
+        <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+          {rows.length} venda(s) · total <span className="font-semibold text-blue-700">{formatCurrency(total)}</span>
+        </p>
+        <Table headers={['Cliente', 'Lote', 'Valor', 'Data', 'Status']}>
+          {rows.map((s) => (
+            <Tr key={s.id}>
+              <td className="px-4 py-2 font-medium">{s.clientName}</td>
+              <td className="px-4 py-2">{s.propertyLabel}</td>
+              <td className="px-4 py-2">{formatCurrency(s.totalValue)}</td>
+              <td className="px-4 py-2">{formatDate(s.saleDate)}</td>
+              <td className="px-4 py-2"><Badge dot color={s.status === 'ACTIVE' ? 'blue' : s.status === 'COMPLETED' ? 'green' : 'gray'}>{STATUS[s.status] ?? s.status}</Badge></td>
+            </Tr>
+          ))}
+          {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">Sem vendas neste mês.</td></tr>}
+        </Table>
+      </Modal>
+    )
+  }
+
+  if (drill.kind === 'receivedByMonth') {
+    const prefix = labelToMonthPrefix(drill.key)
+    const rows = paid.filter((i) => i.paymentDate?.startsWith(prefix))
+    const total = rows.reduce((s, i) => s + (i.updatedAmount || i.amount), 0)
+    return (
+      <Modal open onClose={onClose} title={drill.title} size="xl">
+        <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+          {rows.length} parcela(s) · total recebido <span className="font-semibold text-green-600">{formatCurrency(total)}</span>
+        </p>
+        <Table headers={['Cliente', 'Lote', 'Parcela', 'Vencimento', 'Recebido em', 'Valor']}>
+          {rows.map((i) => (
+            <Tr key={i.id}>
+              <td className="px-4 py-2 font-medium">{i.clientName}</td>
+              <td className="px-4 py-2">{i.propertyLabel ?? '—'}</td>
+              <td className="px-4 py-2">#{i.number}</td>
+              <td className="px-4 py-2">{formatDate(i.dueDate)}</td>
+              <td className="px-4 py-2 text-green-600">{i.paymentDate ? formatDate(i.paymentDate) : '—'}</td>
+              <td className="px-4 py-2 font-medium">{formatCurrency(i.updatedAmount || i.amount)}</td>
+            </Tr>
+          ))}
+          {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400">Sem parcelas recebidas neste mês.</td></tr>}
+        </Table>
+      </Modal>
+    )
+  }
+
   if (drill.kind === 'overdue') {
     const rows = overdue.filter((i) => i.development === drill.key)
     const total = rows.reduce((s, i) => s + (i.updatedAmount || i.amount), 0)

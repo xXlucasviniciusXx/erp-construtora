@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage, getToken } from '@/lib/api'
-import type { Client, Lot, Page, Sale } from '@/lib/types'
+import type { Client, Lot, NamedItem, Page, Sale } from '@/lib/types'
 import { FileSignature } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
@@ -17,8 +17,9 @@ const INSTALLMENT_STATUS: Record<string, { label: string; color: string }> = {
 
 const PURCHASE_WITH_DOWN = 'Entrada + parcelas'
 const PURCHASE_TYPES = ['À vista', PURCHASE_WITH_DOWN, 'Financiamento próprio', 'Outro']
-const PAYMENT_METHODS = ['Boleto', 'PIX', 'Transferência bancária', 'Cartão', 'Dinheiro', 'Outro']
-const CORRECTION_INDEXES = ['Sem correção', 'INCC', 'IPCA', 'IGP-M', 'Juros fixo mensal', 'Outro']
+// Fallback enquanto a API ainda não respondeu
+const PAYMENT_METHODS_FALLBACK = ['Boleto', 'PIX', 'Transferência bancária', 'Cartão', 'Dinheiro', 'Outro']
+const CORRECTION_INDEXES_FALLBACK = ['Sem correção', 'INCC', 'IPCA', 'IGP-M', 'Juros fixo mensal', 'Outro']
 const SALE_STATUS: Record<string, string> = { ACTIVE: 'Ativa', COMPLETED: 'Quitada', CANCELLED: 'Cancelada' }
 
 interface SaleForm {
@@ -67,6 +68,16 @@ export function SalesPage() {
     queryFn: async () => (await api.get<Page<Client>>('/clients', { params: { size: 500 } })).data.content,
   })
   const lots = useQuery({ queryKey: ['lots-all'], queryFn: async () => (await api.get<Lot[]>('/lots')).data })
+  const paymentMethods = useQuery({
+    queryKey: ['payment-methods'],
+    queryFn: async () => (await api.get<NamedItem[]>('/lists/payment-methods')).data,
+  })
+  const correctionIndexes = useQuery({
+    queryKey: ['correction-indexes'],
+    queryFn: async () => (await api.get<NamedItem[]>('/lists/correction-indexes')).data,
+  })
+  const pmList = paymentMethods.data?.map((p) => p.name) ?? PAYMENT_METHODS_FALLBACK
+  const ciList = correctionIndexes.data?.map((c) => c.name) ?? CORRECTION_INDEXES_FALLBACK
 
   const save = useMutation({
     mutationFn: async (payload: SaleForm) =>
@@ -244,12 +255,12 @@ export function SalesPage() {
             </Field>
             <Field label="Forma de pagamento">
               <Select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
-                {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                {pmList.map((m) => <option key={m} value={m}>{m}</option>)}
               </Select>
             </Field>
             <Field label="Índice de correção">
               <Select value={form.correctionIndex} onChange={(e) => setForm({ ...form, correctionIndex: e.target.value })}>
-                {CORRECTION_INDEXES.map((m) => <option key={m} value={m}>{m}</option>)}
+                {ciList.map((m) => <option key={m} value={m}>{m}</option>)}
               </Select>
             </Field>
           </div>

@@ -10,6 +10,7 @@ export interface AuthResponse {
   email: string
   role: string
   permissions: string[]
+  refreshToken?: string | null
 }
 
 export type Page<T> = {
@@ -86,6 +87,7 @@ export interface Lot {
   contractExtra?: string
   notes?: string
   label: string
+  reservationExpiresAt?: string | null   // ISO datetime; presente apenas quando RESERVED
 }
 
 export interface Installment {
@@ -379,4 +381,12 @@ export interface Role {
   permissions: string[]
   system: boolean // ADMIN é protegido
   userCount: number
+}
+
+// ---- Listas configuráveis ----
+export interface NamedItem {
+  id: string
+  name: string
+  active: boolean
+  sortOrder: number
 }

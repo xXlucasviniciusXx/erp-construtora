@@ -3,6 +3,7 @@ package com.construtora.financeiro.dto.lot;
 import com.construtora.financeiro.model.enums.PropertyStatus;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record LotResponse(
@@ -23,5 +24,6 @@ public record LotResponse(
         PropertyStatus status,
         String contractExtra,
         String notes,
-        String label                // "Empreendimento / Quadra / Lote"
+        String label,                          // "Empreendimento / Quadra / Lote"
+        LocalDateTime reservationExpiresAt     // não-nulo apenas quando RESERVED
 ) {}

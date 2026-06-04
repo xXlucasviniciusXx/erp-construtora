@@ -63,6 +63,10 @@ public class Lot {
     @Column(columnDefinition = "text")
     private String notes;
 
+    /** Expiração da reserva. Nulo se o lote não estiver RESERVED. */
+    @Column(name = "reservation_expires_at")
+    private java.time.LocalDateTime reservationExpiresAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

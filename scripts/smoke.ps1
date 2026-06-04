@@ -114,6 +114,43 @@ $genBody = '{"plan":"PROFISSIONAL","periodMonths":12}'
 $gen = Invoke-RestMethod -Uri "$base/licensing/license/key/generate" -Method Post -Body ([Text.Encoding]::UTF8.GetBytes($genBody)) -ContentType 'application/json' -Headers $h
 Check "gera chave de licenciamento assinada (token HMAC)" { $gen.key -match '\.' -and $gen.key.Length -gt 30 }
 
+# --- V15: Refresh token ---
+Check "login retorna refreshToken" { $login.refreshToken.Length -gt 20 }
+$refreshBody = "{`"refreshToken`":`"$($login.refreshToken)`"}"
+$refreshed = Invoke-RestMethod -Uri "$base/auth/refresh" -Method Post -Body ([Text.Encoding]::UTF8.GetBytes($refreshBody)) -ContentType 'application/json'
+Check "refresh emite novo access token e novo refreshToken" {
+    $refreshed.token.Length -gt 20 -and $refreshed.refreshToken.Length -gt 20 -and
+    $refreshed.refreshToken -ne $login.refreshToken
+}
+# Usa o novo access token daqui para frente
+$h2 = @{ Authorization = "Bearer $($refreshed.token)" }
+
+# --- V15: Listas configuráveis ---
+$pm = Invoke-RestMethod -Uri "$base/lists/payment-methods" -Headers $h2
+Check "formas de pagamento retornam (min. 4)" { $pm.Count -ge 4 }
+$ci = Invoke-RestMethod -Uri "$base/lists/correction-indexes" -Headers $h2
+Check "indices de correcao retornam (min. 4)" { $ci.Count -ge 4 }
+
+# --- V15: Reserva de lote ---
+$firstDev = Invoke-RestMethod -Uri "$base/developments" -Headers $h2 | Select-Object -First 1
+if ($firstDev) {
+    $devLots = Invoke-RestMethod -Uri "$base/lots?developmentId=$($firstDev.id)" -Headers $h2
+    $availLot = $devLots | Where-Object { $_.status -eq 'AVAILABLE' } | Select-Object -First 1
+    if ($availLot) {
+        $reserved = Invoke-RestMethod -Uri "$base/lots/$($availLot.id)/reserve" -Method Patch `
+            -Body '{"hours":1}' -ContentType 'application/json' -Headers $h2
+        Check "reserva de lote retorna RESERVED com expiração" {
+            $reserved.status -eq 'RESERVED' -and $null -ne $reserved.reservationExpiresAt
+        }
+        $released = Invoke-RestMethod -Uri "$base/lots/$($reserved.id)/release" -Method Patch -Headers $h2
+        Check "liberacao de reserva retorna AVAILABLE" { $released.status -eq 'AVAILABLE' }
+    } else {
+        Write-Host "  [SKIP] reserva de lote (nenhum lote disponivel no empreendimento)" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "  [SKIP] reserva de lote (nenhum empreendimento cadastrado)" -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "Resultado: $pass passaram, $fail falharam" -ForegroundColor $(if ($fail -eq 0) { 'Green' } else { 'Red' })
 if ($fail -gt 0) { exit 1 }

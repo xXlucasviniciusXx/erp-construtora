@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Building2, ArrowLeft, LayoutList, Grid3x3 } from 'lucide-react'
+import { ChevronRight, Building2, ArrowLeft, LayoutList, Grid3x3, Clock } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { Block, Development, Lot, LotStatus } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
@@ -241,13 +241,18 @@ function DevelopmentMap({ development, blocks }: { development: Development; blo
                     <button
                       key={l.id}
                       onClick={() => setSelectedLot(l)}
-                      title={`${l.name} · ${LOT_LABEL[l.status]}${l.saleValue ? ' · ' + formatCurrency(l.saleValue) : ''}`}
+                      title={`${l.name} · ${LOT_LABEL[l.status]}${l.reservationExpiresAt ? ' · expira em ' + reservationCountdown(l.reservationExpiresAt) : ''}${l.saleValue ? ' · ' + formatCurrency(l.saleValue) : ''}`}
                       className={cn(
                         'flex h-16 w-16 flex-col items-center justify-center rounded-lg border text-center text-xs font-medium transition',
                         CELL_STYLE[l.status],
                       )}
                     >
                       <span className="truncate px-1">{l.name}</span>
+                      {l.status === 'RESERVED' && l.reservationExpiresAt && (
+                        <span className="flex items-center gap-0.5 text-[9px] opacity-80">
+                          <Clock className="h-2.5 w-2.5" />{reservationCountdown(l.reservationExpiresAt)}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -354,11 +359,24 @@ function BlocksSection({ development, blocks, canWrite, selectedBlock, onSelect,
   )
 }
 
+/** Formata tempo restante de uma reserva (ex: "2h 15min" ou "expirada"). */
+function reservationCountdown(expiresAt: string | null | undefined): string {
+  if (!expiresAt) return ''
+  const diff = new Date(expiresAt).getTime() - Date.now()
+  if (diff <= 0) return 'expirada'
+  const h = Math.floor(diff / 3_600_000)
+  const m = Math.floor((diff % 3_600_000) / 60_000)
+  return h > 0 ? `${h}h ${m}min` : `${m}min`
+}
+
 function LotsSection({ development, block, canWrite, onChange }: { development: Development; block: Block; canWrite: boolean; onChange: () => void }) {
   const queryClient = useQueryClient()
   const toast = useToast()
   const confirm = useConfirm()
   const [open, setOpen] = useState(false)
+  const [reserveOpen, setReserveOpen] = useState(false)
+  const [reserveLot, setReserveLot] = useState<Lot | null>(null)
+  const [reserveHours, setReserveHours] = useState(24)
   const [form, setForm] = useState<Partial<Lot>>({ status: 'AVAILABLE' })
   const [error, setError] = useState<string | null>(null)
   const atLimit = development.lotsCount != null && development.actualLots >= development.lotsCount
@@ -377,12 +395,27 @@ function LotsSection({ development, block, canWrite, onChange }: { development: 
   })
   const cancel = useMutation({ mutationFn: async (id: string) => api.patch(`/lots/${id}/cancel`), onSuccess: () => { refresh(); toast.success('Lote inativado.') }, onError: (e) => toast.error(apiErrorMessage(e)) })
   const remove = useMutation({ mutationFn: async (id: string) => api.delete(`/lots/${id}`), onSuccess: () => { refresh(); toast.success('Lote excluído.') }, onError: (e) => toast.error(apiErrorMessage(e)) })
+  const doReserve = useMutation({
+    mutationFn: async ({ id, hours }: { id: string; hours: number }) =>
+      api.patch(`/lots/${id}/reserve`, { hours }),
+    onSuccess: () => { refresh(); setReserveOpen(false); toast.success('Lote reservado.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  })
+  const doRelease = useMutation({
+    mutationFn: async (id: string) => api.patch(`/lots/${id}/release`),
+    onSuccess: () => { refresh(); toast.success('Reserva liberada.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  })
 
   async function confirmCancel(l: Lot) {
     if (await confirm({ title: 'Inativar lote', message: `Inativar o lote "${l.name}"?`, confirmLabel: 'Inativar', danger: true })) cancel.mutate(l.id)
   }
   async function confirmRemove(l: Lot) {
     if (await confirm({ title: 'Excluir lote', message: `Excluir o lote "${l.name}"?`, confirmLabel: 'Excluir', danger: true })) remove.mutate(l.id)
+  }
+  async function confirmRelease(l: Lot) {
+    if (await confirm({ title: 'Liberar reserva', message: `Liberar a reserva do lote "${l.name}"?`, confirmLabel: 'Liberar' }))
+      doRelease.mutate(l.id)
   }
 
   return (
@@ -400,10 +433,19 @@ function LotsSection({ development, block, canWrite, onChange }: { development: 
               <td className="px-4 py-2">{l.registration ?? '—'}</td>
               <td className="px-4 py-2">{formatCurrency(l.plannedValue)}</td>
               <td className="px-4 py-2 text-green-600">{l.saleValue != null ? formatCurrency(l.saleValue) : '—'}</td>
-              <td className="px-4 py-2"><Badge dot color={LOT_COLOR[l.status]}>{LOT_LABEL[l.status]}</Badge></td>
+              <td className="px-4 py-2">
+                <Badge dot color={LOT_COLOR[l.status]}>{LOT_LABEL[l.status]}</Badge>
+                {l.status === 'RESERVED' && l.reservationExpiresAt && (
+                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+                    <Clock className="h-3 w-3" />{reservationCountdown(l.reservationExpiresAt)}
+                  </span>
+                )}
+              </td>
               <td className="px-4 py-2 text-right">
                 {canWrite && <ActionsMenu items={[
                   { label: 'Editar', onClick: () => { setForm(l); setError(null); setOpen(true) } },
+                  { label: 'Reservar', disabled: l.status !== 'AVAILABLE', onClick: () => { setReserveLot(l); setReserveHours(24); setReserveOpen(true) } },
+                  { label: 'Liberar reserva', disabled: l.status !== 'RESERVED', onClick: () => confirmRelease(l) },
                   { label: 'Inativar', danger: true, disabled: l.status === 'CANCELLED', onClick: () => confirmCancel(l) },
                   { label: 'Excluir', danger: true, onClick: () => confirmRemove(l) },
                 ]} />}
@@ -413,6 +455,25 @@ function LotsSection({ development, block, canWrite, onChange }: { development: 
           {lots.data?.length === 0 && <tr><td colSpan={7} className="px-4 py-4 text-center text-sm text-gray-400">Nenhum lote nesta quadra.</td></tr>}
         </Table>
       )}
+
+      {/* Modal de reserva */}
+      <Modal open={reserveOpen} onClose={() => setReserveOpen(false)} title={`Reservar lote ${reserveLot?.name}`} size="sm">
+        <div className="space-y-3">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Reserva por tempo determinado. Após o prazo, o lote volta a <strong>Disponível</strong> automaticamente.
+          </p>
+          <Field label="Duração da reserva (horas)">
+            <Input type="number" min={1} max={720} value={reserveHours}
+              onChange={(e) => setReserveHours(Number(e.target.value))} />
+          </Field>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="outline" onClick={() => setReserveOpen(false)}>Cancelar</Button>
+            <Button loading={doReserve.isPending} onClick={() => reserveLot && doReserve.mutate({ id: reserveLot.id, hours: reserveHours })}>
+              Reservar
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={open} onClose={() => setOpen(false)} title={form.id ? 'Editar lote' : 'Novo lote'}>
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate(form) }}>

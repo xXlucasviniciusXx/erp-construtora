@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { api, setToken, getToken } from '@/lib/api'
+import { api, setToken, getToken, setRefreshToken, getRefreshToken } from '@/lib/api'
 import type { AuthResponse } from '@/lib/types'
 
 interface AuthState {
@@ -29,7 +29,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = getToken()
     const stored = localStorage.getItem(USER_KEY)
     if (token && stored) {
-      setUser(JSON.parse(stored))
+      try {
+        setUser(JSON.parse(stored))
+      } catch {
+        // dados corrompidos — força re-login
+        setToken(null)
+        setRefreshToken(null)
+      }
     }
     setLoading(false)
   }, [])
@@ -37,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     const { data } = await api.post<AuthResponse>('/auth/login', { email, password })
     setToken(data.token)
+    if (data.refreshToken) setRefreshToken(data.refreshToken)
     const state: AuthState = {
       userId: data.userId,
       name: data.name,
@@ -49,7 +56,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // Revoga o refresh token no servidor (best-effort: não bloqueia o logout local)
+    const rt = getRefreshToken()
+    if (rt) {
+      api.post('/auth/logout').catch(() => {/* ignora erros de rede no logout */})
+    }
     setToken(null)
+    setRefreshToken(null)
     localStorage.removeItem(USER_KEY)
     setUser(null)
   }
