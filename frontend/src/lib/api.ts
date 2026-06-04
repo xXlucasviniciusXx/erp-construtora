@@ -4,6 +4,25 @@ const baseURL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api'
 
 export const api = axios.create({ baseURL })
 
+/**
+ * Resolve a URL de um asset (ex.: logo) para um endereço absoluto.
+ *
+ * O backend devolve URLs relativas como "/api/assets/logo". Como o frontend
+ * roda em outro domínio (Vercel) que o backend (Render), uma URL relativa
+ * apontaria para o domínio errado. Aqui prefixamos com a origem da API.
+ * URLs já absolutas (http/https) e data URIs são retornadas inalteradas.
+ */
+export function assetUrl(url?: string | null): string | undefined {
+  if (!url) return undefined
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith('data:')) return url
+  try {
+    const origin = new URL(baseURL).origin   // ex.: https://...onrender.com
+    return origin + (url.startsWith('/') ? url : '/' + url)
+  } catch {
+    return url
+  }
+}
+
 const TOKEN_KEY = 'cf_token'
 const REFRESH_KEY = 'cf_refresh'
 

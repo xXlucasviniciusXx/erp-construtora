@@ -4,7 +4,7 @@ import { Building2 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { useSettings } from '@/theme/SettingsContext'
 import { Button, Input, Field } from '@/components/ui'
-import { apiErrorMessage } from '@/lib/api'
+import { apiErrorMessage, assetUrl } from '@/lib/api'
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -34,7 +34,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm rounded-2xl border border-gray-100 bg-white p-8 shadow-xl dark:border-gray-700 dark:bg-gray-800">
         <div className="mb-6 flex flex-col items-center">
           {settings?.logoUrl ? (
-            <img src={settings.logoUrl} alt="logo" className="mb-3 h-12 w-12 rounded-lg" />
+            <img src={assetUrl(settings.logoUrl)} alt="logo" className="mb-3 h-12 w-12 rounded-lg object-contain" />
           ) : (
             <div
               className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl"
