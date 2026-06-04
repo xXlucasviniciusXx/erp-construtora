@@ -30,7 +30,7 @@ public class PayableController {
 
     @GetMapping
     @Operation(summary = "Lista/filtra contas a pagar (paginado)")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CONTAS_PAGAR_VIEW')")
     public Page<PayableResponse> list(@RequestParam(required = false) String q,
                                       @RequestParam(required = false) com.construtora.financeiro.model.enums.PayableStatus status,
                                       @RequestParam(required = false) String developmentId,
@@ -40,14 +40,14 @@ public class PayableController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Detalha conta a pagar")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CONTAS_PAGAR_VIEW')")
     public PayableResponse get(@PathVariable UUID id) {
         return service.findById(id);
     }
 
     @PostMapping
     @Operation(summary = "Cria conta a pagar")
-    @PreAuthorize("hasAuthority('PAYABLE_WRITE')")
+    @PreAuthorize("hasAuthority('CONTAS_PAGAR_EDIT')")
     @ResponseStatus(HttpStatus.CREATED)
     public PayableResponse create(@Valid @RequestBody PayableRequest request) {
         return service.create(request);
@@ -55,14 +55,14 @@ public class PayableController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Atualiza conta a pagar")
-    @PreAuthorize("hasAuthority('PAYABLE_WRITE')")
+    @PreAuthorize("hasAuthority('CONTAS_PAGAR_EDIT')")
     public PayableResponse update(@PathVariable UUID id, @Valid @RequestBody PayableRequest request) {
         return service.update(id, request);
     }
 
     @PostMapping("/{id}/pay")
     @Operation(summary = "Confirma pagamento")
-    @PreAuthorize("hasAuthority('PAYABLE_WRITE')")
+    @PreAuthorize("hasAuthority('CONTAS_PAGAR_EDIT')")
     public PayableResponse pay(@PathVariable UUID id,
                                @RequestParam(required = false)
                                @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate paymentDate) {
@@ -71,14 +71,14 @@ public class PayableController {
 
     @PostMapping("/{id}/cancel")
     @Operation(summary = "Cancela a conta (status CANCELADO)")
-    @PreAuthorize("hasAuthority('PAYABLE_WRITE')")
+    @PreAuthorize("hasAuthority('CONTAS_PAGAR_EDIT')")
     public PayableResponse cancel(@PathVariable UUID id) {
         return service.cancel(id);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove conta a pagar")
-    @PreAuthorize("hasAuthority('PAYABLE_WRITE')")
+    @PreAuthorize("hasAuthority('CONTAS_PAGAR_EDIT')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {
         service.delete(id);

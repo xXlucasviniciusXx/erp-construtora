@@ -26,7 +26,7 @@ public class SupplierController {
 
     @GetMapping
     @Operation(summary = "Lista/pesquisa fornecedores (paginado)")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('FORNECEDORES_VIEW')")
     public org.springframework.data.domain.Page<SupplierResponse> list(
             @RequestParam(required = false) String q,
             @org.springframework.data.web.PageableDefault(size = 20, sort = "name") org.springframework.data.domain.Pageable pageable) {
@@ -35,7 +35,7 @@ public class SupplierController {
 
     @PostMapping
     @Operation(summary = "Cria fornecedor")
-    @PreAuthorize("hasAuthority('PAYABLE_WRITE')")
+    @PreAuthorize("hasAuthority('FORNECEDORES_EDIT')")
     @ResponseStatus(HttpStatus.CREATED)
     public SupplierResponse create(@Valid @RequestBody SupplierRequest request) {
         return service.create(request);
@@ -43,14 +43,14 @@ public class SupplierController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Atualiza fornecedor")
-    @PreAuthorize("hasAuthority('PAYABLE_WRITE')")
+    @PreAuthorize("hasAuthority('FORNECEDORES_EDIT')")
     public SupplierResponse update(@PathVariable UUID id, @Valid @RequestBody SupplierRequest request) {
         return service.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove fornecedor")
-    @PreAuthorize("hasAuthority('PAYABLE_WRITE')")
+    @PreAuthorize("hasAuthority('FORNECEDORES_EDIT')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {
         service.delete(id);

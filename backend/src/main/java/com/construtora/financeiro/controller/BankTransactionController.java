@@ -26,7 +26,7 @@ public class BankTransactionController {
 
     @GetMapping
     @Operation(summary = "Lista transações por conta ou por status (paginado)")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CONCILIACAO_VIEW')")
     public Page<BankTransactionResponse> list(@RequestParam(required = false) UUID bankAccountId,
                                               @RequestParam(required = false) TransactionStatus status,
                                               @PageableDefault(size = 20) Pageable pageable) {

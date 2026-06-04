@@ -31,14 +31,14 @@ public class DashboardController {
 
     @GetMapping
     @Operation(summary = "Indicadores consolidados")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('DASHBOARD_VIEW')")
     public DashboardResponse summary() {
         return service.summary();
     }
 
     @GetMapping("/analytics")
     @Operation(summary = "Cards e séries para os gráficos do dashboard (filtros opcionais)")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('DASHBOARD_VIEW')")
     public DashboardAnalyticsResponse analytics(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,

@@ -4,7 +4,9 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
+import { Lock } from 'lucide-react'
 import { api } from '@/lib/api'
+import { useLicensing } from '@/licensing/LicensingContext'
 import type { Client, DashboardAnalytics, InstallmentDetail, Lot, Page, Point, Sale } from '@/lib/types'
 import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Skeleton, Table, Tr } from '@/components/ui'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -36,31 +38,56 @@ function ChartCard({ title, hint, footer, children }: { title: string; hint?: st
   )
 }
 
+/** Placeholder de upsell: aparece no lugar de um gráfico que pertence a um
+ *  módulo não incluído no plano atual (ex.: Vendas/Empreendimentos no Essencial). */
+function UpsellCard({ title, plan = 'Profissional' }: { title: string; plan?: string }) {
+  return (
+    <Card className="flex min-h-[268px] flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 text-center dark:border-gray-700">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-gray-700">
+        <Lock className="h-5 w-5" />
+      </div>
+      <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300">{title}</h3>
+      <p className="text-xs text-gray-400">Disponível no plano <span className="font-medium text-primary">{plan}</span>.</p>
+    </Card>
+  )
+}
+
 type DrillState = { kind: 'overdue' | 'sales'; key: string; title: string }
 
 export function DashboardPage() {
+  const { canAccess } = useLicensing()
+  const canVendas = canAccess('VENDAS')
+  const canEmp = canAccess('EMPREENDIMENTOS')
+  const canClientes = canAccess('CLIENTES')
+
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [clientId, setClientId] = useState('')
   const [propertyId, setPropertyId] = useState('')
 
+  // Consultas que cruzam módulos só são disparadas se o plano os inclui
+  // (evita 403 quando, p.ex., o plano Essencial não tem Vendas/Empreendimentos).
   const clients = useQuery({
     queryKey: ['clients-all'],
     queryFn: async () => (await api.get<Page<Client>>('/clients', { params: { size: 200 } })).data.content,
+    enabled: canClientes,
   })
   const properties = useQuery({
     queryKey: ['lots-all'],
     queryFn: async () => (await api.get<Lot[]>('/lots')).data,
+    enabled: canEmp,
   })
 
   // Fontes para o drill-down (clicar no gráfico → lista detalhada)
   const allSales = useQuery({
     queryKey: ['sales-all'],
     queryFn: async () => (await api.get<Page<Sale>>('/sales', { params: { size: 2000 } })).data.content,
+    enabled: canVendas,
   })
   const overdueInst = useQuery({
     queryKey: ['installments-overdue'],
     queryFn: async () => (await api.get<Page<InstallmentDetail>>('/installments', { params: { status: 'OVERDUE', size: 1000 } })).data.content,
+    enabled: canVendas,
   })
   const [drill, setDrill] = useState<DrillState | null>(null)
 
@@ -158,12 +185,14 @@ export function DashboardPage() {
               </LineChart>
             </ChartCard>
 
-            <ChartCard title="Vendas por mês">
-              <BarChart data={data.salesByMonth}>
-                <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
-                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#0891b2" name="Vendas" />
-              </BarChart>
-            </ChartCard>
+            {canVendas ? (
+              <ChartCard title="Vendas por mês">
+                <BarChart data={data.salesByMonth}>
+                  <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" fontSize={11} /><YAxis fontSize={11} />
+                  <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#0891b2" name="Vendas" />
+                </BarChart>
+              </ChartCard>
+            ) : <UpsellCard title="Vendas por mês" />}
 
             <ChartCard title="Parcelas vencidas por faixa de atraso">
               <BarChart data={data.overdueByAging}>
@@ -172,24 +201,28 @@ export function DashboardPage() {
               </BarChart>
             </ChartCard>
 
-            <ChartCard title="Inadimplência por empreendimento" hint="Clique numa barra para ver as parcelas">
-              <BarChart data={data.delinquencyByDevelopment} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
-                <Tooltip formatter={(v: number) => brl(v)} />
-                <Bar dataKey="value" fill="#b45309" name="Inadimplência" cursor="pointer"
-                  onClick={(d: any) => setDrill({ kind: 'overdue', key: d?.payload?.label, title: `Parcelas em atraso — ${d?.payload?.label}` })} />
-              </BarChart>
-            </ChartCard>
+            {canEmp ? (
+              <ChartCard title="Inadimplência por empreendimento" hint="Clique numa barra para ver as parcelas">
+                <BarChart data={data.delinquencyByDevelopment} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
+                  <Tooltip formatter={(v: number) => brl(v)} />
+                  <Bar dataKey="value" fill="#b45309" name="Inadimplência" cursor="pointer"
+                    onClick={(d: any) => setDrill({ kind: 'overdue', key: d?.payload?.label, title: `Parcelas em atraso — ${d?.payload?.label}` })} />
+                </BarChart>
+              </ChartCard>
+            ) : <UpsellCard title="Inadimplência por empreendimento" />}
 
-            <ChartCard title="Vendas por forma de compra" hint="Clique numa fatia para ver as vendas">
-              <PieChart>
-                <Pie data={data.salesByPurchaseType} dataKey="value" nameKey="label" outerRadius={80} label cursor="pointer"
-                  onClick={(d: any) => setDrill({ kind: 'sales', key: d?.label ?? d?.payload?.label, title: `Vendas — ${d?.label ?? d?.payload?.label}` })}>
-                  {data.salesByPurchaseType.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip formatter={(v: number) => brl(v)} /><Legend />
-              </PieChart>
-            </ChartCard>
+            {canVendas ? (
+              <ChartCard title="Vendas por forma de compra" hint="Clique numa fatia para ver as vendas">
+                <PieChart>
+                  <Pie data={data.salesByPurchaseType} dataKey="value" nameKey="label" outerRadius={80} label cursor="pointer"
+                    onClick={(d: any) => setDrill({ kind: 'sales', key: d?.label ?? d?.payload?.label, title: `Vendas — ${d?.label ?? d?.payload?.label}` })}>
+                    {data.salesByPurchaseType.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => brl(v)} /><Legend />
+                </PieChart>
+              </ChartCard>
+            ) : <UpsellCard title="Vendas por forma de compra" />}
 
             <ChartCard
               title="Contas a Receber — recebido × a receber"
@@ -212,22 +245,26 @@ export function DashboardPage() {
               </PieChart>
             </ChartCard>
 
-            <ChartCard title="Despesas por empreendimento">
-              <BarChart data={data.expensesByDevelopment} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
-                <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#be123c" name="Despesas pagas" />
-              </BarChart>
-            </ChartCard>
+            {canEmp ? (
+              <ChartCard title="Despesas por empreendimento">
+                <BarChart data={data.expensesByDevelopment} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
+                  <Tooltip formatter={(v: number) => brl(v)} /><Bar dataKey="value" fill="#be123c" name="Despesas pagas" />
+                </BarChart>
+              </ChartCard>
+            ) : <UpsellCard title="Despesas por empreendimento" />}
 
-            <ChartCard title="Lucro/prejuízo por empreendimento (caixa)" hint="Recebido − despesas pagas">
-              <BarChart data={data.profitByDevelopment} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
-                <Tooltip formatter={(v: number) => brl(v)} />
-                <Bar dataKey="value" name="Lucro/prejuízo">
-                  {data.profitByDevelopment.map((pt, i) => <Cell key={i} fill={pt.value >= 0 ? '#0f766e' : '#be123c'} />)}
-                </Bar>
-              </BarChart>
-            </ChartCard>
+            {canEmp ? (
+              <ChartCard title="Lucro/prejuízo por empreendimento (caixa)" hint="Recebido − despesas pagas">
+                <BarChart data={data.profitByDevelopment} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" /><XAxis type="number" fontSize={11} /><YAxis type="category" dataKey="label" width={120} fontSize={10} />
+                  <Tooltip formatter={(v: number) => brl(v)} />
+                  <Bar dataKey="value" name="Lucro/prejuízo">
+                    {data.profitByDevelopment.map((pt, i) => <Cell key={i} fill={pt.value >= 0 ? '#0f766e' : '#be123c'} />)}
+                  </Bar>
+                </BarChart>
+              </ChartCard>
+            ) : <UpsellCard title="Lucro/prejuízo por empreendimento (caixa)" />}
 
             <ChartCard title="Despesas por categoria (pagas)" hint="Plano de contas">
               <BarChart data={data.expensesByCategory.slice(0, 8)} layout="vertical">

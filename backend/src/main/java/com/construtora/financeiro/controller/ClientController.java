@@ -28,7 +28,7 @@ public class ClientController {
 
     @GetMapping
     @Operation(summary = "Lista/pesquisa clientes (paginado)")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CLIENTES_VIEW')")
     public Page<ClientResponse> list(@RequestParam(required = false) String q,
                                      @RequestParam(required = false) com.construtora.financeiro.model.enums.ClientStatus status,
                                      @PageableDefault(size = 20, sort = "name") Pageable pageable) {
@@ -37,14 +37,14 @@ public class ClientController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Detalha cliente")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CLIENTES_VIEW')")
     public ClientResponse get(@PathVariable UUID id) {
         return service.findById(id);
     }
 
     @PostMapping
     @Operation(summary = "Cria cliente")
-    @PreAuthorize("hasAuthority('CLIENTS_WRITE')")
+    @PreAuthorize("hasAuthority('CLIENTES_EDIT')")
     @ResponseStatus(HttpStatus.CREATED)
     public ClientResponse create(@Valid @RequestBody ClientRequest request) {
         return service.create(request);
@@ -52,21 +52,21 @@ public class ClientController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Atualiza cliente")
-    @PreAuthorize("hasAuthority('CLIENTS_WRITE')")
+    @PreAuthorize("hasAuthority('CLIENTES_EDIT')")
     public ClientResponse update(@PathVariable UUID id, @Valid @RequestBody ClientRequest request) {
         return service.update(id, request);
     }
 
     @PatchMapping("/{id}/inactivate")
     @Operation(summary = "Inativa cliente (soft delete; bloqueia se houver débitos)")
-    @PreAuthorize("hasAuthority('CLIENTS_WRITE')")
+    @PreAuthorize("hasAuthority('CLIENTES_EDIT')")
     public ClientResponse inactivate(@PathVariable UUID id) {
         return service.inactivate(id);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove cliente (exclusão física)")
-    @PreAuthorize("hasAuthority('CLIENTS_WRITE')")
+    @PreAuthorize("hasAuthority('CLIENTES_EDIT')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {
         service.delete(id);

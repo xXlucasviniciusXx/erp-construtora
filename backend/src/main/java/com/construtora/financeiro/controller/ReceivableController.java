@@ -30,7 +30,7 @@ public class ReceivableController {
 
     @GetMapping
     @Operation(summary = "Lista/filtra contas a receber (paginado)")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CONTAS_RECEBER_VIEW')")
     public Page<ReceivableResponse> list(@RequestParam(required = false) String q,
                                          @RequestParam(required = false) com.construtora.financeiro.model.enums.ReceivableStatus status,
                                          @PageableDefault(size = 20, sort = "dueDate") Pageable pageable) {
@@ -39,14 +39,14 @@ public class ReceivableController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Detalha conta a receber")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CONTAS_RECEBER_VIEW')")
     public ReceivableResponse get(@PathVariable UUID id) {
         return service.findById(id);
     }
 
     @PostMapping
     @Operation(summary = "Cria conta a receber")
-    @PreAuthorize("hasAuthority('RECEIVABLE_WRITE')")
+    @PreAuthorize("hasAuthority('CONTAS_RECEBER_EDIT')")
     @ResponseStatus(HttpStatus.CREATED)
     public ReceivableResponse create(@Valid @RequestBody ReceivableRequest request) {
         return service.create(request);
@@ -54,14 +54,14 @@ public class ReceivableController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Atualiza conta a receber")
-    @PreAuthorize("hasAuthority('RECEIVABLE_WRITE')")
+    @PreAuthorize("hasAuthority('CONTAS_RECEBER_EDIT')")
     public ReceivableResponse update(@PathVariable UUID id, @Valid @RequestBody ReceivableRequest request) {
         return service.update(id, request);
     }
 
     @PostMapping("/{id}/receive")
     @Operation(summary = "Confirma recebimento")
-    @PreAuthorize("hasAuthority('RECEIVABLE_WRITE')")
+    @PreAuthorize("hasAuthority('CONTAS_RECEBER_EDIT')")
     public ReceivableResponse receive(@PathVariable UUID id,
                                       @RequestParam(required = false)
                                       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate receiveDate) {
@@ -70,7 +70,7 @@ public class ReceivableController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove conta a receber")
-    @PreAuthorize("hasAuthority('RECEIVABLE_WRITE')")
+    @PreAuthorize("hasAuthority('CONTAS_RECEBER_EDIT')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {
         service.delete(id);

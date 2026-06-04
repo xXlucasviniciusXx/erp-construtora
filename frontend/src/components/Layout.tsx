@@ -3,33 +3,37 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Building2, FileSignature, ArrowDownCircle,
   ArrowUpCircle, Banknote, Upload, BarChart3, Settings, ShieldCheck, LogOut, Menu,
-  ChevronLeft, ChevronRight, Sun, Moon, Truck, Scale, Mail,
+  ChevronLeft, ChevronRight, Sun, Moon, Truck, Scale, Mail, AlertTriangle,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
+import { useLicensing } from '@/licensing/LicensingContext'
 import { useSettings } from '@/theme/SettingsContext'
 import { PageFallback } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import type { ModuleCode } from '@/lib/types'
 
 interface NavItem {
   to: string
   label: string
   icon: typeof LayoutDashboard
   permission?: string
+  module?: ModuleCode
 }
 
 const NAV: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/clients', label: 'Clientes', icon: Users, permission: 'READ' },
-  { to: '/properties', label: 'Imóveis / Lotes', icon: Building2, permission: 'READ' },
-  { to: '/sales', label: 'Vendas', icon: FileSignature, permission: 'READ' },
-  { to: '/payable', label: 'Contas a Pagar', icon: ArrowUpCircle, permission: 'READ' },
-  { to: '/receivable', label: 'Contas a Receber', icon: ArrowDownCircle, permission: 'READ' },
-  { to: '/suppliers', label: 'Fornecedores', icon: Truck, permission: 'READ' },
-  { to: '/reconciliation', label: 'Conciliação', icon: Banknote, permission: 'READ' },
-  { to: '/import', label: 'Importar Extrato', icon: Upload, permission: 'RECONCILIATION_WRITE' },
-  { to: '/dre', label: 'DRE', icon: Scale, permission: 'READ' },
-  { to: '/reports', label: 'Relatórios', icon: BarChart3, permission: 'READ' },
-  { to: '/notifications', label: 'Notificações', icon: Mail, permission: 'SETTINGS_MANAGE' },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'DASHBOARD_VIEW', module: 'DASHBOARD' },
+  { to: '/clients', label: 'Clientes', icon: Users, permission: 'CLIENTES_VIEW', module: 'CLIENTES' },
+  { to: '/properties', label: 'Imóveis / Lotes', icon: Building2, permission: 'EMPREENDIMENTOS_VIEW', module: 'EMPREENDIMENTOS' },
+  { to: '/sales', label: 'Vendas', icon: FileSignature, permission: 'VENDAS_VIEW', module: 'VENDAS' },
+  { to: '/payable', label: 'Contas a Pagar', icon: ArrowUpCircle, permission: 'CONTAS_PAGAR_VIEW', module: 'CONTAS_PAGAR' },
+  { to: '/receivable', label: 'Contas a Receber', icon: ArrowDownCircle, permission: 'CONTAS_RECEBER_VIEW', module: 'CONTAS_RECEBER' },
+  { to: '/suppliers', label: 'Fornecedores', icon: Truck, permission: 'FORNECEDORES_VIEW', module: 'FORNECEDORES' },
+  { to: '/reconciliation', label: 'Conciliação', icon: Banknote, permission: 'CONCILIACAO_VIEW', module: 'CONCILIACAO' },
+  { to: '/import', label: 'Importar Extrato', icon: Upload, permission: 'CONCILIACAO_EDIT', module: 'CONCILIACAO' },
+  { to: '/dre', label: 'DRE', icon: Scale, permission: 'DRE_VIEW', module: 'DRE' },
+  { to: '/reports', label: 'Relatórios', icon: BarChart3, permission: 'RELATORIOS_VIEW', module: 'RELATORIOS' },
+  { to: '/notifications', label: 'Notificações', icon: Mail, permission: 'NOTIFICACOES_VIEW', module: 'NOTIFICACOES' },
+  // Itens "core" (sem module): nunca são escondidos por licença.
   { to: '/users', label: 'Usuários', icon: ShieldCheck, permission: 'USERS_MANAGE' },
   { to: '/settings', label: 'Configurações', icon: Settings, permission: 'SETTINGS_MANAGE' },
 ]
@@ -38,13 +42,14 @@ const COLLAPSE_KEY = 'cf_sidebar_collapsed'
 
 export function Layout() {
   const { user, logout, hasPermission } = useAuth()
+  const { canAccess, license } = useLicensing()
   const { settings, theme, toggleTheme } = useSettings()
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === '1')
 
-  const items = NAV.filter((i) => !i.permission || hasPermission(i.permission))
+  const items = NAV.filter((i) => (!i.permission || hasPermission(i.permission)) && canAccess(i.module))
   const current = NAV.find((i) => (i.to === '/' ? location.pathname === '/' : location.pathname.startsWith(i.to)))
 
   function handleLogout() {
@@ -182,6 +187,23 @@ export function Layout() {
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="mx-auto max-w-7xl">
+            {license && (license.expired || (license.daysToExpire != null && license.daysToExpire <= 30)) && (
+              <div
+                className={cn(
+                  'mb-4 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm',
+                  license.expired
+                    ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300'
+                    : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300',
+                )}
+              >
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <span>
+                  {license.expired
+                    ? `Sua licença (${license.plan}) está vencida. Entre em contato para renovação.`
+                    : `Sua licença (${license.plan}) vence em ${license.daysToExpire} dia(s). Entre em contato para renovação.`}
+                </span>
+              </div>
+            )}
             <Suspense fallback={<PageFallback />}>
               <Outlet />
             </Suspense>

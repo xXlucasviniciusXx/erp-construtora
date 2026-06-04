@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { ProtectedRoute } from '@/auth/ProtectedRoute'
 import { Layout } from '@/components/Layout'
+import { ModuleGuard } from '@/components/ModuleGuard'
 import { PageFallback } from '@/components/ui'
 
 // Páginas carregadas sob demanda (code-splitting por rota).
@@ -35,17 +36,17 @@ export function App() {
       />
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="clients" element={<ClientsPage />} />
-          <Route path="properties" element={<DevelopmentsPage />} />
-          <Route path="sales" element={<SalesPage />} />
-          <Route path="payable" element={<PayablePage />} />
-          <Route path="receivable" element={<ReceivablePage />} />
-          <Route path="suppliers" element={<SuppliersPage />} />
-          <Route path="reconciliation" element={<ReconciliationPage />} />
-          <Route path="import" element={<ImportPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="dre" element={<DrePage />} />
+          <Route index element={<ModuleGuard code="DASHBOARD"><DashboardPage /></ModuleGuard>} />
+          <Route path="clients" element={<ModuleGuard code="CLIENTES"><ClientsPage /></ModuleGuard>} />
+          <Route path="properties" element={<ModuleGuard code="EMPREENDIMENTOS"><DevelopmentsPage /></ModuleGuard>} />
+          <Route path="sales" element={<ModuleGuard code="VENDAS"><SalesPage /></ModuleGuard>} />
+          <Route path="payable" element={<ModuleGuard code="CONTAS_PAGAR"><PayablePage /></ModuleGuard>} />
+          <Route path="receivable" element={<ModuleGuard code="CONTAS_RECEBER"><ReceivablePage /></ModuleGuard>} />
+          <Route path="suppliers" element={<ModuleGuard code="FORNECEDORES"><SuppliersPage /></ModuleGuard>} />
+          <Route path="reconciliation" element={<ModuleGuard code="CONCILIACAO"><ReconciliationPage /></ModuleGuard>} />
+          <Route path="import" element={<ModuleGuard code="CONCILIACAO"><ImportPage /></ModuleGuard>} />
+          <Route path="reports" element={<ModuleGuard code="RELATORIOS"><ReportsPage /></ModuleGuard>} />
+          <Route path="dre" element={<ModuleGuard code="DRE"><DrePage /></ModuleGuard>} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute permission="USERS_MANAGE" />}>
@@ -56,7 +57,7 @@ export function App() {
       <Route element={<ProtectedRoute permission="SETTINGS_MANAGE" />}>
         <Route element={<Layout />}>
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="notifications" element={<ModuleGuard code="NOTIFICACOES"><NotificationsPage /></ModuleGuard>} />
         </Route>
       </Route>
     </Routes>

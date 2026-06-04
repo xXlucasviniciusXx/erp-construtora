@@ -32,14 +32,14 @@ public class InstallmentController {
 
     @GetMapping("/overdue")
     @Operation(summary = "Lista parcelas em atraso")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('VENDAS_VIEW')")
     public List<InstallmentResponse> overdue() {
         return service.findOverdue();
     }
 
     @GetMapping
     @Operation(summary = "Lista parcelas com dados do cliente e filtros (q, status, vencimento) — paginado")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('VENDAS_VIEW')")
     public Page<InstallmentDetailResponse> search(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) InstallmentStatus status,
@@ -51,7 +51,7 @@ public class InstallmentController {
 
     @PostMapping("/{id}/pay")
     @Operation(summary = "Confirma pagamento de parcela")
-    @PreAuthorize("hasAnyAuthority('RECEIVABLE_WRITE','SALES_WRITE')")
+    @PreAuthorize("hasAuthority('VENDAS_EDIT')")
     public InstallmentResponse pay(@PathVariable UUID id, @Valid @RequestBody InstallmentPaymentRequest request) {
         return service.confirmPayment(id, request);
     }

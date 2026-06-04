@@ -314,3 +314,69 @@ export interface AppUser {
   active: boolean
   createdAt: string
 }
+
+// ---- Licenciamento (Fase 1: módulos / feature flags + licença) ----
+
+export type ModuleCode =
+  | 'DASHBOARD'
+  | 'CLIENTES'
+  | 'EMPREENDIMENTOS'
+  | 'VENDAS'
+  | 'CONTAS_PAGAR'
+  | 'CONTAS_RECEBER'
+  | 'FORNECEDORES'
+  | 'CONCILIACAO'
+  | 'DRE'
+  | 'RELATORIOS'
+  | 'NOTIFICACOES'
+  | 'PORTAL_CLIENTE'
+  | 'APP_MOBILE'
+
+export interface Module {
+  id: string
+  code: ModuleCode | string
+  name: string
+  description?: string
+  active: boolean
+  sortOrder: number
+}
+
+export interface License {
+  plan: string
+  status: string // ATIVA | EXPIRADA | SUSPENSA | CANCELADA
+  startDate?: string
+  endDate?: string
+  periodMonths: number
+  maxUsers?: number
+  notes?: string
+  customer?: string
+  graceDays: number
+  daysToExpire?: number | null
+  expired: boolean
+  readOnly: boolean
+  blocked: boolean
+  hasKey: boolean
+}
+
+export interface LicensingInfo {
+  modules: Module[]
+  license: License
+}
+
+// ---- Perfis de acesso (papéis) e catálogo de permissões ----
+
+export interface Permission {
+  code: string
+  description?: string
+  module: string // ex.: CLIENTES, SISTEMA
+  action: string // VIEW | EDIT | MANAGE
+}
+
+export interface Role {
+  id: string
+  name: string
+  description?: string
+  permissions: string[]
+  system: boolean // ADMIN é protegido
+  userCount: number
+}

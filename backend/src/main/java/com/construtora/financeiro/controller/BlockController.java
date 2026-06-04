@@ -26,14 +26,14 @@ public class BlockController {
 
     @GetMapping
     @Operation(summary = "Lista quadras de um empreendimento")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_VIEW')")
     public List<BlockResponse> list(@RequestParam UUID developmentId) {
         return service.findByDevelopment(developmentId);
     }
 
     @PostMapping
     @Operation(summary = "Cria quadra (respeita o limite do empreendimento)")
-    @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
     @ResponseStatus(HttpStatus.CREATED)
     public BlockResponse create(@Valid @RequestBody BlockRequest request) {
         return service.create(request);
@@ -41,14 +41,14 @@ public class BlockController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Atualiza quadra (nome, matrícula, área)")
-    @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
     public BlockResponse update(@PathVariable UUID id, @Valid @RequestBody BlockRequest request) {
         return service.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove quadra")
-    @PreAuthorize("hasAuthority('PROPERTIES_WRITE')")
+    @PreAuthorize("hasAuthority('EMPREENDIMENTOS_EDIT')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {
         service.delete(id);

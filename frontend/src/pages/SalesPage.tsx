@@ -44,8 +44,8 @@ export function SalesPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
   const toast = useToast()
-  const canWrite = hasPermission('SALES_WRITE')
-  const canContract = hasPermission('CONTRACTS_GENERATE')
+  const canWrite = hasPermission('VENDAS_EDIT')
+  const canContract = hasPermission('VENDAS_EDIT')
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)

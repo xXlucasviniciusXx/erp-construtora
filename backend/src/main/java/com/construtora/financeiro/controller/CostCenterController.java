@@ -26,7 +26,7 @@ public class CostCenterController {
 
     @GetMapping
     @Operation(summary = "Lista centros de custo")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('CONTAS_PAGAR_VIEW')")
     public List<CostCenterResponse> list() {
         return service.findAll();
     }

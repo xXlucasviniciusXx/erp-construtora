@@ -21,7 +21,7 @@ export function ReconciliationPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
   const toast = useToast()
-  const canWrite = hasPermission('RECONCILIATION_WRITE')
+  const canWrite = hasPermission('CONCILIACAO_EDIT')
 
   const [status, setStatus] = useState<Status>('PENDING')
   const [page, setPage] = useState(0)
@@ -223,7 +223,7 @@ function ReconciliationHistory() {
   const queryClient = useQueryClient()
   const toast = useToast()
   const { hasPermission } = useAuth()
-  const canWrite = hasPermission('RECONCILIATION_WRITE')
+  const canWrite = hasPermission('CONCILIACAO_EDIT')
 
   const history = useQuery({
     queryKey: ['reconciliation-history'],

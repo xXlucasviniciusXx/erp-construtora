@@ -9,9 +9,13 @@ import { BankAccountsTab } from './settings/BankAccountsTab'
 import { CostCentersTab } from './settings/CostCentersTab'
 import { CategoriesTab } from './settings/CategoriesTab'
 import { EmailTab } from './settings/EmailTab'
+import { ModulesTab } from './settings/ModulesTab'
+import { AccessProfilesTab } from './settings/AccessProfilesTab'
 
 const TABS = [
   { key: 'general', label: 'Geral' },
+  { key: 'modules', label: 'Módulos & Licença' },
+  { key: 'profiles', label: 'Perfis de Acesso' },
   { key: 'email', label: 'Notificações / E-mail' },
   { key: 'banks', label: 'Contas Bancárias' },
   { key: 'categories', label: 'Categorias' },
@@ -45,6 +49,8 @@ export function SettingsPage() {
       </div>
 
       {tab === 'general' && <GeneralTab />}
+      {tab === 'modules' && <ModulesTab />}
+      {tab === 'profiles' && <AccessProfilesTab />}
       {tab === 'email' && <EmailTab />}
       {tab === 'banks' && <BankAccountsTab />}
       {tab === 'categories' && <CategoriesTab />}

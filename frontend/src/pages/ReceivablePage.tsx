@@ -54,8 +54,8 @@ function InstallmentsTab() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
   const toast = useToast()
-  const canPay = hasPermission('RECEIVABLE_WRITE') || hasPermission('SALES_WRITE')
-  const canContract = hasPermission('CONTRACTS_GENERATE')
+  const canPay = hasPermission('CONTAS_RECEBER_EDIT') || hasPermission('VENDAS_EDIT')
+  const canContract = hasPermission('VENDAS_EDIT')
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [dueFrom, setDueFrom] = useState('')
@@ -151,7 +151,7 @@ function StandaloneTab() {
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(0)
-  const canWrite = hasPermission('RECEIVABLE_WRITE')
+  const canWrite = hasPermission('CONTAS_RECEBER_EDIT')
 
   const { data, isLoading } = useQuery({
     queryKey: ['receivable', q, statusFilter, page],

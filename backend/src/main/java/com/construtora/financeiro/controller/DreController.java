@@ -35,7 +35,7 @@ public class DreController {
 
     @GetMapping
     @Operation(summary = "DRE por período e empreendimento (receitas − despesas)")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('DRE_VIEW')")
     public DreResponse dre(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
                            @RequestParam(required = false) UUID developmentId) {
@@ -44,7 +44,7 @@ public class DreController {
 
     @GetMapping("/export")
     @Operation(summary = "Exporta o DRE em CSV")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('DRE_VIEW')")
     public ResponseEntity<byte[]> export(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
                                          @RequestParam(required = false) UUID developmentId) {

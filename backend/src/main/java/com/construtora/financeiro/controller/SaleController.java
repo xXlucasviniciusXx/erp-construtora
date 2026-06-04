@@ -34,7 +34,7 @@ public class SaleController {
 
     @GetMapping
     @Operation(summary = "Lista/filtra vendas (paginado): cliente, status, texto")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('VENDAS_VIEW')")
     public Page<SaleResponse> list(@RequestParam(required = false) String q,
                                    @RequestParam(required = false) SaleStatus status,
                                    @RequestParam(required = false) UUID clientId,
@@ -44,21 +44,21 @@ public class SaleController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Detalha venda com parcelas")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('VENDAS_VIEW')")
     public SaleResponse get(@PathVariable UUID id) {
         return saleService.findById(id);
     }
 
     @GetMapping("/{id}/installments")
     @Operation(summary = "Lista parcelas da venda")
-    @PreAuthorize("hasAuthority('READ')")
+    @PreAuthorize("hasAuthority('VENDAS_VIEW')")
     public List<InstallmentResponse> installments(@PathVariable UUID id) {
         return installmentService.findBySale(id);
     }
 
     @PostMapping
     @Operation(summary = "Registra venda e gera parcelas")
-    @PreAuthorize("hasAuthority('SALES_WRITE')")
+    @PreAuthorize("hasAuthority('VENDAS_EDIT')")
     @ResponseStatus(HttpStatus.CREATED)
     public SaleResponse create(@Valid @RequestBody SaleRequest request) {
         return saleService.create(request);
@@ -66,14 +66,14 @@ public class SaleController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Edita venda (regenera parcelas se valor/qtd mudar e nenhuma estiver paga)")
-    @PreAuthorize("hasAuthority('SALES_WRITE')")
+    @PreAuthorize("hasAuthority('VENDAS_EDIT')")
     public SaleResponse update(@PathVariable UUID id, @Valid @RequestBody SaleRequest request) {
         return saleService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Cancela/remove venda (libera o imóvel)")
-    @PreAuthorize("hasAuthority('SALES_WRITE')")
+    @PreAuthorize("hasAuthority('VENDAS_EDIT')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {
         saleService.delete(id);
