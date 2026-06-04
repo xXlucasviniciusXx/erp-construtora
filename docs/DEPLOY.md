@@ -150,7 +150,118 @@ A aplicação não depende de recursos específicos do Supabase. Para migrar ban
 
 ---
 
-## 7. Desenvolvimento local com banco local
+## 7. Deploy em VPS/Hostinger (recomendado para produção por cliente)
+
+Esta é a implantação preferida para o modelo **VM-por-cliente**: tudo roda numa
+única VPS (banco + backend + frontend + SSL via Caddy).
+
+### Requisitos mínimos na VPS
+- Ubuntu 22.04 LTS (ou Debian 12)
+- 2 vCPU / 2 GB RAM (Hostinger KVM 2 — ~R$ 30/mês por cliente)
+- Docker + Docker Compose Plugin instalados
+
+### Arquitetura
+
+```
+Internet (80/443) → Caddy (SSL Let's Encrypt)
+                      ├── /api/*  →  backend:8080 (Spring Boot)
+                      └── /*      →  frontend:80  (Nginx + React)
+                                        banco:5432 (PostgreSQL, só rede interna)
+```
+
+### Passo a passo
+
+**1. Instalar Docker na VPS**
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+**2. Apontar o DNS do domínio para o IP da VPS**
+
+No painel do registrador (Hostinger, Registro.br, etc.):
+```
+Tipo A   erp.minhaempresa.com.br   →   <IP-da-VPS>
+```
+> Aguarde a propagação (5–60 min) antes de prosseguir com o Caddy.
+
+**3. Clonar o repositório e criar o `.env`**
+```bash
+git clone https://github.com/xXlucasviniciusXx/erp-construtora.git
+cd erp-construtora
+cp .env.example .env
+nano .env
+```
+
+Preencha **pelo menos** estas variáveis:
+```env
+DOMAIN=erp.minhaempresa.com.br
+POSTGRES_PASSWORD=senha_forte_do_banco
+JWT_SECRET=$(openssl rand -base64 48)
+LICENSE_SECRET=$(openssl rand -base64 48)
+APP_ADMIN_EMAIL=admin@minhaempresa.com.br
+APP_ADMIN_PASSWORD=SenhaForte@123
+APP_CORS_ALLOWED_ORIGINS=https://erp.minhaempresa.com.br
+```
+
+**4. Subir o stack de produção**
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+> O Caddy obtém o certificado SSL automaticamente via Let's Encrypt.
+> O Flyway inicializa o banco com todas as migrations V1–V14.
+> Os três containers ficam com `restart: unless-stopped` — sobrevivem a reboots.
+
+**5. Verificar os logs**
+```bash
+# Logs de todos os serviços
+docker compose logs -f
+
+# Só o Caddy (ver se o SSL foi emitido)
+docker compose logs caddy
+
+# Só o backend (ver migrations do Flyway)
+docker compose logs backend
+```
+
+**6. Aplicar a chave de licença**
+
+Acesse `https://erp.minhaempresa.com.br` → Configurações → Módulos & Licença,
+cole a chave HMAC gerada para esse cliente e clique em **Aplicar**.
+
+**7. Atualizar o sistema (nova versão)**
+```bash
+git pull
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+> O Flyway aplica apenas as migrations novas (idempotente).
+> O container antigo é substituído pelo novo sem downtime visível.
+
+### Abrindo o firewall (se necessário)
+```bash
+sudo ufw allow 22/tcp    # SSH
+sudo ufw allow 80/tcp    # HTTP (Caddy redireciona para HTTPS)
+sudo ufw allow 443/tcp   # HTTPS
+sudo ufw allow 443/udp   # HTTP/3
+sudo ufw enable
+```
+> Portas 8080 e 5432 **não precisam** ser abertas — ficam apenas na rede interna Docker.
+
+### Diferença local × produção
+
+| | Desenvolvimento local | Produção VPS |
+|---|---|---|
+| Comando | `docker compose up` | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` |
+| SSL | Não | Sim (Caddy + Let's Encrypt) |
+| Portas expostas | 5173 (front), 8080 (back), 5432 (db) | Apenas 80 e 443 (Caddy) |
+| `VITE_API_BASE_URL` | `http://localhost:8080/api` | `https://<DOMAIN>/api` (injetado pelo override) |
+
+---
+
+## 8. Desenvolvimento local com banco local
 
 ```bash
 # Cria role, banco e extensão pgcrypto (superusuário postgres)

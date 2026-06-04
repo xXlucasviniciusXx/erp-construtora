@@ -39,6 +39,7 @@ services:
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-admin@construtora.com.br}
       APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-Admin@123}
+      LICENSE_SECRET: ${LICENSE_SECRET:-troque-este-segredo-de-licenca-por-um-valor-aleatorio-256-bits}
       MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}

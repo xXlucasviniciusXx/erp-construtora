@@ -1,0 +1,51 @@
+# ============================================================
+#  Override de PRODUÇÃO — VPS/Hostinger
+#  Uso:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+#  O que este arquivo faz em relação ao docker-compose.yml base:
+#    - Remove a exposição direta das portas do backend (8080) e frontend
+#      para o host (só Caddy é exposto).
+#    - Adiciona o serviço Caddy como reverse proxy com SSL automático
+#      (Let's Encrypt) usando a variável ${DOMAIN} do .env.
+#    - Adiciona LICENSE_SECRET ao backend.
+#    - Persiste os certificados do Caddy num volume nomeado.
+# ============================================================
+services:
+  db:
+    # banco não precisa de nenhuma alteração; sem porta exposta ao host
+    ports: !reset []
+
+  backend:
+    ports: !reset []          # porta 8080 NÃO exposta ao host; só Caddy acessa
+    environment:
+      APP_CORS_ALLOWED_ORIGINS: "https://${DOMAIN}"
+      LICENSE_SECRET: ${LICENSE_SECRET}
+
+  frontend:
+    ports: !reset []          # porta 80 do container NÃO exposta ao host
+    build:
+      args:
+        # baked na imagem: o browser vai chamar https://<domínio>/api
+        VITE_API_BASE_URL: "https://${DOMAIN}/api"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: construtora-caddy
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"         # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN}
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,25 @@
+# ============================================================
+#  Caddy reverse proxy — produção VPS
+#  SSL automático via Let's Encrypt (HTTP-01 challenge)
+#
+#  Variável: DOMAIN (ex.: erp.minhaempresa.com.br)
+#  Definida em .env e passada via environment no docker-compose.prod.yml
+# ============================================================
+
+{$DOMAIN} {
+    # API — roteada para o backend Spring Boot
+    handle /api/* {
+        reverse_proxy backend:8080
+    }
+
+    # Tudo o mais — frontend React (nginx interno)
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    # Log compacto em JSON
+    log {
+        output stdout
+        format json
+    }
+}
