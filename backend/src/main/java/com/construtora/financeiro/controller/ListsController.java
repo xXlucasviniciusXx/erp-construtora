@@ -5,8 +5,10 @@ import com.construtora.financeiro.dto.lists.NamedItemResponse;
 import com.construtora.financeiro.exception.BusinessException;
 import com.construtora.financeiro.model.CorrectionIndex;
 import com.construtora.financeiro.model.PaymentMethod;
+import com.construtora.financeiro.model.SupplierCategory;
 import com.construtora.financeiro.repository.CorrectionIndexRepository;
 import com.construtora.financeiro.repository.PaymentMethodRepository;
+import com.construtora.financeiro.repository.SupplierCategoryRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -29,10 +31,13 @@ public class ListsController {
 
     private final PaymentMethodRepository pmRepo;
     private final CorrectionIndexRepository ciRepo;
+    private final SupplierCategoryRepository scRepo;
 
-    public ListsController(PaymentMethodRepository pmRepo, CorrectionIndexRepository ciRepo) {
+    public ListsController(PaymentMethodRepository pmRepo, CorrectionIndexRepository ciRepo,
+                           SupplierCategoryRepository scRepo) {
         this.pmRepo = pmRepo;
         this.ciRepo = ciRepo;
+        this.scRepo = scRepo;
     }
 
     // ---- Formas de pagamento ----
@@ -143,5 +148,55 @@ public class ListsController {
     @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
     public void deleteCorrectionIndex(@PathVariable UUID id) {
         ciRepo.deleteById(id);
+    }
+
+    // ---- Categorias de fornecedor ----
+
+    @GetMapping("/supplier-categories")
+    @Operation(summary = "Lista categorias de fornecedor ativas")
+    public List<NamedItemResponse> listSupplierCategories() {
+        return scRepo.findByActiveTrueOrderBySortOrderAscNameAsc().stream()
+                .map(c -> new NamedItemResponse(c.getId(), c.getName(), c.isActive(), c.getSortOrder()))
+                .toList();
+    }
+
+    @GetMapping("/supplier-categories/all")
+    @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
+    public List<NamedItemResponse> listAllSupplierCategories() {
+        return scRepo.findAll().stream()
+                .sorted((a, b) -> Integer.compare(a.getSortOrder(), b.getSortOrder()))
+                .map(c -> new NamedItemResponse(c.getId(), c.getName(), c.isActive(), c.getSortOrder()))
+                .toList();
+    }
+
+    @PostMapping("/supplier-categories")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
+    public NamedItemResponse createSupplierCategory(@Valid @RequestBody NamedItemRequest req) {
+        if (scRepo.existsByNameIgnoreCaseAndIdNot(req.name(), UUID.fromString("00000000-0000-0000-0000-000000000000")))
+            throw new BusinessException("Já existe uma categoria com este nome.");
+        SupplierCategory sc = new SupplierCategory();
+        sc.setName(req.name().trim()); sc.setActive(req.active()); sc.setSortOrder(req.sortOrder());
+        sc = scRepo.save(sc);
+        return new NamedItemResponse(sc.getId(), sc.getName(), sc.isActive(), sc.getSortOrder());
+    }
+
+    @PutMapping("/supplier-categories/{id}")
+    @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
+    public NamedItemResponse updateSupplierCategory(@PathVariable UUID id, @Valid @RequestBody NamedItemRequest req) {
+        SupplierCategory sc = scRepo.findById(id)
+                .orElseThrow(() -> new BusinessException("Categoria não encontrada."));
+        if (scRepo.existsByNameIgnoreCaseAndIdNot(req.name(), id))
+            throw new BusinessException("Já existe uma categoria com este nome.");
+        sc.setName(req.name().trim()); sc.setActive(req.active()); sc.setSortOrder(req.sortOrder());
+        sc = scRepo.save(sc);
+        return new NamedItemResponse(sc.getId(), sc.getName(), sc.isActive(), sc.getSortOrder());
+    }
+
+    @DeleteMapping("/supplier-categories/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
+    public void deleteSupplierCategory(@PathVariable UUID id) {
+        scRepo.deleteById(id);
     }
 }

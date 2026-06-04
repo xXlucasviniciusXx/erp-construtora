@@ -10,6 +10,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -39,10 +40,14 @@ public class AuthService {
         return buildResponse(principal, accessToken, rt.getToken());
     }
 
-    /** Rotaciona o refresh token e emite um novo par de tokens. */
+    /**
+     * Rotaciona o refresh token e emite um novo par de tokens.
+     * Transacional: mantém a sessão aberta para inicializar o User (LAZY),
+     * sua Role e as permissions ao montar o AppUserDetails e o JWT.
+     */
+    @Transactional
     public AuthResponse refresh(String rawRefreshToken) {
         RefreshToken newRt = refreshTokenService.rotate(rawRefreshToken);
-        // Precisamos reconstruir o AppUserDetails a partir do User recuperado
         AppUserDetails principal = new AppUserDetails(newRt.getUser());
         String accessToken = jwtService.generateToken(principal);
         return buildResponse(principal, accessToken, newRt.getToken());

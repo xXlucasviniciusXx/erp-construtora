@@ -131,8 +131,35 @@ Check "formas de pagamento retornam (min. 4)" { $pm.Count -ge 4 }
 $ci = Invoke-RestMethod -Uri "$base/lists/correction-indexes" -Headers $h2
 Check "indices de correcao retornam (min. 4)" { $ci.Count -ge 4 }
 
+# --- V17: Categorias de fornecedor + CRUD admin ---
+$sc = Invoke-RestMethod -Uri "$base/lists/supplier-categories" -Headers $h2
+Check "categorias de fornecedor retornam (min. 5)" { $sc.Count -ge 5 }
+$scAll = Invoke-RestMethod -Uri "$base/lists/supplier-categories/all" -Headers $h2
+Check "lista admin de categorias de fornecedor (com inativos)" { $scAll.Count -ge 5 }
+$newCat = Invoke-RestMethod -Uri "$base/lists/supplier-categories" -Method Post `
+    -Body '{"name":"Smoke Teste Cat","active":true,"sortOrder":50}' -ContentType 'application/json' -Headers $h2
+Check "cria categoria de fornecedor" { $newCat.id -and $newCat.name -eq 'Smoke Teste Cat' }
+Invoke-RestMethod -Uri "$base/lists/supplier-categories/$($newCat.id)" -Method Delete -Headers $h2 | Out-Null
+Check "remove categoria de fornecedor criada" { $true }
+
+# --- Cache do dashboard: 2 chamadas retornam a mesma estrutura ---
+$an1 = Invoke-RestMethod -Uri "$base/dashboard/analytics" -Headers $h2
+$an2 = Invoke-RestMethod -Uri "$base/dashboard/analytics" -Headers $h2
+Check "dashboard analytics consistente (cache)" {
+    ($null -ne $an1.totalSold) -and ($an1.totalSold -eq $an2.totalSold)
+}
+
+# --- DRE: receitas financeiras (linha aparece quando ha juros/multa) ---
+$dreCash = Invoke-RestMethod -Uri "$base/dre?basis=CAIXA" -Headers $h2
+Check "DRE base caixa retorna resultado coerente" {
+    [math]::Abs(($dreCash.totalRevenue - $dreCash.totalExpense) - $dreCash.result) -lt 0.01
+}
+
 # --- V15: Reserva de lote ---
-$firstDev = Invoke-RestMethod -Uri "$base/developments" -Headers $h2 | Select-Object -First 1
+# Atribui a variável e indexa [0]: Invoke-RestMethod retorna Object[] que o
+# pipeline | Select-Object -First 1 NÃO desempacota corretamente no PS 5.1.
+$allDevs = Invoke-RestMethod -Uri "$base/developments" -Headers $h2
+$firstDev = $allDevs[0]
 if ($firstDev) {
     $devLots = Invoke-RestMethod -Uri "$base/lots?developmentId=$($firstDev.id)" -Headers $h2
     $availLot = $devLots | Where-Object { $_.status -eq 'AVAILABLE' } | Select-Object -First 1

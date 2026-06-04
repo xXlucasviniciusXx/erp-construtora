@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
-import type { Page, Supplier } from '@/lib/types'
+import type { NamedItem, Page, Supplier } from '@/lib/types'
 import { Truck } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
@@ -26,6 +26,10 @@ export function SuppliersPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['suppliers', q, page],
     queryFn: async () => (await api.get<Page<Supplier>>('/suppliers', { params: { q: q || undefined, page, size: 20 } })).data,
+  })
+  const categories = useQuery({
+    queryKey: ['supplier-categories'],
+    queryFn: async () => (await api.get<NamedItem[]>('/lists/supplier-categories')).data,
   })
 
   const save = useMutation({
@@ -103,7 +107,14 @@ export function SuppliersPage() {
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="CNPJ / CPF"><Input value={form.document ?? ''} onChange={(e) => setForm({ ...form, document: e.target.value })} /></Field>
-            <Field label="Categoria"><Input value={form.category ?? ''} onChange={(e) => setForm({ ...form, category: e.target.value })} /></Field>
+            <Field label="Categoria">
+              <Input list="supplier-category-options" value={form.category ?? ''}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="Selecione ou digite…" />
+              <datalist id="supplier-category-options">
+                {(categories.data ?? []).map((c) => <option key={c.id} value={c.name} />)}
+              </datalist>
+            </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="E-mail"><Input type="email" value={form.email ?? ''} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>

@@ -1,7 +1,9 @@
 package com.construtora.financeiro.service;
 
+import com.construtora.financeiro.config.CacheConfig;
 import com.construtora.financeiro.dto.dashboard.DashboardAnalyticsResponse;
 import com.construtora.financeiro.dto.dashboard.Point;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,8 @@ public class DashboardAnalyticsService {
         this.jdbc = jdbc;
     }
 
+    @Cacheable(value = CacheConfig.DASHBOARD_ANALYTICS,
+               key = "T(java.util.Objects).hash(#from, #to, #clientId, #propertyId)")
     public DashboardAnalyticsResponse analytics(LocalDate from, LocalDate to, UUID clientId, UUID propertyId) {
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("from", from != null ? from : LocalDate.of(1900, 1, 1))
