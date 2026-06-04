@@ -131,6 +131,15 @@ Check "formas de pagamento retornam (min. 4)" { $pm.Count -ge 4 }
 $ci = Invoke-RestMethod -Uri "$base/lists/correction-indexes" -Headers $h2
 Check "indices de correcao retornam (min. 4)" { $ci.Count -ge 4 }
 
+# --- V18: Cotacoes oficiais do BCB (acumulado 12m) ---
+$quotes = Invoke-RestMethod -Uri "$base/lists/correction-indexes/quotes" -Headers $h2
+Check "cotacoes BCB: INCC/IGP-M/IPCA tem codigo SGS" {
+    @($quotes | Where-Object { $_.sgsCode -ne $null }).Count -ge 3
+}
+Check "cotacao BCB retorna valor acumulado (ao menos 1 disponivel)" {
+    @($quotes | Where-Object { $_.available -eq $true -and $null -ne $_.accumulated12m }).Count -ge 1
+}
+
 # --- V17: Categorias de fornecedor + CRUD admin ---
 $sc = Invoke-RestMethod -Uri "$base/lists/supplier-categories" -Headers $h2
 Check "categorias de fornecedor retornam (min. 5)" { $sc.Count -ge 5 }

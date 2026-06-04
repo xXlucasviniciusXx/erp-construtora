@@ -1,7 +1,9 @@
 package com.construtora.financeiro.controller;
 
+import com.construtora.financeiro.dto.lists.IndexQuote;
 import com.construtora.financeiro.dto.lists.NamedItemRequest;
 import com.construtora.financeiro.dto.lists.NamedItemResponse;
+import com.construtora.financeiro.service.BcbIndexService;
 import com.construtora.financeiro.exception.BusinessException;
 import com.construtora.financeiro.model.CorrectionIndex;
 import com.construtora.financeiro.model.PaymentMethod;
@@ -32,12 +34,14 @@ public class ListsController {
     private final PaymentMethodRepository pmRepo;
     private final CorrectionIndexRepository ciRepo;
     private final SupplierCategoryRepository scRepo;
+    private final BcbIndexService bcbIndexService;
 
     public ListsController(PaymentMethodRepository pmRepo, CorrectionIndexRepository ciRepo,
-                           SupplierCategoryRepository scRepo) {
+                           SupplierCategoryRepository scRepo, BcbIndexService bcbIndexService) {
         this.pmRepo = pmRepo;
         this.ciRepo = ciRepo;
         this.scRepo = scRepo;
+        this.bcbIndexService = bcbIndexService;
     }
 
     // ---- Formas de pagamento ----
@@ -101,7 +105,7 @@ public class ListsController {
     @Operation(summary = "Lista índices de correção ativos")
     public List<NamedItemResponse> listCorrectionIndexes() {
         return ciRepo.findByActiveTrueOrderBySortOrderAscNameAsc().stream()
-                .map(c -> new NamedItemResponse(c.getId(), c.getName(), c.isActive(), c.getSortOrder()))
+                .map(ListsController::toResponse)
                 .toList();
     }
 
@@ -111,7 +115,29 @@ public class ListsController {
     public List<NamedItemResponse> listAllCorrectionIndexes() {
         return ciRepo.findAll().stream()
                 .sorted((a, b) -> Integer.compare(a.getSortOrder(), b.getSortOrder()))
-                .map(c -> new NamedItemResponse(c.getId(), c.getName(), c.isActive(), c.getSortOrder()))
+                .map(ListsController::toResponse)
+                .toList();
+    }
+
+    /**
+     * Cotações oficiais (BCB) de cada índice com código SGS. Acumulado 12m +
+     * último mês. Índices sem código ou com BCB indisponível vêm com available=false.
+     */
+    @GetMapping("/correction-indexes/quotes")
+    @Operation(summary = "Valores oficiais (BCB) dos índices de correção — acumulado 12m")
+    public List<IndexQuote> correctionIndexQuotes() {
+        return ciRepo.findByActiveTrueOrderBySortOrderAscNameAsc().stream()
+                .map(ci -> {
+                    if (ci.getSgsCode() == null) {
+                        return new IndexQuote(ci.getId(), ci.getName(), null, null, null, null, false);
+                    }
+                    BcbIndexService.Quote q = bcbIndexService.accumulated12m(ci.getSgsCode());
+                    if (q == null) {
+                        return new IndexQuote(ci.getId(), ci.getName(), ci.getSgsCode(), null, null, null, false);
+                    }
+                    return new IndexQuote(ci.getId(), ci.getName(), ci.getSgsCode(),
+                            q.accumulated12m(), q.lastValue(), q.lastRef(), true);
+                })
                 .toList();
     }
 
@@ -125,8 +151,9 @@ public class ListsController {
         ci.setName(req.name().trim());
         ci.setActive(req.active());
         ci.setSortOrder(req.sortOrder());
+        ci.setSgsCode(req.sgsCode());
         ci = ciRepo.save(ci);
-        return new NamedItemResponse(ci.getId(), ci.getName(), ci.isActive(), ci.getSortOrder());
+        return toResponse(ci);
     }
 
     @PutMapping("/correction-indexes/{id}")
@@ -139,8 +166,9 @@ public class ListsController {
         ci.setName(req.name().trim());
         ci.setActive(req.active());
         ci.setSortOrder(req.sortOrder());
+        ci.setSgsCode(req.sgsCode());
         ci = ciRepo.save(ci);
-        return new NamedItemResponse(ci.getId(), ci.getName(), ci.isActive(), ci.getSortOrder());
+        return toResponse(ci);
     }
 
     @DeleteMapping("/correction-indexes/{id}")
@@ -148,6 +176,10 @@ public class ListsController {
     @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
     public void deleteCorrectionIndex(@PathVariable UUID id) {
         ciRepo.deleteById(id);
+    }
+
+    private static NamedItemResponse toResponse(CorrectionIndex ci) {
+        return new NamedItemResponse(ci.getId(), ci.getName(), ci.isActive(), ci.getSortOrder(), ci.getSgsCode());
     }
 
     // ---- Categorias de fornecedor ----

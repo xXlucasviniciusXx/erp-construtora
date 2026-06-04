@@ -23,14 +23,29 @@ public class CacheConfig {
 
     public static final String DASHBOARD_ANALYTICS = "dashboardAnalytics";
     public static final String DASHBOARD_SUMMARY = "dashboardSummary";
+    public static final String BCB_INDEX = "bcbIndex";
 
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager manager = new CaffeineCacheManager(
-                DASHBOARD_ANALYTICS, DASHBOARD_SUMMARY);
+        CaffeineCacheManager manager = new CaffeineCacheManager();
+        // Cache padrão (60s) para as agregações do dashboard
         manager.setCaffeine(Caffeine.newBuilder()
                 .expireAfterWrite(60, TimeUnit.SECONDS)
                 .maximumSize(200));
+        manager.registerCustomCache(DASHBOARD_ANALYTICS, defaultCache());
+        manager.registerCustomCache(DASHBOARD_SUMMARY, defaultCache());
+        // Índices do BCB mudam mensalmente — cache longo (6h)
+        manager.registerCustomCache(BCB_INDEX, Caffeine.newBuilder()
+                .expireAfterWrite(6, TimeUnit.HOURS)
+                .maximumSize(50)
+                .build());
         return manager;
+    }
+
+    private com.github.benmanes.caffeine.cache.Cache<Object, Object> defaultCache() {
+        return Caffeine.newBuilder()
+                .expireAfterWrite(60, TimeUnit.SECONDS)
+                .maximumSize(200)
+                .build();
     }
 }
