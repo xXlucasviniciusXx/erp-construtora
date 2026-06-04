@@ -404,7 +404,8 @@ function DrillModal({ drill, sales, overdue, paid, onClose }: {
     )
   }
   // kind === 'sales'
-  const rows = sales.filter((s) => (s.purchaseType ?? '—') === drill.key)
+  // Backend usa coalesce(purchase_type,'Não informado') para nulos
+  const rows = sales.filter((s) => (s.purchaseType ?? 'Não informado') === drill.key)
   const total = rows.reduce((s, v) => s + v.totalValue, 0)
   const STATUS: Record<string, string> = { ACTIVE: 'Ativa', COMPLETED: 'Quitada', CANCELLED: 'Cancelada' }
   return (
