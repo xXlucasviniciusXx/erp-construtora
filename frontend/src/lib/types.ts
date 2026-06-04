@@ -384,6 +384,25 @@ export interface Role {
   userCount: number
 }
 
+export interface Payable {
+  id: string
+  supplier?: string
+  categoryId?: string
+  categoryName?: string
+  categoryGroup?: string
+  description?: string
+  amount: number
+  dueDate: string
+  paymentDate?: string
+  status: 'OPEN' | 'PAID' | 'OVERDUE' | 'CANCELLED'
+  paymentMethod?: string
+  costCenterId?: string
+  costCenterName?: string
+  developmentId?: string
+  developmentName?: string
+  notes?: string
+}
+
 // ---- Listas configuráveis ----
 export interface NamedItem {
   id: string
