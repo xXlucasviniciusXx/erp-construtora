@@ -4,9 +4,9 @@
 
 - `main` — sempre estável/deployável (CD direto para Render/Vercel).
 - `develop` — integração das features.
-- `feature/<nome>` — uma feature por branch, parte de `develop`.
+- `feature/<nome>` — uma feature por branch, parte de `develop` ou `main`.
 
-Fluxo: `feature/*` → PR para `develop` → quando estável, `develop` → `main`.
+Fluxo recomendado para features com migrations: `feature/*` → PR → CI verde → merge → Render redeploya automaticamente.
 
 ## Commits realizados (histórico do POC)
 
@@ -43,18 +43,45 @@ feat(frontend): tela de vendas com lote esperado, edição e contrato
 fix: dark mode em parcelas, sugestões e cards de clientes
 feat(frontend): sidebar retrátil e drawer mobile
 docs: atualização completa (README, API, ARCHITECTURE, DEPLOY, TODO)
+feat(backend): juros/multa por atraso + drill-down dashboard + mapa de lotes (V9)
+feat(backend): Contas a Pagar vinculadas a empreendimento (V10)
+feat(backend): plano de contas estruturado — Categorias + Centros de Custo FK (V11)
+feat(backend): paginação e filtros server-side nas listagens de maior volume
+feat(backend): paginação server-side — Vendas, Fornecedores e Transações bancárias
+ci: GitHub Actions — mvn test (backend) + npm run build (frontend)
+test: testes do núcleo financeiro e smoke E2E
+feat(backend): DRE em base caixa + export CSV (V12)
+feat(backend): notificações por e-mail + SMTP configurável pela aplicação
+feat: licenciamento Fase 1 — módulos + licença + LicensingContext + ModuleGuard (V13)
+feat: licenciamento Fase 2 — permissões por módulo, perfis de acesso, chave HMAC,
+      enforcement backend (V14) — PR #1
+fix: health check do Render trocado para /api/settings/public
+docs: atualização completa pós-Fase 2 (API, ARCHITECTURE, DEPLOY, GIT)
 ```
 
 ## Próximos commits sugeridos
 
 ```
-feat(backend): conciliação parcial (1 transação → N lançamentos)
-feat(frontend): mapa visual de lotes por quadra (grid com status)
-feat(backend): aplicação automática de juros/multa no atraso
-feat(backend): refresh token e revogação por JTI
-feat(frontend): drill-down nos gráficos do dashboard
-test: cobertura dos serviços críticos (reconciliação, parcelas, cascade)
-chore: code-splitting do bundle (Recharts lazy loading)
+# Fase 3 — Provisionamento de VM por cliente
+feat(ops): script de provisionamento de nova VM (Docker + banco + chave)
+feat(ci): deploy automatizado nas N VMs (image push + pull trigger)
+
+# Fase 4 — Módulos Premium
+feat(backend): Portal do Cliente — autenticação separada (jwt comprador)
+feat(backend): Portal do Cliente — tela de parcelas, contrato e 2ª via
+feat(backend): integração Asaas — boleto/PIX + webhook de baixa automática
+feat(backend): correção monetária (INCC/IGPM) nas parcelas
+feat(backend): assinatura eletrônica de contratos
+
+# Fase 5 — App de gestão de licenças (2º sistema)
+feat(license-app): painel do fornecedor — geração e gestão de chaves
+feat(license-app): inventário de VMs/clientes + controle de vencimento
+
+# Qualidade
+test: integração com Testcontainers (Postgres) — migrations + reconciliação
+feat(backend): health check dedicado /actuator/health com detalhe de banco
+feat(frontend): geração de tipos TypeScript a partir do OpenAPI
+feat(frontend): combobox server-side para Cliente/Lote em Vendas
 ```
 
 ## Dica de workflow antes de push
@@ -70,8 +97,19 @@ cd ../frontend && npm run build
 cd ../backend && mvn spring-boot:run &
 cd ../frontend && npm run dev
 
-# 4. Validar funcionalidades críticas (login, cascade, vendas, conciliação)
+# 4. Validar funcionalidades críticas (login, cascade, vendas, conciliação, licença)
 
-# 5. Fazer push — Render redeploya automaticamente em ~5 min
-git add -p && git commit -m "feat: ..." && git push
+# 5. Smoke test E2E
+pwsh scripts/smoke.ps1
+
+# 6. Para features com migrations: usar PR em vez de push direto em main
+git checkout -b feat/minha-feature
+git push -u origin feat/minha-feature
+gh pr create --title "feat: minha feature" --body "..."
+gh pr checks <numero> --watch
+gh pr merge <numero> --merge --delete-branch
 ```
+
+> **Migrations que apagam dados de permissão (como V14)** exigem deploy atômico —
+> o novo código e a migration devem subir juntos via PR/merge → Render redeploya
+> como uma unidade (build Docker → Flyway → novo container).

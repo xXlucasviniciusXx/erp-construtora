@@ -6,7 +6,7 @@
 ┌─────────────┐     HTTPS/JSON      ┌──────────────────┐     JDBC      ┌────────────┐
 │  Frontend   │ ──────────────────► │     Backend      │ ────────────► │ PostgreSQL │
 │ React/Vite  │ ◄────────────────── │  Spring Boot API │ ◄──────────── │  (Supabase)│
-└─────────────┘    JWT (Bearer)     └──────────────────┘   Flyway V8   └────────────┘
+└─────────────┘    JWT (Bearer)     └──────────────────┘   Flyway V14  └────────────┘
 ```
 
 O frontend é um SPA stateless que guarda o JWT no `localStorage` e o envia em
@@ -19,15 +19,16 @@ substituível.
 ## Camadas do backend
 
 ```
-Controller  → expõe REST, valida entrada (@Valid), aplica @PreAuthorize
-Service     → regra de negócio e transações (@Transactional)
-Repository  → acesso a dados (Spring Data JPA + JdbcTemplate para analytics)
-Mapper      → Entity <-> DTO
-DTO         → contratos de entrada/saída (records imutáveis)
-Entity      → modelo persistente (@Entity)
-Security    → JwtService, filtro, UserDetails, SecurityConfig
-Exception   → GlobalExceptionHandler + exceções de domínio (BusinessException)
-Parser      → leitura de extratos (estratégia por formato — CSV/OFX)
+Controller    → expõe REST, valida entrada (@Valid), aplica @PreAuthorize
+Service       → regra de negócio e transações (@Transactional)
+Repository    → acesso a dados (Spring Data JPA + JdbcTemplate para analytics)
+Mapper        → Entity <-> DTO
+DTO           → contratos de entrada/saída (records imutáveis)
+Entity        → modelo persistente (@Entity)
+Security      → JwtService, filtro, UserDetails, SecurityConfig
+Interceptor   → LicenseEnforcementInterceptor (módulos + vencimento)
+Exception     → GlobalExceptionHandler + exceções de domínio (BusinessException)
+Parser        → leitura de extratos (estratégia por formato — CSV/OFX)
 ```
 
 ---
@@ -35,19 +36,127 @@ Parser      → leitura de extratos (estratégia por formato — CSV/OFX)
 ## Segurança e RBAC
 
 - Autenticação: `AuthenticationManager` + `BCryptPasswordEncoder`.
-- Autorização: cada `Role` carrega um conjunto de `Permission` (ex.:
-  `RECONCILIATION_WRITE`). O `AppUserDetails` publica `ROLE_<NOME>` + cada
-  permissão como *authority*. Os controllers usam
+- Autorização: cada `Role` carrega um conjunto de `Permission` com o padrão
+  `<MODULO>_VIEW` / `<MODULO>_EDIT`. O `AppUserDetails` publica `ROLE_<NOME>` +
+  cada permissão como *authority*. Os controllers usam
   `@PreAuthorize("hasAuthority('...')")`.
-- ADMIN recebe todas as permissões (seed V2).
+- ADMIN recebe todas as permissões (seed V2 + V14). O papel ADMIN é **protegido**:
+  não pode ser editado nem deletado via API.
+- Perfis de acesso são **gerenciáveis em tempo real** via `GET/POST/PUT/DELETE /api/roles`.
+  O catálogo completo de permissões está em `GET /api/roles/permissions`.
 
-| Perfil        | Permissões principais |
-|---------------|-----------------------|
-| ADMIN         | tudo + `USERS_MANAGE`, `SETTINGS_MANAGE` |
-| FINANCEIRO    | `PAYABLE_WRITE`, `RECEIVABLE_WRITE`, `RECONCILIATION_WRITE`, `REPORTS_EXPORT` |
-| CONTABILIDADE | `RECONCILIATION_VALIDATE`, `REPORTS_EXPORT`, `READ` |
-| COMERCIAL     | `CLIENTS_WRITE`, `PROPERTIES_WRITE`, `SALES_WRITE`, `CONTRACTS_GENERATE` |
-| VISUALIZADOR  | `READ` |
+### Permissões por módulo (V14)
+
+| Permissão | Módulo | Ação |
+|-----------|--------|------|
+| `DASHBOARD_VIEW` | Dashboard | Ver |
+| `CLIENTES_VIEW` / `CLIENTES_EDIT` | Clientes | Ver / Editar |
+| `EMPREENDIMENTOS_VIEW` / `EMPREENDIMENTOS_EDIT` | Empreendimentos | Ver / Editar |
+| `VENDAS_VIEW` / `VENDAS_EDIT` | Vendas | Ver / Editar |
+| `CONTAS_PAGAR_VIEW` / `CONTAS_PAGAR_EDIT` | Contas a Pagar | Ver / Editar |
+| `CONTAS_RECEBER_VIEW` / `CONTAS_RECEBER_EDIT` | Contas a Receber | Ver / Editar |
+| `FORNECEDORES_VIEW` / `FORNECEDORES_EDIT` | Fornecedores | Ver / Editar |
+| `CONCILIACAO_VIEW` / `CONCILIACAO_EDIT` | Conciliação | Ver / Editar |
+| `DRE_VIEW` | DRE | Ver |
+| `RELATORIOS_VIEW` | Relatórios | Ver |
+| `NOTIFICACOES_VIEW` | Notificações | Ver |
+| `USERS_MANAGE` | Sistema | Gerenciar usuários |
+| `SETTINGS_MANAGE` | Sistema | Gerenciar configurações |
+
+### Perfis padrão (seed V14)
+
+| Perfil | Permissões principais |
+|--------|-----------------------|
+| ADMIN | Todas (sistema protegido) |
+| FINANCEIRO | `CONTAS_PAGAR_*`, `CONTAS_RECEBER_*`, `CONCILIACAO_*`, `RELATORIOS_VIEW`, + VIEW de todos os módulos |
+| CONTABILIDADE | `CONCILIACAO_*`, `DRE_VIEW`, `RELATORIOS_VIEW`, + VIEW de módulos financeiros |
+| COMERCIAL | `CLIENTES_*`, `EMPREENDIMENTOS_*`, `VENDAS_*`, + VIEW financeiro |
+| VISUALIZADOR | Apenas `*_VIEW` de todos os módulos |
+
+> Permissões antigas (`READ`, `CLIENTS_WRITE`, `PROPERTIES_WRITE`, `SALES_WRITE`,
+> `CONTRACTS_GENERATE`, `PAYABLE_WRITE`, `RECEIVABLE_WRITE`, `RECONCILIATION_WRITE`,
+> `RECONCILIATION_VALIDATE`, `REPORTS_EXPORT`) foram removidas na V14.
+
+---
+
+## Licenciamento por módulos
+
+### Modelo de implantação: VM por cliente (silo)
+
+Cada cliente roda em **sua própria VM + seu próprio banco** (PostgreSQL separado).
+Isolamento é **físico** — não há `tenant_id`. O sistema single-tenant atual já
+serve esse modelo sem reescrita de queries.
+
+### Os três eixos (independentes)
+
+| Eixo | Responde | Onde mora |
+|------|----------|-----------|
+| **Plano** (tier) | quais módulos a empresa contratou (teto) | tabela `license` |
+| **Papel + permissão** | o que cada usuário vê/edita dentro do teto | `roles` / `permissions` |
+| **VM** | isolamento entre empresas | banco separado por VM |
+
+### Tabelas (V13 + V14)
+
+- **`modules`** — catálogo de módulos (`code` UNIQUE, `name`, `active`, `sort_order`).
+  13 módulos seeded (11 ativos + `PORTAL_CLIENTE` e `APP_MOBILE` como "em breve").
+- **`license`** — linha única por VM: `plan`, `status`, `start_date`, `end_date`,
+  `period_months`, `max_users`, `customer`, `license_key TEXT`, `grace_days` (padrão 7).
+
+### Distribuição de módulos por plano (cumulativo)
+
+| Plano | Módulos |
+|-------|---------|
+| **ESSENCIAL** | DASHBOARD, CLIENTES, FORNECEDORES, CONTAS_PAGAR, CONTAS_RECEBER, CONCILIACAO, DRE, RELATORIOS, NOTIFICACOES |
+| **PROFISSIONAL** | = Essencial + EMPREENDIMENTOS, VENDAS |
+| **PREMIUM** | = Profissional + PORTAL_CLIENTE, APP_MOBILE *(ainda a construir — Fase 4)* |
+
+### Chave de licenciamento (HMAC-SHA256 offline)
+
+`LicenseKeyService` assina/verifica tokens offline sem servidor central:
+
+```
+formato: base64url(payload_json).base64url(hmac_sha256(payload, secret))
+```
+
+- `generate(LicenseClaims)` → String token.
+- `parse(String)` → `LicenseClaims` ou `BusinessException` (assinatura inválida/expirada).
+- Comparação com `MessageDigest.isEqual` (constant-time, evita timing attack).
+- Segredo configurado em `app.license.secret` (variável `LICENSE_SECRET` na VM).
+
+Endpoints: `POST /api/licensing/license/key` (aplicar) e
+`POST /api/licensing/license/key/generate` (gerar nova chave).
+
+### LicenseEnforcementInterceptor
+
+`HandlerInterceptor` registrado em `WebConfig` para `/api/**`. Avalia cada request:
+
+1. **Gate global** (independente do módulo):
+   - `CANCELADA` → 403 bloqueio total.
+   - `SUSPENSA` ou vencida além do `grace_days` → somente GET passa (modo leitura).
+   - Dentro da tolerância → apenas aviso no `LicenseResponse`.
+
+2. **Gate de módulo**: mapeia o path (`/api/clients` → `CLIENTES`, etc.) e verifica
+   se o módulo está ativo na tabela `modules`. Módulo inativo → 403.
+
+3. **Paths isentos** (sempre liberados): `/api/auth`, `/api/licensing`,
+   `/api/settings`, `/api/users`, `/api/roles`.
+
+### LicensingContext (frontend)
+
+`LicensingContext.tsx` busca `GET /api/licensing/me` após o login e expõe:
+
+- `canAccess(moduleCode?)` — `true` se o módulo está ativo (ou se o código for
+  desconhecido ou o contexto ainda estiver carregando).
+- `activeByCode: Map<string, boolean>` construído do array `modules`.
+
+`ModuleGuard` envolve cada rota e exibe tela de "Módulo não contratado" (cadeado)
+quando `canAccess()` retorna `false`.
+
+### Upsell (plano Essencial)
+
+No Dashboard, consultas de módulos não contratados são desabilitadas via
+`enabled: canAccess('VENDAS')` e o espaço do gráfico é substituído por
+`<UpsellCard title="..." plan="Profissional" />` — sem erros 403 exibidos ao usuário.
 
 ---
 
@@ -271,26 +380,34 @@ social. Em qualquer falha, retorna `null` e o preenchimento manual segue normalm
 
 ```
 src/
-├── pages/
-│   ├── DashboardPage.tsx      # 8 cards + 10 gráficos (Recharts) + filtros
-│   ├── DevelopmentsPage.tsx   # Cadastro em cascata: lista empreendimentos
-│   │                          #   → DevelopmentManager (quadras + lotes)
-│   ├── SalesPage.tsx          # Combobox CMDK para Cliente/Lote, edição de venda
-│   ├── ClientsPage.tsx        # Menu ⋮, inativação, CEP/CNPJ automático
-│   ├── PayablePage.tsx        # Filtros, ícones confirmar/cancelar
-│   ├── ReceivablePage.tsx     # Filtros, abas Contas/Parcelas
-│   ├── SuppliersPage.tsx      # CRUD fornecedores
-│   ├── ReconciliationPage.tsx # Sugestões, conciliação manual, histórico
-│   └── ...
+├── licensing/
+│   └── LicensingContext.tsx   # canAccess(code?), activeByCode, busca /licensing/me
 ├── components/
-│   ├── ui/                    # Button, Card, Field, Input, Select, PageHeader…
-│   ├── Combobox.tsx           # Combobox pesquisável estilo CMDK (sem dependências)
-│   └── Layout.tsx             # Sidebar retrátil, dark mode, nav protegida por permissão
+│   ├── ModuleGuard.tsx         # Envolve rotas; tela de cadeado se módulo inativo
+│   ├── ui/                     # Button, Card, Field, Input, Select, PageHeader…
+│   ├── Combobox.tsx            # Combobox pesquisável estilo CMDK (sem dependências)
+│   └── Layout.tsx              # Sidebar retrátil, dark mode, nav filtrada por
+│                               #   permissão E módulo; banner de vencimento
+├── pages/
+│   ├── DashboardPage.tsx       # 8 cards + 10 gráficos (Recharts) + filtros;
+│   │                           #   consultas desabilitadas por canAccess(); UpsellCard
+│   ├── DevelopmentsPage.tsx    # Cadastro em cascata: lista empreendimentos
+│   │                           #   → DevelopmentManager (quadras + lotes)
+│   ├── SalesPage.tsx           # Combobox CMDK para Cliente/Lote, edição de venda
+│   ├── ClientsPage.tsx         # Menu ⋮, inativação, CEP/CNPJ automático
+│   ├── PayablePage.tsx         # Filtros, ícones confirmar/cancelar
+│   ├── ReceivablePage.tsx      # Filtros, abas Contas/Parcelas
+│   ├── SuppliersPage.tsx       # CRUD fornecedores
+│   ├── ReconciliationPage.tsx  # Sugestões, conciliação manual, histórico
+│   ├── UsersPage.tsx           # CRUD usuários; roles carregadas dinamicamente
+│   └── settings/
+│       ├── ModulesTab.tsx      # Planos preset, toggle de módulos, chave de licença
+│       └── AccessProfilesTab.tsx # CRUD perfis de acesso; grade VER/EDITAR por módulo
 └── lib/
-    ├── api.ts                 # Instância Axios com interceptor de token
-    ├── types.ts               # Tipos espelhando os DTOs do backend
-    ├── utils.ts               # formatCurrency, cn (classnames), …
-    └── brasilapi.ts           # lookupCep / lookupCnpj
+    ├── api.ts                  # Instância Axios com interceptor de token
+    ├── types.ts                # Tipos espelhando os DTOs (inclui License, Module, Role, Permission)
+    ├── utils.ts                # formatCurrency, cn (classnames), …
+    └── brasilapi.ts            # lookupCep / lookupCnpj
 ```
 
 ### Combobox pesquisável (CMDK-style)
@@ -303,3 +420,10 @@ Cliente e Lote na tela de Vendas.
 
 Configurado em `tailwind.config.js` com `darkMode: 'class'`. O `Layout` alterna
 a classe `dark` no `<html>`. Todas as telas usam variantes `dark:` do Tailwind.
+
+### Proteção de rota por módulo
+
+`App.tsx` envolve cada rota com `<ModuleGuard code="NOME_MODULO">`. O guard lê
+`canAccess()` do `LicensingContext` e, se o módulo estiver inativo, exibe uma tela
+de cadeado em vez de redirecionar para 404 ou 403. O `LicensingProvider` fica no
+`main.tsx` dentro do `AuthProvider`.

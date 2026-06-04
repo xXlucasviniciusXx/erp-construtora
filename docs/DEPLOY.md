@@ -28,7 +28,7 @@ URLs de produção atuais:
    SPRING_DATASOURCE_PASSWORD=<senha-do-projeto>
    ```
 
-> O Flyway aplica todas as migrations (V1–V8) no primeiro start.  
+> O Flyway aplica todas as migrations (V1–V14) no primeiro start.  
 > Em produção, considere remover ou adaptar as migrations V3 e V5 (dados de demonstração).
 
 ---
@@ -49,32 +49,19 @@ URLs de produção atuais:
 | `APP_CORS_ALLOWED_ORIGINS` | URL do Vercel + `http://localhost:5173` (desenvolvimento) |
 | `APP_ADMIN_EMAIL` | E-mail do admin inicial |
 | `APP_ADMIN_PASSWORD` | Senha forte do admin |
+| `LICENSE_SECRET` | Segredo HMAC para chaves de licença (`openssl rand -base64 48`) |
 | `MAIL_ENABLED` | `false` no POC (apenas loga; `true` para SMTP real) |
 
-`render.yaml` mínimo (já existe na raiz do repositório):
-```yaml
-services:
-  - type: web
-    name: construtora-backend
-    env: docker
-    dockerfilePath: backend/Dockerfile
-    dockerContext: backend
-    envVars:
-      - key: SPRING_DATASOURCE_URL
-        sync: false
-      - key: SPRING_DATASOURCE_USERNAME
-        sync: false
-      - key: SPRING_DATASOURCE_PASSWORD
-        sync: false
-      - key: JWT_SECRET
-        generateValue: true
-      - key: APP_CORS_ALLOWED_ORIGINS
-        value: https://erp-construtora-three.vercel.app
-      - key: APP_ADMIN_EMAIL
-        sync: false
-      - key: APP_ADMIN_PASSWORD
-        sync: false
-```
+> `LICENSE_SECRET` deve ser **único por instalação** e nunca compartilhado. Chaves
+> de licença geradas com um segredo são inválidas em outra VM com segredo diferente —
+> esse é o mecanismo que evita que um cliente copie a chave de outro.
+
+O `render.yaml` na raiz do repositório já define o blueprint completo, incluindo
+o `healthCheckPath: /api/settings/public` (endpoint rápido, público, confirma app + banco).
+
+> **Por que `/api/settings/public`?** O antigo `/v3/api-docs` varreia todos os
+> controllers no cold start (10–20 s), estourando o timeout do free tier.
+> O novo endpoint lê apenas 1 linha do banco e retorna em < 1 s.
 
 > Railway e Fly.io seguem o mesmo princípio (Docker + variáveis de ambiente).
 
@@ -96,30 +83,74 @@ services:
 
 ---
 
-## 4. Checklist pós-deploy
+## 4. Workflow de deploy com PR (recomendado para migrations)
+
+Migrations que alteram permissões (como V14) precisam de **deploy atômico** — o
+novo código e a migration devem subir juntos. O fluxo via PR garante isso:
+
+```bash
+# 1. Criar branch de feature
+git checkout -b feat/minha-feature
+
+# 2. Desenvolver, commitar, fazer push
+git push -u origin feat/minha-feature
+
+# 3. Abrir PR (GitHub CLI)
+gh pr create --title "feat: minha feature" --body "Descrição"
+
+# 4. Acompanhar CI
+gh pr checks <numero> --watch
+
+# 5. Fazer merge (Render redeploya automaticamente)
+gh pr merge <numero> --merge --delete-branch
+
+# 6. Acompanhar deploy
+gh run list --limit 5
+```
+
+> O Render faz: **build Docker → Flyway → novo container ativo**. O container
+> antigo só é desativado após o novo passar no health check. Portanto o código
+> novo e a migration sempre sobem juntos — sem janela de inconsistência.
+
+---
+
+## 5. Checklist pós-deploy
 
 - [ ] `POST /api/auth/login` retorna token (teste via Swagger ou curl).
-- [ ] Frontend carrega `GET /api/settings/public` (branding) sem erro de CORS.
-- [ ] Flyway aplicou todas as migrations V1–V8 (verifique nos logs do Render).
+- [ ] `GET /api/settings/public` retorna 200 sem autenticação (health check OK).
+- [ ] Frontend carrega branding sem erro de CORS.
+- [ ] Flyway aplicou todas as migrations V1–V14 (verifique nos logs do Render).
+- [ ] `GET /api/licensing/me` retorna módulos e licença (Fase 1/2 OK).
+- [ ] Configurações → Módulos & Licença: aba visível, preset de plano funciona.
+- [ ] Configurações → Perfis de Acesso: perfis listados, ADMIN protegido.
 - [ ] Upload de extrato CSV → transações aparecendo como pendentes.
 - [ ] Conciliação de uma transação funciona de ponta a ponta.
-- [ ] `JWT_SECRET` forte e único (nunca o default/generateValue default).
+- [ ] `JWT_SECRET` forte e único.
+- [ ] `LICENSE_SECRET` forte e único (gerado em `openssl rand -base64 48`).
 - [ ] `APP_ADMIN_PASSWORD` trocada por senha forte e única.
 - [ ] SMTP configurado e `MAIL_ENABLED=true` se quiser e-mails reais.
 
 ---
 
-## 5. Migração para VM própria
+## 6. Migração para VM própria (modelo VM-por-cliente)
 
-A aplicação não depende de recursos específicos do Supabase. Para migrar:
+Para cada novo cliente, a implantação segue:
+
+1. Provisionar VM com Docker + PostgreSQL.
+2. Clonar o repositório ou usar a imagem Docker publicada.
+3. Configurar as variáveis de ambiente (banco, segredos, CORS, admin).
+4. Executar `docker compose up --build` — Flyway inicializa o schema automaticamente.
+5. Gerar a chave de licença no painel do fornecedor (Fase 5 — por ora use
+   `POST /api/licensing/license/key/generate` na VM de demonstração).
+6. Aplicar a chave em Configurações → Módulos & Licença da VM do cliente.
+
+A aplicação não depende de recursos específicos do Supabase. Para migrar banco:
 - Aponte `SPRING_DATASOURCE_*` para o PostgreSQL da VM.
-- O Flyway recria o schema; restaure os dados via `pg_dump`/`pg_restore`.
-- Use `docker compose up --build` com o `docker-compose.yml` da raiz para subir
-  tudo em uma única VM (banco + backend + frontend via Nginx).
+- Restaure os dados via `pg_dump`/`pg_restore` se necessário.
 
 ---
 
-## 6. Desenvolvimento local com banco local
+## 7. Desenvolvimento local com banco local
 
 ```bash
 # Cria role, banco e extensão pgcrypto (superusuário postgres)
@@ -135,6 +166,5 @@ npm run dev
 ```
 
 > **Dica de validação antes de push:** compile (`mvn compile`), build do frontend
-> (`npm run build`) e teste as funcionalidades críticas no stack local antes de
-> fazer push — evita descobrir erros após o redeploy do Render (que pode levar
-> vários minutos).
+> (`npm run build`) e rode o smoke test (`pwsh scripts/smoke.ps1`) antes de fazer
+> push — evita descobrir erros após o redeploy do Render.
