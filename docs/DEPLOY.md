@@ -52,6 +52,11 @@ URLs de produção atuais:
 | `LICENSE_SECRET` | Segredo HMAC para chaves de licença (`openssl rand -base64 48`) |
 | `MAIL_ENABLED` | `false` no POC (apenas loga; `true` para SMTP real) |
 
+> **SMTP no Render free tier:** a porta 587 é bloqueada. Use **porta 2525** (MailerSend
+> suporta ambas). Configure em Configurações → Notificações / E-mail na própria aplicação
+> (não por env var — o SMTP é armazenado no banco).
+> O remetente (`mailFrom`) deve ser um domínio verificado na conta MailerSend.
+
 > `LICENSE_SECRET` deve ser **único por instalação** e nunca compartilhado. Chaves
 > de licença geradas com um segredo são inválidas em outra VM com segredo diferente —
 > esse é o mecanismo que evita que um cliente copie a chave de outro.
