@@ -11,6 +11,7 @@ import { CategoriesTab } from './settings/CategoriesTab'
 import { EmailTab } from './settings/EmailTab'
 import { ModulesTab } from './settings/ModulesTab'
 import { AccessProfilesTab } from './settings/AccessProfilesTab'
+import { ListsTab } from './settings/ListsTab'
 
 const TABS = [
   { key: 'general', label: 'Geral' },
@@ -20,6 +21,7 @@ const TABS = [
   { key: 'banks', label: 'Contas Bancárias' },
   { key: 'categories', label: 'Categorias' },
   { key: 'cost-centers', label: 'Centros de Custo' },
+  { key: 'lists', label: 'Listas' },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
@@ -55,6 +57,7 @@ export function SettingsPage() {
       {tab === 'banks' && <BankAccountsTab />}
       {tab === 'categories' && <CategoriesTab />}
       {tab === 'cost-centers' && <CostCentersTab />}
+      {tab === 'lists' && <ListsTab />}
     </div>
   )
 }

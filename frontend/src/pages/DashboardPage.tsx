@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { Lock } from 'lucide-react'
+import { Download, Lock } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useLicensing } from '@/licensing/LicensingContext'
 import type { Client, DashboardAnalytics, InstallmentDetail, Lot, Page, Payable, Point, Sale } from '@/lib/types'
@@ -23,14 +23,73 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
   )
 }
 
+/**
+ * Exporta o SVG de um gráfico Recharts como PNG.
+ * Serializa o <svg>, desenha num canvas com fundo branco e dispara o download.
+ */
+function exportChartPng(container: HTMLElement | null, filename: string) {
+  if (!container) return
+  const svg = container.querySelector('svg')
+  if (!svg) return
+
+  const clone = svg.cloneNode(true) as SVGElement
+  const rect = svg.getBoundingClientRect()
+  const w = Math.ceil(rect.width) || 600
+  const h = Math.ceil(rect.height) || 220
+  clone.setAttribute('width', String(w))
+  clone.setAttribute('height', String(h))
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+
+  const xml = new XMLSerializer().serializeToString(clone)
+  const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
+  const url = URL.createObjectURL(svgBlob)
+
+  const img = new Image()
+  img.onload = () => {
+    const scale = 2 // dobra a resolução para nitidez
+    const canvas = document.createElement('canvas')
+    canvas.width = w * scale
+    canvas.height = h * scale
+    const ctx = canvas.getContext('2d')
+    if (!ctx) { URL.revokeObjectURL(url); return }
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.scale(scale, scale)
+    ctx.drawImage(img, 0, 0)
+    URL.revokeObjectURL(url)
+    canvas.toBlob((blob) => {
+      if (!blob) return
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `${filename}.png`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    }, 'image/png')
+  }
+  img.onerror = () => URL.revokeObjectURL(url)
+  img.src = url
+}
+
 function ChartCard({ title, hint, footer, children }: { title: string; hint?: string; footer?: React.ReactNode; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const safeName = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   return (
-    <Card className="transition-all duration-150 hover:shadow-md">
+    <Card className="group transition-all duration-150 hover:shadow-md">
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</h3>
-        {hint && <span className="text-[11px] text-gray-400">{hint}</span>}
+        <div className="flex items-center gap-2">
+          {hint && <span className="text-[11px] text-gray-400">{hint}</span>}
+          <button
+            type="button"
+            title="Exportar como PNG"
+            onClick={() => exportChartPng(ref.current, safeName)}
+            className="opacity-0 transition group-hover:opacity-100 text-gray-400 hover:text-primary"
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
-      <div style={{ width: '100%', height: 220 }}>
+      <div ref={ref} style={{ width: '100%', height: 220 }}>
         <ResponsiveContainer>{children as any}</ResponsiveContainer>
       </div>
       {footer}

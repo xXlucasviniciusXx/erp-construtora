@@ -66,6 +66,22 @@ public class DreService {
                 where i.status='PAID' and i.payment_date between :from and :to"""
                 + instDevF, p);
 
+        // Receitas Financeiras — juros e multas de parcelas pagas com atraso
+        double financialRevenue = num("""
+                select coalesce(sum(
+                    case when i.payment_date > i.due_date then
+                        i.amount * ps.penalty_rate  / 100.0
+                      + i.amount * ps.interest_rate / 100.0
+                        * (i.payment_date - i.due_date)
+                    else 0 end
+                ), 0)
+                from installments i
+                  join property_sales ps on ps.id = i.sale_id
+                  join lots lt on lt.id = ps.lot_id
+                  join blocks bk on bk.id = lt.block_id
+                where i.status='PAID' and i.payment_date between :from and :to"""
+                + instDevF, p);
+
         // Outras Receitas — agrupadas por categoria quando disponível
         List<Point> otherRevenues = jdbc.query("""
                 select coalesce(c.name, 'Sem categoria') as label, sum(ar.amount) as value
@@ -78,13 +94,16 @@ public class DreService {
 
         List<Point> revenues = new ArrayList<>();
         revenues.add(new Point("Receita de Vendas (parcelas recebidas)", salesRevenue));
+        if (financialRevenue > 0) {
+            revenues.add(new Point("Receitas Financeiras (juros e multas)", financialRevenue));
+        }
         if (otherRevenues.isEmpty()) {
             revenues.add(new Point("Outras Receitas (recebíveis avulsos)", 0.0));
         } else {
             otherRevenues.forEach(pt -> revenues.add(
                     new Point("Outras Receitas — " + pt.label(), pt.value())));
         }
-        double totalRevenue = salesRevenue + otherRevenue;
+        double totalRevenue = salesRevenue + financialRevenue + otherRevenue;
 
         // Despesas pagas, por grupo de categoria
         List<Point> expenses = jdbc.query("""
