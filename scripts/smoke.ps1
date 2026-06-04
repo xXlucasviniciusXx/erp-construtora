@@ -103,12 +103,12 @@ Check "módulos principais nascem ativos" {
 # --- Fase 2: perfis de acesso, permissões por módulo e chave de licenciamento ---
 $roles = Invoke-RestMethod -Uri "$base/roles" -Headers $h
 Check "perfis de acesso listados (ADMIN protegido)" {
-    ($roles | Where-Object { $_.name -eq 'ADMIN' -and $_.system }).Count -eq 1
+    @($roles | Where-Object { $_.name -eq 'ADMIN' -and $_.system }).Count -eq 1
 }
 $perms = Invoke-RestMethod -Uri "$base/roles/permissions" -Headers $h
 Check "catálogo de permissões por módulo (VIEW/EDIT)" {
-    ($perms | Where-Object { $_.code -eq 'CLIENTES_EDIT' -and $_.action -eq 'EDIT' }).Count -eq 1 -and
-    ($perms | Where-Object { $_.code -eq 'READ' }).Count -eq 0
+    @($perms | Where-Object { $_.code -eq 'CLIENTES_EDIT' -and $_.action -eq 'EDIT' }).Count -eq 1 -and
+    @($perms | Where-Object { $_.code -eq 'READ' }).Count -eq 0
 }
 $genBody = '{"plan":"PROFISSIONAL","periodMonths":12}'
 $gen = Invoke-RestMethod -Uri "$base/licensing/license/key/generate" -Method Post -Body ([Text.Encoding]::UTF8.GetBytes($genBody)) -ContentType 'application/json' -Headers $h

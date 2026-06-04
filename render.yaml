@@ -15,8 +15,10 @@ services:
     plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    # Endpoint publico que devolve 200 sem autenticacao (doc OpenAPI)
-    healthCheckPath: /v3/api-docs
+    # Endpoint publico rapido: retorna 200 + JSON de branding sem autenticacao.
+    # Muito mais leve que /v3/api-docs (que faz scan completo de controllers
+    # no cold start e estourava o timeout do free tier).
+    healthCheckPath: /api/settings/public
     envVars:
       # --- Banco (Supabase ou Render Postgres). Formato JDBC. ---
       - key: SPRING_DATASOURCE_URL
