@@ -5,6 +5,7 @@ import com.construtora.financeiro.model.Installment;
 import com.construtora.financeiro.model.PropertySale;
 import com.construtora.financeiro.model.SystemSettings;
 import com.construtora.financeiro.repository.EmailNotificationRepository;
+import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,7 +141,8 @@ public class NotificationService {
             JavaMailSender sender = buildSender(s);
             MimeMessage mime = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mime, false, "UTF-8");
-            helper.setFrom(mailFrom(s));
+            InternetAddress from = senderAddress(s);
+            helper.setFrom(from);
             helper.setTo(record.getRecipient());
             helper.setSubject(record.getSubject());
             helper.setText(record.getBody(), true); // HTML
@@ -188,6 +190,29 @@ public class NotificationService {
         if (s.getMailFrom() != null && !s.getMailFrom().isBlank()) return s.getMailFrom();
         if (s.getMailUsername() != null && !s.getMailUsername().isBlank()) return s.getMailUsername();
         return "nao-responder@construtora.com.br";
+    }
+
+    /**
+     * Monta o endereço de remetente com display name amigável.
+     * O destinatário vê: "Construtora ABC &lt;noreply@dominio.com&gt;"
+     * em vez do endereço técnico puro.
+     * Display name = companyName ?? systemName ?? "Notificações".
+     */
+    private InternetAddress senderAddress(SystemSettings s) {
+        String email = mailFrom(s);
+        String name = s.getCompanyName() != null && !s.getCompanyName().isBlank()
+                ? s.getCompanyName()
+                : (s.getSystemName() != null && !s.getSystemName().isBlank()
+                        ? s.getSystemName()
+                        : "Notificações");
+        try {
+            return new InternetAddress(email, name, "UTF-8");
+        } catch (java.io.UnsupportedEncodingException e) {
+            try { return new InternetAddress(email); }
+            catch (jakarta.mail.internet.AddressException ex) {
+                return new InternetAddress();
+            }
+        }
     }
 
     /** Envolve o conteúdo num layout HTML com a identidade do sistema. */
