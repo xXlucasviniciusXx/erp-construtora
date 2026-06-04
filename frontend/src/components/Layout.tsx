@@ -10,6 +10,7 @@ import { useLicensing } from '@/licensing/LicensingContext'
 import { useSettings } from '@/theme/SettingsContext'
 import { PageFallback } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { assetUrl } from '@/lib/api'
 import type { ModuleCode } from '@/lib/types'
 
 interface NavItem {
@@ -87,7 +88,7 @@ export function Layout() {
       >
         <div className={cn('flex items-center gap-2.5 px-4 py-4 text-lg font-bold', collapsed && 'justify-center px-2')}>
           {settings?.logoUrl ? (
-            <img src={settings.logoUrl} alt="logo" className="h-8 w-8 flex-shrink-0 rounded" />
+            <img src={assetUrl(settings.logoUrl)} alt="logo" className="h-8 w-8 flex-shrink-0 rounded object-contain" />
           ) : (
             <div
               className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"

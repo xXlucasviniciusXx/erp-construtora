@@ -31,7 +31,7 @@ public class SettingsService {
     @Transactional(readOnly = true)
     public PublicSettingsResponse getPublic() {
         SystemSettings s = current();
-        return new PublicSettingsResponse(s.getSystemName(), s.getLogoUrl(), s.getPrimaryColor(),
+        return new PublicSettingsResponse(s.getSystemName(), versionedLogoUrl(s), s.getPrimaryColor(),
                 s.getSecondaryColor(), s.getTheme(), s.getFooterText());
     }
 
@@ -92,6 +92,18 @@ public class SettingsService {
     /** Sempre existe uma única linha (criada na migration); cria fallback se ausente. */
     public SystemSettings current() {
         return repository.findAll().stream().findFirst().orElseGet(() -> repository.save(new SystemSettings()));
+    }
+
+    /**
+     * Acrescenta um parâmetro de versão (?v=updatedAt) ao logo interno, para que
+     * login/layout busquem a imagem nova quando o logo muda, mantendo o cache de
+     * 1h por versão. URLs externas (http/https) e nulas passam sem alteração.
+     */
+    private String versionedLogoUrl(SystemSettings s) {
+        String url = s.getLogoUrl();
+        if (url == null || url.isBlank() || !url.startsWith("/api/assets/")) return url;
+        long v = s.getUpdatedAt() != null ? s.getUpdatedAt().toEpochSecond() : 0L;
+        return url + "?v=" + v;
     }
 
     private SettingsResponse toResponse(SystemSettings s) {

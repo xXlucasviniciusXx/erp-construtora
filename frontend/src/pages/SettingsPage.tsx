@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, apiErrorMessage } from '@/lib/api'
+import { api, apiErrorMessage, assetUrl } from '@/lib/api'
 import type { SystemSettings } from '@/lib/types'
 import { useSettings } from '@/theme/SettingsContext'
 import { Button, Card, Field, Input, PageHeader, Select } from '@/components/ui'
@@ -135,6 +135,9 @@ function LogoField({ form, setForm }: { form: SystemSettings; setForm: (f: Syste
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  // Cache-buster: o backend serve o logo com Cache-Control 1h; ao trocar,
+  // incrementamos para o navegador buscar a nova imagem na hora.
+  const [cacheBust, setCacheBust] = useState(0)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -146,6 +149,7 @@ function LogoField({ form, setForm }: { form: SystemSettings; setForm: (f: Syste
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       setForm({ ...form, logoUrl: data.logoUrl ?? form.logoUrl })
+      setCacheBust((n) => n + 1)
       queryClient.invalidateQueries({ queryKey: ['settings'] })
       queryClient.invalidateQueries({ queryKey: ['public-settings'] })
     } catch (err) {
@@ -194,10 +198,10 @@ function LogoField({ form, setForm }: { form: SystemSettings; setForm: (f: Syste
       )}
       {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
       {form.logoUrl && !isUploaded && (
-        <img src={form.logoUrl} alt="Preview do logo" className="mt-1 h-10 rounded border object-contain dark:border-gray-700" />
+        <img src={assetUrl(form.logoUrl)} alt="Preview do logo" className="mt-1 h-10 rounded border object-contain dark:border-gray-700" />
       )}
       {isUploaded && (
-        <img src="/api/assets/logo" alt="Logo do sistema" className="mt-1 h-10 rounded border object-contain dark:border-gray-700" />
+        <img src={`${assetUrl('/api/assets/logo')}?v=${cacheBust}`} alt="Logo do sistema" className="mt-1 h-10 rounded border object-contain dark:border-gray-700" />
       )}
     </div>
   )
