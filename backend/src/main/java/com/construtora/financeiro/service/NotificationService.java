@@ -162,13 +162,25 @@ public class NotificationService {
         if (s.getMailUsername() != null) impl.setUsername(s.getMailUsername());
         if (s.getMailPassword() != null) impl.setPassword(s.getMailPassword());
         impl.setDefaultEncoding("UTF-8");
+
         Properties props = impl.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", (s.getMailUsername() != null && !s.getMailUsername().isBlank()) ? "true" : "false");
-        props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.smtp.connectiontimeout", "10000");
-        props.put("mail.smtp.timeout", "10000");
-        props.put("mail.smtp.writetimeout", "10000");
+
+        // STARTTLS (porta 587 — padrão MailerSend/SendGrid/etc.)
+        props.put("mail.smtp.starttls.enable",   "true");
+        props.put("mail.smtp.starttls.required",  "true");   // obriga STARTTLS; falha se servidor não suportar
+        props.put("mail.smtp.ssl.trust",          s.getMailHost() != null ? s.getMailHost() : "*");
+        props.put("mail.smtp.ssl.protocols",      "TLSv1.2 TLSv1.3");
+
+        // Timeouts (25 s — free tier pode ser lento)
+        props.put("mail.smtp.connectiontimeout", "25000");
+        props.put("mail.smtp.timeout",           "25000");
+        props.put("mail.smtp.writetimeout",      "25000");
+
+        log.debug("[SMTP] host={} port={} user={} from={}",
+                s.getMailHost(), s.getMailPort(),
+                s.getMailUsername(), mailFrom(s));
         return impl;
     }
 
