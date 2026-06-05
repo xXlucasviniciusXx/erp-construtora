@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, apiErrorMessage, getToken } from '@/lib/api'
+import { api, apiErrorMessage } from '@/lib/api'
+import { openApiPdf } from '@/lib/contracts'
 import type { Client, ContractDocument, Lot, NamedItem, Page, Sale } from '@/lib/types'
 import type { ComboOption } from '@/components/Combobox'
-import { FileSignature } from 'lucide-react'
+import { FileSignature, Plus } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
 import { Combobox } from '@/components/Combobox'
+import { QuickCreateClientModal } from '@/components/QuickCreateClientModal'
 import { useToast } from '@/components/Toast'
 import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
@@ -50,7 +52,9 @@ export function SalesPage() {
   const toast = useToast()
   const canWrite = hasPermission('VENDAS_EDIT')
   const canContract = hasPermission('VENDAS_EDIT')
+  const canCreateClient = hasPermission('CLIENTES_EDIT')
 
+  const [quickClient, setQuickClient] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<SaleForm>(EMPTY)
@@ -194,10 +198,7 @@ export function SalesPage() {
     setForm((f) => ({ ...f, lotId: id, totalValue: f.totalValue || Number(lot?.plannedValue ?? 0) }))
   }
   function openPdf(path: string) {
-    fetch(`${api.defaults.baseURL}${path}`, { headers: { Authorization: `Bearer ${getToken()}` } })
-      .then((r) => { if (!r.ok) throw new Error(); return r.blob() })
-      .then((blob) => window.open(URL.createObjectURL(blob)))
-      .catch(() => toast.error('Não foi possível gerar o documento.'))
+    openApiPdf(path).catch(() => toast.error('Não foi possível gerar o documento.'))
   }
   function downloadContract(saleId: string) { openPdf(`/contracts/sales/${saleId}/pdf`) }
   function openDistrato(s: Sale) {
@@ -319,19 +320,28 @@ export function SalesPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Editar venda' : 'Nova venda'}>
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate(form) }}>
           <Field label="Cliente">
-            <Combobox
-              options={clientOptions}
-              value={form.clientId}
-              disabled={!!editingId}
-              onChange={(v) => {
-                const opt = clientOptions.find((o) => o.value === v)
-                setClientSeed(opt ?? null)
-                setForm({ ...form, clientId: v })
-              }}
-              placeholder="Buscar cliente…"
-              onSearch={setClientSearch}
-              loading={clientsQuery.isFetching}
-            />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Combobox
+                  options={clientOptions}
+                  value={form.clientId}
+                  disabled={!!editingId}
+                  onChange={(v) => {
+                    const opt = clientOptions.find((o) => o.value === v)
+                    setClientSeed(opt ?? null)
+                    setForm({ ...form, clientId: v })
+                  }}
+                  placeholder="Buscar cliente…"
+                  onSearch={setClientSearch}
+                  loading={clientsQuery.isFetching}
+                />
+              </div>
+              {canCreateClient && !editingId && (
+                <Button type="button" variant="outline" title="Cadastrar novo cliente" onClick={() => setQuickClient(true)}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </Field>
           <Field label="Lote (disponíveis)">
             <Combobox
@@ -464,6 +474,17 @@ export function SalesPage() {
             </Table>
           )}
         </Modal>
+      )}
+
+      {/* Cadastro rápido de cliente a partir da nova venda */}
+      {quickClient && (
+        <QuickCreateClientModal
+          onClose={() => setQuickClient(false)}
+          onCreated={(c) => {
+            setClientSeed({ value: c.id, label: c.name, hint: c.document })
+            setForm((f) => ({ ...f, clientId: c.id }))
+          }}
+        />
       )}
     </div>
   )
