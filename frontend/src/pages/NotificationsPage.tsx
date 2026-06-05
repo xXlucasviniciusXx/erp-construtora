@@ -6,7 +6,7 @@ import type { EmailNotification, Page } from '@/lib/types'
 import { ActionsMenu } from '@/components/Menu'
 import { useToast } from '@/components/Toast'
 import { Badge, EmptyState, Modal, PageHeader, Pagination, Select, Table, TableSkeleton, Tr } from '@/components/ui'
-import { formatDate } from '@/lib/utils'
+import { formatDateTime } from '@/lib/utils'
 
 const EVENT_LABEL: Record<string, string> = {
   PAYMENT_OVERDUE: 'Atraso', PAYMENT_DUE_SOON: 'Lembrete', PAYMENT_CONFIRMED: 'Pagamento',
@@ -14,13 +14,6 @@ const EVENT_LABEL: Record<string, string> = {
 }
 const STATUS: Record<string, { label: string; color: string }> = {
   SENT: { label: 'Enviado', color: 'green' }, PENDING: { label: 'Pendente', color: 'gray' }, FAILED: { label: 'Falhou', color: 'red' },
-}
-
-function dateTime(v?: string) {
-  if (!v) return '—'
-  const d = formatDate(v)
-  const t = v.includes('T') ? v.split('T')[1].slice(0, 5) : ''
-  return t ? `${d} ${t}` : d
 }
 
 export function NotificationsPage() {
@@ -71,7 +64,7 @@ export function NotificationsPage() {
         <Table headers={['Data', 'Destinatário', 'Assunto', 'Evento', 'Status', 'Ações']}>
           {data?.content.map((n) => (
             <Tr key={n.id}>
-              <td className="px-4 py-2 whitespace-nowrap">{dateTime(n.createdAt)}</td>
+              <td className="px-4 py-2 whitespace-nowrap">{formatDateTime(n.sentAt ?? n.createdAt)}</td>
               <td className="px-4 py-2">{n.recipient}</td>
               <td className="px-4 py-2">{n.subject}</td>
               <td className="px-4 py-2"><Badge color="blue">{EVENT_LABEL[n.eventType] ?? n.eventType}</Badge></td>
@@ -102,7 +95,7 @@ export function NotificationsPage() {
             <div><div className="text-xs text-gray-400">Destinatário</div><div>{view.recipient}</div></div>
             <div><div className="text-xs text-gray-400">Status</div><Badge dot color={STATUS[view.status]?.color ?? 'gray'}>{STATUS[view.status]?.label ?? view.status}</Badge></div>
             <div><div className="text-xs text-gray-400">Evento</div><div>{EVENT_LABEL[view.eventType] ?? view.eventType}</div></div>
-            <div><div className="text-xs text-gray-400">Enviado em</div><div>{dateTime(view.sentAt)}</div></div>
+            <div><div className="text-xs text-gray-400">Enviado em</div><div>{formatDateTime(view.sentAt ?? view.createdAt)}</div></div>
           </div>
           {view.error && <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-900/20 dark:text-red-300">{view.error}</p>}
           <div className="text-xs text-gray-400">Prévia do e-mail</div>
