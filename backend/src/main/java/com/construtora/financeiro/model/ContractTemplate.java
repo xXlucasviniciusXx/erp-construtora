@@ -33,6 +33,10 @@ public class ContractTemplate {
     @Column(nullable = false, columnDefinition = "text")
     private String body;
 
+    /** Empreendimento ao qual o modelo se aplica; null = global. */
+    @Column(name = "development_id")
+    private UUID developmentId;
+
     @Column(name = "is_default", nullable = false)
     private boolean isDefault = false;
 

@@ -66,13 +66,18 @@ Itens deixados como `TODO` propositalmente para continuação futura.
 - [x] **Modelos persistidos e editáveis** (`contract_templates`, V19): CRUD com tipos
       `CONTRACT`/`DISTRATO`, um padrão por tipo (índice único parcial), corpo XHTML com
       tokens `{{...}}` substituídos no `ContractRenderer`.
-- [x] **Editor de template no frontend** (Configurações → Contratos): edição do corpo,
-      paleta de tokens, marcar padrão/ativo e **pré-visualização** com dados de exemplo.
+- [x] **Editor visual (WYSIWYG)** do modelo (Configurações → Contratos, V20): editor
+      estilo Word (TipTap) com barra de formatação, paleta de **tokens** com tooltip e
+      inserção por clique, "Ver código HTML" (avançado), **pré-visualização** e
+      sanitização de HTML inseguro. O `body` virou fragmento; o esqueleto XHTML + CSS e a
+      normalização HTML→XHTML (jsoup) ficam no backend (`ContractHtml`).
 - [x] **Distrato** (rescisão amigável): cancela a venda (preserva no histórico),
       registra data/motivo/devolução/retido e libera o lote; documento próprio em PDF.
 - [x] **Arquivamento/versionamento dos PDFs** (`contract_documents`, V19): cada geração
       de contrato/distrato é arquivada e versionada; histórico baixável na tela de Vendas.
-- [ ] Modelos vinculados por empreendimento (hoje o padrão é global por tipo).
+- [x] **Modelos por empreendimento + duplicar** (V21): `development_id` em
+      `contract_templates` (null = global); na geração, o modelo do empreendimento da
+      venda tem prioridade sobre o global. Ação **Duplicar** cria cópia no mesmo escopo.
 - [ ] Assinatura eletrônica e aditivo contratual (Premium / Fase 4).
 
 ## Notificações

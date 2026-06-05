@@ -211,8 +211,14 @@ O contrato/distrato em PDF é gerado a partir de um **modelo** persistido (XHTML
 | GET | `/contract-templates/{id}` | Detalha um modelo | `SETTINGS_MANAGE` |
 | POST | `/contract-templates` | Cria modelo (um padrão por tipo) | `SETTINGS_MANAGE` |
 | PUT | `/contract-templates/{id}` | Edita modelo | `SETTINGS_MANAGE` |
+| POST | `/contract-templates/{id}/copy` | Duplica um modelo (cópia não-padrão, mesmo escopo) | `SETTINGS_MANAGE` |
 | DELETE | `/contract-templates/{id}` | Remove modelo (exceto o padrão) | `SETTINGS_MANAGE` |
 | POST | `/contract-templates/preview` | Pré-visualiza um corpo com dados de exemplo (HTML) | `SETTINGS_MANAGE` |
+
+O modelo guarda um **fragmento HTML** (editor visual WYSIWYG); o backend embrulha no
+esqueleto XHTML + CSS e normaliza para XML (jsoup) antes de gerar o PDF. Cada modelo tem
+`developmentId` (null = global); na geração, o modelo do empreendimento da venda tem
+prioridade sobre o global. Um modelo padrão por escopo (tipo + empreendimento).
 
 ### Dashboard
 | Método | Caminho | Descrição | Permissão |

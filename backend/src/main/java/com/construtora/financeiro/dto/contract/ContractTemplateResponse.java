@@ -9,11 +9,12 @@ public record ContractTemplateResponse(
         String kind,
         String name,
         String body,
+        UUID developmentId,
         boolean isDefault,
         boolean active
 ) {
     public static ContractTemplateResponse from(ContractTemplate t) {
         return new ContractTemplateResponse(t.getId(), t.getKind(), t.getName(), t.getBody(),
-                t.isDefault(), t.isActive());
+                t.getDevelopmentId(), t.isDefault(), t.isActive());
     }
 }
