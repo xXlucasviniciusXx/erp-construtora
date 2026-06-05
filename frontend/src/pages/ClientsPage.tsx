@@ -6,6 +6,7 @@ import type { Client, Page, Sale } from '@/lib/types'
 import { Users } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
+import { ClientContractsModal } from '@/components/ClientContractsModal'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/Confirm'
 import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select, Table, TableSkeleton, Tr } from '@/components/ui'
@@ -26,9 +27,12 @@ export function ClientsPage() {
   const [error, setError] = useState<string | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
   const [viewClient, setViewClient] = useState<Client | null>(null)
+  const [contractsClient, setContractsClient] = useState<Client | null>(null)
   const [lookupMsg, setLookupMsg] = useState<string | null>(null)
 
   const canWrite = hasPermission('CLIENTES_EDIT')
+  const canViewContracts = hasPermission('VENDAS_VIEW')
+  const canGenContracts = hasPermission('VENDAS_EDIT')
 
   async function handleCepBlur(cep: string) {
     if (!cep) return
@@ -140,6 +144,7 @@ export function ClientsPage() {
                 <ActionsMenu
                   items={[
                     { label: 'Visualizar', onClick: () => setViewClient(c) },
+                    ...(canViewContracts ? [{ label: 'Contratos', onClick: () => setContractsClient(c) }] : []),
                     ...(canWrite
                       ? [
                           { label: 'Editar', onClick: () => openEdit(c) },
@@ -240,6 +245,11 @@ export function ClientsPage() {
         <Modal open onClose={() => setViewClient(null)} title={`Cliente — ${viewClient.name}`}>
           <ClientView client={viewClient} />
         </Modal>
+      )}
+
+      {/* ---- Modal: contratos do cliente ---- */}
+      {contractsClient && (
+        <ClientContractsModal client={contractsClient} canGenerate={canGenContracts} onClose={() => setContractsClient(null)} />
       )}
     </div>
   )

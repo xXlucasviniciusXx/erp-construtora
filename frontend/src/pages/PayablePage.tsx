@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, XCircle, ArrowUpCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, ArrowUpCircle, Plus } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { Category, CostCenter, Development, Page, Supplier } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
+import { QuickCreateSupplierModal } from '@/components/QuickCreateSupplierModal'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/Confirm'
 import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select, Table, TableSkeleton, Tr } from '@/components/ui'
@@ -52,7 +53,9 @@ export function PayablePage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [devFilter, setDevFilter] = useState('')
   const [page, setPage] = useState(0)
+  const [quickSupplier, setQuickSupplier] = useState(false)
   const canWrite = hasPermission('CONTAS_PAGAR_EDIT')
+  const canCreateSupplier = hasPermission('FORNECEDORES_EDIT')
 
   const { data, isLoading } = useQuery({
     queryKey: ['payable', q, statusFilter, devFilter, page],
@@ -178,7 +181,14 @@ export function PayablePage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? 'Alterar conta a pagar' : 'Nova conta a pagar'}>
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate(form) }}>
           <Field label="Fornecedor">
-            <Input list="suppliers-list" placeholder="Selecione ou digite…" value={form.supplier ?? ''} onChange={(e) => setForm({ ...form, supplier: e.target.value })} required />
+            <div className="flex gap-2">
+              <Input list="suppliers-list" placeholder="Selecione ou digite…" value={form.supplier ?? ''} onChange={(e) => setForm({ ...form, supplier: e.target.value })} required />
+              {canCreateSupplier && (
+                <Button type="button" variant="outline" title="Cadastrar novo fornecedor" onClick={() => setQuickSupplier(true)}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
             <datalist id="suppliers-list">{suppliers.data?.map((s) => <option key={s.id} value={s.name} />)}</datalist>
           </Field>
           <div className="grid grid-cols-2 gap-3">
@@ -226,6 +236,14 @@ export function PayablePage() {
           </div>
         </form>
       </Modal>
+
+      {/* Cadastro rápido de fornecedor a partir do lançamento de despesa */}
+      {quickSupplier && (
+        <QuickCreateSupplierModal
+          onClose={() => setQuickSupplier(false)}
+          onCreated={(s) => setForm((f) => ({ ...f, supplier: s.name }))}
+        />
+      )}
     </div>
   )
 }
