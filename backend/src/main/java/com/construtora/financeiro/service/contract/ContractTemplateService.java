@@ -92,7 +92,8 @@ public class ContractTemplateService {
         }
         t.setKind(kind);
         t.setName(r.name());
-        t.setBody(r.body());
+        // Sanitiza o fragmento (remove script/handlers, preserva formatação e tokens).
+        t.setBody(ContractHtml.sanitizeFragment(r.body()));
         t.setActive(r.active() == null || r.active());
     }
 
@@ -130,19 +131,24 @@ public class ContractTemplateService {
             java.util.Map.entry("distrato_devolucao", "24000.00"),
             java.util.Map.entry("distrato_retido", "6000.00"),
             java.util.Map.entry("parcelas_tabela",
-                    "<tr><td>1</td><td>R$ 1250.00</td><td>10/01/2026</td></tr>"
-                    + "<tr><td>2</td><td>R$ 1250.00</td><td>10/02/2026</td></tr>"));
+                    "<table class=\"parcelas\"><tr><th>Nº</th><th>Valor</th><th>Vencimento</th></tr>"
+                    + "<tr><td>1</td><td>R$ 1250.00</td><td>10/01/2026</td></tr>"
+                    + "<tr><td>2</td><td>R$ 1250.00</td><td>10/02/2026</td></tr></table>"));
 
-    /** Renderiza o corpo recebido com dados de exemplo (para o editor de modelos). */
+    /**
+     * Renderiza o corpo recebido com dados de exemplo e embrulha no esqueleto +
+     * CSS, devolvendo o XHTML completo (para o iframe de pré-visualização).
+     */
     @Transactional(readOnly = true)
     public String previewSample(String body) {
-        Matcher m = Pattern.compile("\\{\\{\\s*([a-zA-Z0-9_]+)\\s*}}").matcher(body);
+        String fragment = ContractHtml.extractFragment(body);
+        Matcher m = Pattern.compile("\\{\\{\\s*([a-zA-Z0-9_]+)\\s*}}").matcher(fragment);
         StringBuilder out = new StringBuilder();
         while (m.find()) {
             String v = SAMPLE.getOrDefault(m.group(1), "");
             m.appendReplacement(out, Matcher.quoteReplacement(v));
         }
         m.appendTail(out);
-        return out.toString();
+        return ContractHtml.document(out.toString());
     }
 }

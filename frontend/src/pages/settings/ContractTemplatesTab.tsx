@@ -1,30 +1,24 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
 import type { ContractTemplate } from '@/lib/types'
+import type { RichEditorHandle } from '@/components/editor/ContractTemplateRichEditor'
 import { ActionsMenu } from '@/components/Menu'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/Confirm'
 import { Badge, Button, Field, Input, Modal, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { cn } from '@/lib/utils'
 
+// O editor visual (TipTap) é pesado: carrega só quando o modal de edição abre.
+const ContractTemplateRichEditor = lazy(() =>
+  import('@/components/editor/ContractTemplateRichEditor').then((m) => ({ default: m.ContractTemplateRichEditor })),
+)
+
 const KINDS = [
   { key: 'CONTRACT', label: 'Contrato' },
   { key: 'DISTRATO', label: 'Distrato' },
 ] as const
 type Kind = (typeof KINDS)[number]['key']
-
-/** Tokens disponíveis para uso no corpo do modelo. */
-const TOKENS = [
-  'empresa', 'numero_contrato', 'data_hoje',
-  'cliente_nome', 'cliente_documento', 'cliente_rg_ie', 'cliente_endereco',
-  'cliente_estado_civil', 'cliente_profissao', 'cliente_email', 'cliente_telefone',
-  'empreendimento', 'quadra', 'lote', 'unidade', 'matricula', 'imovel_endereco',
-  'area_total', 'area_construida',
-  'valor_total', 'entrada', 'parcelas_qtd', 'primeiro_vencimento',
-  'forma_pagamento', 'indice_correcao', 'parcelas_tabela', 'clausulas_extras',
-  'distrato_data', 'distrato_motivo', 'distrato_devolucao', 'distrato_retido',
-]
 
 interface TemplateForm { id?: string; kind: Kind; name: string; body: string; isDefault: boolean; active: boolean }
 
@@ -37,6 +31,10 @@ export function ContractTemplatesTab() {
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const editorRef = useRef<RichEditorHandle>(null)
+
+  /** Conteúdo atual do editor (fonte da verdade), com fallback para o valor inicial. */
+  const currentBody = () => editorRef.current?.getContent() || editing?.body || ''
 
   const { data, isLoading } = useQuery({
     queryKey: ['contract-templates'],
@@ -67,7 +65,7 @@ export function ContractTemplatesTab() {
 
   function openNew() {
     setError(null)
-    setEditing({ kind, name: '', body: DEFAULT_SKELETON, isDefault: items.length === 0, active: true })
+    setEditing({ kind, name: '', body: DEFAULT_FRAGMENT, isDefault: items.length === 0, active: true })
   }
   function openEdit(t: ContractTemplate) {
     setError(null)
@@ -78,7 +76,7 @@ export function ContractTemplatesTab() {
     if (!editing) return
     setPreviewLoading(true)
     try {
-      const res = await api.post<string>('/contract-templates/preview', { body: editing.body }, { responseType: 'text' })
+      const res = await api.post<string>('/contract-templates/preview', { body: currentBody() }, { responseType: 'text' })
       setPreview(res.data)
     } catch (e) {
       toast.error(apiErrorMessage(e))
@@ -87,12 +85,17 @@ export function ContractTemplatesTab() {
     }
   }
 
+  function submitForm(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editing) return
+    save.mutate({ ...editing, body: currentBody() })
+  }
+
   return (
     <div>
       <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
-        Modelos de contrato e distrato gerados em PDF. Edite o texto livremente usando os <strong>tokens</strong> entre chaves duplas
-        (ex.: <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">{'{{cliente_nome}}'}</code>). O modelo marcado como
-        <strong> padrão</strong> é o usado ao gerar o documento.
+        Modelos de contrato e distrato gerados em PDF. Edite o texto como em um editor comum e insira os
+        <strong> campos dinâmicos</strong> pela paleta lateral. O modelo marcado como <strong>padrão</strong> é o usado ao gerar o documento.
       </p>
 
       {/* Sub-abas por tipo */}
@@ -141,7 +144,7 @@ export function ContractTemplatesTab() {
       {/* Modal de edição */}
       {editing && (
         <Modal open onClose={() => setEditing(null)} title={editing.id ? 'Editar modelo' : 'Novo modelo'} size="xl">
-          <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate(editing) }}>
+          <form className="space-y-3" onSubmit={submitForm}>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Nome do modelo">
                 <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required autoFocus />
@@ -153,28 +156,14 @@ export function ContractTemplatesTab() {
               </Field>
             </div>
 
-            <Field label="Corpo do modelo (XHTML com tokens)">
-              <textarea
-                className="min-h-[280px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 font-mono text-xs dark:border-gray-600 dark:bg-gray-800"
+            <Suspense fallback={<div className="h-72 animate-pulse rounded-md bg-gray-100 dark:bg-gray-800" />}>
+              <ContractTemplateRichEditor
+                key={editing.id ?? 'new'}
+                ref={editorRef}
                 value={editing.body}
-                onChange={(e) => setEditing({ ...editing, body: e.target.value })}
-                spellCheck={false}
-                required
+                onPreview={runPreview}
               />
-            </Field>
-
-            <details className="rounded-md border border-gray-200 bg-gray-50 p-2 text-xs dark:border-gray-700 dark:bg-gray-800/50">
-              <summary className="cursor-pointer font-medium text-gray-600 dark:text-gray-300">Tokens disponíveis ({TOKENS.length})</summary>
-              <div className="mt-2 flex flex-wrap gap-1">
-                {TOKENS.map((tk) => (
-                  <button key={tk} type="button"
-                    onClick={() => setEditing((cur) => cur ? { ...cur, body: cur.body + `{{${tk}}}` } : cur)}
-                    className="rounded bg-gray-200 px-1.5 py-0.5 font-mono text-[11px] text-gray-700 hover:bg-primary hover:text-white dark:bg-gray-700 dark:text-gray-200">
-                    {`{{${tk}}}`}
-                  </button>
-                ))}
-              </div>
-            </details>
+            </Suspense>
 
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2 text-sm">
@@ -185,15 +174,13 @@ export function ContractTemplatesTab() {
                 <input type="checkbox" checked={editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} />
                 Ativo
               </label>
+              {previewLoading && <span className="text-xs text-gray-400">gerando pré-visualização…</span>}
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <div className="flex justify-between gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={runPreview} loading={previewLoading}>Pré-visualizar</Button>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
-                <Button type="submit" loading={save.isPending}>Salvar modelo</Button>
-              </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+              <Button type="submit" loading={save.isPending}>Salvar modelo</Button>
             </div>
           </form>
         </Modal>
@@ -209,17 +196,10 @@ export function ContractTemplatesTab() {
   )
 }
 
-const DEFAULT_SKELETON = `<?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head><style>
-  body { font-family: sans-serif; font-size: 12px; color: #111; }
-  h1 { font-size: 18px; text-align: center; }
-</style></head>
-<body>
-  <h1>NOVO DOCUMENTO</h1>
-  <p>Contrato nº {{numero_contrato}}</p>
-  <p>Comprador(a): {{cliente_nome}} — CPF/CNPJ {{cliente_documento}}</p>
-  <p>Imóvel: {{empreendimento}}, Quadra {{quadra}}, Lote {{lote}}</p>
-  <p>Valor total: R$ {{valor_total}}</p>
-  <p>Local e data: ____________________, {{data_hoje}}.</p>
-</body></html>`
+/** Fragmento inicial para um modelo novo (o usuário edita visualmente). */
+const DEFAULT_FRAGMENT = `<h1>NOVO DOCUMENTO</h1>
+<p>Contrato nº <span data-token="numero_contrato"></span></p>
+<p>Comprador(a): <span data-token="cliente_nome"></span> — CPF/CNPJ <span data-token="cliente_documento"></span></p>
+<p>Imóvel: <span data-token="empreendimento"></span>, Quadra <span data-token="quadra"></span>, Lote <span data-token="lote"></span></p>
+<p>Valor total: R$ <span data-token="valor_total"></span></p>
+<p>Local e data: ____________________, <span data-token="data_hoje"></span>.</p>`
