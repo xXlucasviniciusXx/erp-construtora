@@ -131,9 +131,9 @@ export function Tr({ className, children, ...props }: HTMLAttributes<HTMLTableRo
 
 export function Modal({
   open, onClose, title, children, size = 'lg',
-}: { open: boolean; onClose: () => void; title: string; children: ReactNode; size?: 'sm' | 'lg' | 'xl' }) {
+}: { open: boolean; onClose: () => void; title: string; children: ReactNode; size?: 'sm' | 'lg' | 'xl' | '2xl' | '3xl' }) {
   if (!open) return null
-  const widths = { sm: 'max-w-sm', lg: 'max-w-lg', xl: 'max-w-2xl' }
+  const widths = { sm: 'max-w-sm', lg: 'max-w-lg', xl: 'max-w-2xl', '2xl': 'max-w-5xl', '3xl': 'max-w-7xl' }
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
       <div

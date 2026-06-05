@@ -19,5 +19,11 @@ export function formatDateTime(value?: string | null): string {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return formatDate(value)
-  return date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  // Fixa o fuso em America/Sao_Paulo: o backend roda em UTC (Render) e serializa
+  // o instante com offset; aqui convertemos para a hora do Brasil de forma estável,
+  // independente do fuso do navegador. (Datas só-dia continuam em formatDate.)
+  return date.toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
 }

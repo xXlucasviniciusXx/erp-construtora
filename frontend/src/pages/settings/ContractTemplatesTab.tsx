@@ -160,7 +160,7 @@ export function ContractTemplatesTab() {
 
       {/* Modal de edição */}
       {editing && (
-        <Modal open onClose={() => setEditing(null)} title={editing.id ? 'Editar modelo' : 'Novo modelo'} size="xl">
+        <Modal open onClose={() => setEditing(null)} title={editing.id ? 'Editar modelo' : 'Novo modelo'} size="2xl">
           <form className="space-y-3" onSubmit={submitForm}>
             <Field label="Nome do modelo">
               <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required autoFocus />
@@ -214,7 +214,7 @@ export function ContractTemplatesTab() {
 
       {/* Modal de pré-visualização */}
       {preview !== null && (
-        <Modal open onClose={() => setPreview(null)} title="Pré-visualização (dados de exemplo)" size="xl">
+        <Modal open onClose={() => setPreview(null)} title="Pré-visualização (dados de exemplo)" size="2xl">
           <iframe title="preview" srcDoc={preview} className="h-[60vh] w-full rounded border border-gray-200 bg-white dark:border-gray-700" />
         </Modal>
       )}
