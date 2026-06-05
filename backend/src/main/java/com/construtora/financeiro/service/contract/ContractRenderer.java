@@ -34,12 +34,16 @@ public class ContractRenderer {
         var development = block.getDevelopment();
         String company = settings.getCompanyName() != null ? settings.getCompanyName() : settings.getSystemName();
 
-        StringBuilder rows = new StringBuilder();
+        // Tabela de parcelas autocontida (cabeçalho + linhas), para que o token
+        // {{parcelas_tabela}} possa ser inserido em qualquer ponto do editor.
+        StringBuilder rows = new StringBuilder(
+                "<table class=\"parcelas\"><tr><th>Nº</th><th>Valor</th><th>Vencimento</th></tr>");
         for (Installment i : sale.getInstallments()) {
             rows.append("<tr><td>").append(i.getNumber()).append("</td><td>R$ ")
                     .append(i.getAmount()).append("</td><td>").append(i.getDueDate().format(DATE))
                     .append("</td></tr>");
         }
+        rows.append("</table>");
 
         Map<String, String> t = new LinkedHashMap<>();
         t.put("empresa", esc(company));

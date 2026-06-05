@@ -46,15 +46,25 @@ public class ContractService {
     @Transactional(readOnly = true)
     public String generateHtml(UUID saleId) {
         PropertySale sale = saleService.getEntity(saleId);
-        return renderer.render(sale, settingsService.current(), templateService.defaultBody("CONTRACT"));
+        return buildDocument(sale, "CONTRACT");
+    }
+
+    /**
+     * Monta o XHTML final do documento: extrai o fragmento do modelo padrão,
+     * substitui os tokens com os dados da venda e embrulha no esqueleto + CSS,
+     * normalizando para XHTML bem-formado (exigido pelo gerador de PDF).
+     */
+    private String buildDocument(PropertySale sale, String kind) {
+        String fragment = ContractHtml.extractFragment(templateService.defaultBody(kind));
+        String substituted = renderer.render(sale, settingsService.current(), fragment);
+        return ContractHtml.document(substituted);
     }
 
     // ---- Geração de PDF + arquivamento ----
 
     public byte[] generateContractPdf(UUID saleId) {
         PropertySale sale = saleService.getEntity(saleId);
-        String html = renderer.render(sale, settingsService.current(), templateService.defaultBody("CONTRACT"));
-        byte[] pdf = toPdf(html, "contrato");
+        byte[] pdf = toPdf(buildDocument(sale, "CONTRACT"), "contrato");
         archive(sale, "CONTRACT", pdf);
         notificationService.notifyContractGenerated(sale);
         return pdf;
@@ -65,8 +75,7 @@ public class ContractService {
         if (sale.getStatus() != SaleStatus.CANCELLED || sale.getDistratoDate() == null) {
             throw new BusinessException("Distrato disponível apenas para vendas já distratadas.");
         }
-        String html = renderer.render(sale, settingsService.current(), templateService.defaultBody("DISTRATO"));
-        byte[] pdf = toPdf(html, "distrato");
+        byte[] pdf = toPdf(buildDocument(sale, "DISTRATO"), "distrato");
         archive(sale, "DISTRATO", pdf);
         return pdf;
     }
