@@ -65,13 +65,15 @@ public class SaleMapper {
 
         Lot lot = s.getLot();
         return new SaleResponse(
-                s.getId(),
+                s.getId(), s.getContractNumber(),
                 s.getClient().getId(), s.getClient().getName(),
                 lot.getId(), LotMapper.label(lot), lot.getPlannedValue(),
                 s.getTotalValue(), s.getDownPayment(), s.getInstallmentsCount(), s.getFirstDueDate(),
                 s.getPurchaseType(), s.getPaymentMethod(), s.getCorrectionIndex(),
                 s.getInterestRate(), s.getPenaltyRate(),
                 s.getStatus(), s.getSaleDate(), s.getNotes(),
+                s.getDistratoDate(), s.getDistratoReason(),
+                s.getDistratoRefundAmount(), s.getDistratoRetainedAmount(),
                 paidCount, paidAmount, openAmount, installments);
     }
 }

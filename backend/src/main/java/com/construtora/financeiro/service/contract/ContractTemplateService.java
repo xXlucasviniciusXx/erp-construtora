@@ -1,128 +1,148 @@
 package com.construtora.financeiro.service.contract;
 
-import com.construtora.financeiro.model.Installment;
-import com.construtora.financeiro.model.PropertySale;
-import com.construtora.financeiro.model.SystemSettings;
+import com.construtora.financeiro.dto.contract.ContractTemplateRequest;
+import com.construtora.financeiro.exception.BusinessException;
+import com.construtora.financeiro.exception.ResourceNotFoundException;
+import com.construtora.financeiro.model.ContractTemplate;
+import com.construtora.financeiro.repository.ContractTemplateRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Monta o XHTML do contrato a partir dos dados de venda, cliente, imóvel,
- * parcelas e da empresa. Produz XHTML BEM-FORMADO (XML) — toda saída usada pelo
- * gerador de PDF (Flying Saucer) precisa ser XML válido:
- *  - valores injetados são escapados ({@link #esc}) para neutralizar &amp; &lt; &gt;
- *  - espaços não separáveis usam a referência numérica &amp;#160; (e NÃO &amp;nbsp;,
- *    que é entidade HTML e quebra o parser XML).
- *
- * TODO: suportar múltiplos modelos de contrato persistidos em banco
- *       (tabela contract_templates) e edição pelo COMERCIAL/ADMIN.
+ * CRUD dos modelos de contrato/distrato editáveis pelo ADMIN, além de fornecer
+ * o corpo do template padrão usado na geração de documentos.
  */
 @Service
+@Transactional
 public class ContractTemplateService {
 
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final Set<String> KINDS = Set.of("CONTRACT", "DISTRATO");
 
-    public String render(PropertySale sale, SystemSettings settings) {
-        var client = sale.getClient();
-        var lot = sale.getLot();
-        var block = lot.getBlock();
-        var development = block.getDevelopment();
-        String company = esc(settings.getCompanyName() != null ? settings.getCompanyName() : settings.getSystemName());
+    private final ContractTemplateRepository repository;
 
-        StringBuilder installments = new StringBuilder();
-        for (Installment i : sale.getInstallments()) {
-            installments.append("<tr><td>").append(i.getNumber()).append("</td><td>R$ ")
-                    .append(i.getAmount()).append("</td><td>").append(i.getDueDate().format(DATE))
-                    .append("</td></tr>");
-        }
-
-        return """
-                <?xml version="1.0" encoding="UTF-8"?>
-                <html xmlns="http://www.w3.org/1999/xhtml">
-                <head><style>
-                  body { font-family: sans-serif; font-size: 12px; color: #111; }
-                  h1 { font-size: 18px; text-align: center; }
-                  table { width: 100%%; border-collapse: collapse; margin-top: 8px; }
-                  th, td { border: 1px solid #999; padding: 4px; text-align: left; }
-                  .section { margin-top: 16px; }
-                  .signatures { margin-top: 60px; }
-                  .sig { display: inline-block; width: 45%%; text-align: center; border-top: 1px solid #000; }
-                </style></head>
-                <body>
-                  <h1>CONTRATO DE COMPRA E VENDA DE IM&#211;VEL</h1>
-                  <p>Por este instrumento particular, <strong>%s</strong> (VENDEDORA) e o(a) comprador(a)
-                     abaixo qualificado(a) ajustam a compra e venda do im&#243;vel descrito a seguir.</p>
-
-                  <div class="section">
-                    <strong>COMPRADOR(A)</strong><br/>
-                    Nome/Raz&#227;o Social: %s<br/>
-                    CPF/CNPJ: %s &#160;&#160; RG/IE: %s<br/>
-                    Endere&#231;o: %s<br/>
-                    Estado civil: %s &#160;&#160; Profiss&#227;o: %s<br/>
-                    E-mail: %s &#160;&#160; Telefone: %s
-                  </div>
-
-                  <div class="section">
-                    <strong>IM&#211;VEL</strong><br/>
-                    Empreendimento: %s<br/>
-                    Quadra: %s &#160; Lote: %s &#160; Unidade: %s<br/>
-                    Matr&#237;cula: %s<br/>
-                    Endere&#231;o: %s<br/>
-                    &#193;rea total: %s m&#178; &#160; &#193;rea constru&#237;da: %s m&#178;
-                  </div>
-
-                  <div class="section">
-                    <strong>CONDI&#199;&#213;ES DE PAGAMENTO</strong><br/>
-                    Valor total: R$ %s<br/>
-                    Entrada: R$ %s<br/>
-                    Parcelas: %s &#160; Primeiro vencimento: %s<br/>
-                    Forma de pagamento: %s &#160; &#205;ndice de corre&#231;&#227;o: %s
-                  </div>
-
-                  <div class="section">
-                    <strong>PARCELAS</strong>
-                    <table>
-                      <tr><th>N&#186;</th><th>Valor</th><th>Vencimento</th></tr>
-                      %s
-                    </table>
-                  </div>
-
-                  <p class="section">%s</p>
-
-                  <p class="section">Local e data: ________________________, %s.</p>
-
-                  <div class="signatures">
-                    <span class="sig">VENDEDORA<br/>%s</span>
-                    &#160;&#160;&#160;&#160;&#160;&#160;
-                    <span class="sig">COMPRADOR(A)<br/>%s</span>
-                  </div>
-                </body></html>
-                """.formatted(
-                company,
-                esc(client.getName()), esc(client.getDocument()), esc(client.getStateRegistration()),
-                esc(client.getAddress()), esc(client.getMaritalStatus()), esc(client.getOccupation()),
-                esc(client.getEmail()), esc(client.getPhone()),
-                esc(development.getName()), esc(block.getName()), esc(lot.getName()),
-                esc(lot.getUnit()), esc(lot.getRegistration()), esc(lot.getAddress()),
-                esc(lot.getTotalArea()), esc(lot.getBuiltArea()),
-                sale.getTotalValue(), sale.getDownPayment(), sale.getInstallmentsCount(),
-                sale.getFirstDueDate().format(DATE), esc(sale.getPaymentMethod()), esc(sale.getCorrectionIndex()),
-                installments.toString(),
-                esc(lot.getContractExtra()),
-                LocalDate.now().format(DATE),
-                company, esc(client.getName()));
+    public ContractTemplateService(ContractTemplateRepository repository) {
+        this.repository = repository;
     }
 
-    /** Null-safe + escape de caracteres especiais para XML bem-formado. */
-    private String esc(Object v) {
-        if (v == null) return "-";
-        String s = v.toString();
-        return s.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;");
+    @Transactional(readOnly = true)
+    public List<ContractTemplate> list(String kind) {
+        return (kind != null && !kind.isBlank())
+                ? repository.findByKindOrderByNameAsc(kind.toUpperCase())
+                : repository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public ContractTemplate get(UUID id) {
+        return repository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Modelo de contrato", id));
+    }
+
+    /** Corpo do template padrão do tipo informado (CONTRACT/DISTRATO). */
+    @Transactional(readOnly = true)
+    public String defaultBody(String kind) {
+        return repository.findFirstByKindAndIsDefaultTrue(kind)
+                .or(() -> repository.findByKindOrderByNameAsc(kind).stream().findFirst())
+                .map(ContractTemplate::getBody)
+                .orElseThrow(() -> new BusinessException(
+                        "Nenhum modelo de " + (kind.equals("DISTRATO") ? "distrato" : "contrato") + " configurado."));
+    }
+
+    public ContractTemplate create(ContractTemplateRequest r) {
+        ContractTemplate t = new ContractTemplate();
+        applyBasics(t, r);
+        // Zera o padrão dos demais ANTES de marcar este (t ainda não está no banco).
+        if (Boolean.TRUE.equals(r.isDefault())) {
+            repository.clearDefaults(t.getKind(), null);
+            t.setDefault(true);
+        }
+        return repository.save(t);
+    }
+
+    public ContractTemplate update(UUID id, ContractTemplateRequest r) {
+        ContractTemplate t = get(id);
+        applyBasics(t, r);
+        if (Boolean.TRUE.equals(r.isDefault())) {
+            repository.clearDefaults(t.getKind(), id);   // zera os outros; mantém t
+            t.setDefault(true);
+        } else {
+            t.setDefault(false);
+        }
+        return repository.save(t);
+    }
+
+    public void delete(UUID id) {
+        ContractTemplate t = get(id);
+        if (t.isDefault()) {
+            throw new BusinessException("Não é possível remover o modelo padrão. Defina outro como padrão antes.");
+        }
+        repository.delete(t);
+    }
+
+    /** Aplica os campos básicos (sem mexer no flag de padrão, tratado à parte). */
+    private void applyBasics(ContractTemplate t, ContractTemplateRequest r) {
+        String kind = r.kind() != null ? r.kind().toUpperCase() : "CONTRACT";
+        if (!KINDS.contains(kind)) {
+            throw new BusinessException("Tipo de modelo inválido: " + r.kind());
+        }
+        t.setKind(kind);
+        t.setName(r.name());
+        t.setBody(r.body());
+        t.setActive(r.active() == null || r.active());
+    }
+
+    // ---- Preview com dados de exemplo (não exige uma venda real) ----
+
+    private static final java.util.Map<String, String> SAMPLE = java.util.Map.ofEntries(
+            java.util.Map.entry("empresa", "Construtora Exemplo Ltda."),
+            java.util.Map.entry("numero_contrato", "CT-000123"),
+            java.util.Map.entry("cliente_nome", "João da Silva"),
+            java.util.Map.entry("cliente_documento", "123.456.789-00"),
+            java.util.Map.entry("cliente_rg_ie", "MG-12.345.678"),
+            java.util.Map.entry("cliente_endereco", "Rua das Flores, 100 - Centro"),
+            java.util.Map.entry("cliente_estado_civil", "Casado(a)"),
+            java.util.Map.entry("cliente_profissao", "Engenheiro"),
+            java.util.Map.entry("cliente_email", "joao@example.com"),
+            java.util.Map.entry("cliente_telefone", "(31) 99999-0000"),
+            java.util.Map.entry("empreendimento", "Residencial Jardim"),
+            java.util.Map.entry("quadra", "A"),
+            java.util.Map.entry("lote", "12"),
+            java.util.Map.entry("unidade", "—"),
+            java.util.Map.entry("matricula", "98.765"),
+            java.util.Map.entry("imovel_endereco", "Quadra A, Lote 12 - Residencial Jardim"),
+            java.util.Map.entry("area_total", "250"),
+            java.util.Map.entry("area_construida", "0"),
+            java.util.Map.entry("valor_total", "180000.00"),
+            java.util.Map.entry("entrada", "30000.00"),
+            java.util.Map.entry("parcelas_qtd", "120"),
+            java.util.Map.entry("primeiro_vencimento", "10/01/2026"),
+            java.util.Map.entry("forma_pagamento", "Boleto"),
+            java.util.Map.entry("indice_correcao", "INCC"),
+            java.util.Map.entry("clausulas_extras", "Cláusulas adicionais específicas do lote aparecem aqui."),
+            java.util.Map.entry("data_hoje", "05/06/2026"),
+            java.util.Map.entry("distrato_data", "05/06/2026"),
+            java.util.Map.entry("distrato_motivo", "Rescisão por desistência do comprador."),
+            java.util.Map.entry("distrato_devolucao", "24000.00"),
+            java.util.Map.entry("distrato_retido", "6000.00"),
+            java.util.Map.entry("parcelas_tabela",
+                    "<tr><td>1</td><td>R$ 1250.00</td><td>10/01/2026</td></tr>"
+                    + "<tr><td>2</td><td>R$ 1250.00</td><td>10/02/2026</td></tr>"));
+
+    /** Renderiza o corpo recebido com dados de exemplo (para o editor de modelos). */
+    @Transactional(readOnly = true)
+    public String previewSample(String body) {
+        Matcher m = Pattern.compile("\\{\\{\\s*([a-zA-Z0-9_]+)\\s*}}").matcher(body);
+        StringBuilder out = new StringBuilder();
+        while (m.find()) {
+            String v = SAMPLE.getOrDefault(m.group(1), "");
+            m.appendReplacement(out, Matcher.quoteReplacement(v));
+        }
+        m.appendTail(out);
+        return out.toString();
     }
 }

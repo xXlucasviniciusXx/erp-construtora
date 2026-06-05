@@ -71,8 +71,16 @@ public class SaleController {
         return saleService.update(id, request);
     }
 
+    @PostMapping("/{id}/distrato")
+    @Operation(summary = "Distrata a venda (rescisão amigável: cancela, registra e libera o lote)")
+    @PreAuthorize("hasAuthority('VENDAS_EDIT')")
+    public SaleResponse distrato(@PathVariable UUID id,
+                                 @Valid @RequestBody com.construtora.financeiro.dto.sale.DistratoRequest request) {
+        return saleService.distrato(id, request);
+    }
+
     @DeleteMapping("/{id}")
-    @Operation(summary = "Cancela/remove venda (libera o imóvel)")
+    @Operation(summary = "Remove a venda definitivamente (libera o imóvel)")
     @PreAuthorize("hasAuthority('VENDAS_EDIT')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {

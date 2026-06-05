@@ -24,6 +24,10 @@ public class PropertySale {
     @GeneratedValue
     private UUID id;
 
+    /** Número sequencial do contrato (ex.: CT-000001). Atribuído na criação da venda. */
+    @Column(name = "contract_number", unique = true)
+    private String contractNumber;
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "client_id")
     private Client client;
@@ -69,6 +73,19 @@ public class PropertySale {
 
     @Column(columnDefinition = "text")
     private String notes;
+
+    // ---- Distrato (rescisão amigável). Preenchido ao distratar a venda. ----
+    @Column(name = "distrato_date")
+    private LocalDate distratoDate;
+
+    @Column(name = "distrato_reason", columnDefinition = "text")
+    private String distratoReason;
+
+    @Column(name = "distrato_refund_amount")
+    private BigDecimal distratoRefundAmount;
+
+    @Column(name = "distrato_retained_amount")
+    private BigDecimal distratoRetainedAmount;
 
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("number ASC")

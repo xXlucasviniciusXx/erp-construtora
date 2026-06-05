@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public record SaleResponse(
         UUID id,
+        String contractNumber,
         UUID clientId,
         String clientName,
         UUID lotId,
@@ -26,6 +27,11 @@ public record SaleResponse(
         SaleStatus status,
         LocalDate saleDate,
         String notes,
+        // ---- Distrato (preenchido quando a venda é distratada) ----
+        LocalDate distratoDate,
+        String distratoReason,
+        BigDecimal distratoRefundAmount,
+        BigDecimal distratoRetainedAmount,
         // Indicadores derivados das parcelas
         Integer paidInstallments,
         BigDecimal paidAmount,
