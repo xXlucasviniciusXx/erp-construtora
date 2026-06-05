@@ -9,7 +9,7 @@ import { api } from '@/lib/api'
 import { useLicensing } from '@/licensing/LicensingContext'
 import type { Client, DashboardAnalytics, InstallmentDetail, Lot, Page, Payable, Point, Sale } from '@/lib/types'
 import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Skeleton, Table, Tr } from '@/components/ui'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { cn, formatCurrency, formatDate } from '@/lib/utils'
 
 const COLORS = ['#1e40af', '#0f766e', '#b45309', '#be123c', '#7c3aed', '#0891b2', '#65a30d', '#db2777']
 const brl = (v: number) => formatCurrency(v)
@@ -115,6 +115,7 @@ type DrillState = {
   kind: 'overdue' | 'sales' | 'salesByMonth' | 'receivedByMonth'
       | 'toReceiveByMonth' | 'overdueByAging'
       | 'expensesByDevelopment' | 'expensesByCategory' | 'expensesByCostCenter'
+      | 'receivables' | 'payables' | 'clients'
   key: string
   title: string
 }
@@ -164,6 +165,7 @@ export function DashboardPage() {
 
   // Queries LAZY — carregam apenas quando o drill-down correspondente é aberto
   const drillNeedsOpenInst = drill?.kind === 'toReceiveByMonth'
+      || (drill?.kind === 'receivables' && drill.key === 'A receber')
   const openInst = useQuery({
     queryKey: ['installments-open-drill'],
     queryFn: async () => (await api.get<Page<InstallmentDetail>>('/installments', { params: { status: 'OPEN', size: 1000 } })).data.content,
@@ -172,10 +174,26 @@ export function DashboardPage() {
   })
 
   const drillNeedsPayables = ['expensesByDevelopment', 'expensesByCategory', 'expensesByCostCenter'].includes(drill?.kind ?? '')
+      || (drill?.kind === 'payables' && drill.key === 'Pagas')
   const paidPayables = useQuery({
     queryKey: ['payables-paid-drill'],
     queryFn: async () => (await api.get<Page<Payable>>('/accounts-payable', { params: { status: 'PAID', size: 500 } })).data.content,
     enabled: drillNeedsPayables,
+    staleTime: 120_000,
+  })
+
+  // Contas a pagar EM ABERTO (OPEN + OVERDUE) — para o drill da pizza de Contas a Pagar.
+  const drillNeedsOpenPayables = drill?.kind === 'payables' && drill.key === 'Em aberto'
+  const openPayables = useQuery({
+    queryKey: ['payables-open-drill'],
+    queryFn: async () => {
+      const [open, over] = await Promise.all([
+        api.get<Page<Payable>>('/accounts-payable', { params: { status: 'OPEN', size: 500 } }),
+        api.get<Page<Payable>>('/accounts-payable', { params: { status: 'OVERDUE', size: 500 } }),
+      ])
+      return [...open.data.content, ...over.data.content]
+    },
+    enabled: drillNeedsOpenPayables,
     staleTime: 120_000,
   })
 
@@ -323,19 +341,22 @@ export function DashboardPage() {
 
             <ChartCard
               title="Contas a Receber — recebido × a receber"
+              hint="Clique numa fatia para ver as parcelas"
               footer={<ReceivablesTotalizer data={data.receivablesReceivedVsOpen} />}
             >
               <PieChart>
-                <Pie data={data.receivablesReceivedVsOpen} dataKey="value" nameKey="label" outerRadius={80} label>
+                <Pie data={data.receivablesReceivedVsOpen} dataKey="value" nameKey="label" outerRadius={80} label cursor="pointer"
+                  onClick={(d: any) => { const k = d?.label ?? d?.payload?.label; setDrill({ kind: 'receivables', key: k, title: `Contas a receber — ${k}` }) }}>
                   {data.receivablesReceivedVsOpen.map((_, i) => <Cell key={i} fill={['#0f766e', '#b45309'][i % 2]} />)}
                 </Pie>
                 <Tooltip formatter={(v: number) => brl(v)} /><Legend />
               </PieChart>
             </ChartCard>
 
-            <ChartCard title="Contas a Pagar — pagas × em aberto">
+            <ChartCard title="Contas a Pagar — pagas × em aberto" hint="Clique numa fatia para ver as despesas">
               <PieChart>
-                <Pie data={data.payablesPaidVsOpen} dataKey="value" nameKey="label" outerRadius={80} label>
+                <Pie data={data.payablesPaidVsOpen} dataKey="value" nameKey="label" outerRadius={80} label cursor="pointer"
+                  onClick={(d: any) => { const k = d?.label ?? d?.payload?.label; setDrill({ kind: 'payables', key: k, title: `Contas a pagar — ${k}` }) }}>
                   {data.payablesPaidVsOpen.map((_, i) => <Cell key={i} fill={['#0f766e', '#be123c'][i % 2]} />)}
                 </Pie>
                 <Tooltip formatter={(v: number) => brl(v)} /><Legend />
@@ -383,9 +404,10 @@ export function DashboardPage() {
               </BarChart>
             </ChartCard>
 
-            <ChartCard title="Clientes (ativos / inativos / inadimplentes)">
+            <ChartCard title="Clientes (ativos / inativos / inadimplentes)" hint="Clique numa fatia para ver os clientes">
               <PieChart>
-                <Pie data={clientPie} dataKey="value" nameKey="label" outerRadius={80} label>
+                <Pie data={clientPie} dataKey="value" nameKey="label" outerRadius={80} label cursor="pointer"
+                  onClick={(d: any) => { const k = d?.label ?? d?.payload?.label; setDrill({ kind: 'clients', key: k, title: `Clientes — ${k}` }) }}>
                   {clientPie.map((_, i) => <Cell key={i} fill={['#0f766e', '#6b7280', '#be123c'][i]} />)}
                 </Pie>
                 <Tooltip /><Legend />
@@ -406,6 +428,9 @@ export function DashboardPage() {
           openLoading={openInst.isFetching}
           payables={paidPayables.data ?? []}
           payablesLoading={paidPayables.isFetching}
+          openPayables={openPayables.data ?? []}
+          openPayablesLoading={openPayables.isFetching}
+          clients={clients.data ?? []}
           onClose={() => setDrill(null)}
         />
       )}
@@ -430,13 +455,114 @@ function agingRange(label: string): [number, number] {
   return [91, Infinity]
 }
 
-function DrillModal({ drill, sales, overdue, paid, open, openLoading, payables, payablesLoading, onClose }: {
+function DrillModal({ drill, sales, overdue, paid, open, openLoading, payables, payablesLoading, openPayables, openPayablesLoading, clients, onClose }: {
   drill: DrillState
   sales: Sale[]; overdue: InstallmentDetail[]; paid: InstallmentDetail[]
   open: InstallmentDetail[]; openLoading: boolean
   payables: Payable[]; payablesLoading: boolean
+  openPayables: Payable[]; openPayablesLoading: boolean
+  clients: Client[]
   onClose: () => void
 }) {
+  // ---- Contas a Receber: Recebido × A receber ----
+  if (drill.kind === 'receivables') {
+    const isReceived = drill.key === 'Recebido'
+    const rows = isReceived ? paid : open
+    const total = rows.reduce((s, i) => s + (isReceived ? (i.updatedAmount || i.amount) : i.amount), 0)
+    return (
+      <Modal open onClose={onClose} title={drill.title} size="xl">
+        {(!isReceived && openLoading) ? <p className="py-6 text-center text-sm text-gray-400">Carregando…</p> : (<>
+          <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+            {rows.length} parcela(s) · total <span className={cn('font-semibold', isReceived ? 'text-green-600' : 'text-amber-600')}>{formatCurrency(total)}</span>
+          </p>
+          <Table headers={['Cliente', 'Lote', 'Parcela', isReceived ? 'Recebido em' : 'Vencimento', 'Valor']}>
+            {rows.map((i) => (
+              <Tr key={i.id}>
+                <td className="px-4 py-2 font-medium">{i.clientName}</td>
+                <td className="px-4 py-2">{i.propertyLabel ?? '—'}</td>
+                <td className="px-4 py-2">#{i.number}</td>
+                <td className={cn('px-4 py-2', isReceived && 'text-green-600')}>{formatDate(isReceived ? i.paymentDate : i.dueDate)}</td>
+                <td className="px-4 py-2 font-medium">{formatCurrency(isReceived ? (i.updatedAmount || i.amount) : i.amount)}</td>
+              </Tr>
+            ))}
+            {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">Nenhuma parcela.</td></tr>}
+          </Table>
+        </>)}
+      </Modal>
+    )
+  }
+
+  // ---- Contas a Pagar: Pagas × Em aberto ----
+  if (drill.kind === 'payables') {
+    const isPaid = drill.key === 'Pagas'
+    const rows = isPaid ? payables : openPayables
+    const loading = isPaid ? payablesLoading : openPayablesLoading
+    const total = rows.reduce((s, p) => s + p.amount, 0)
+    const PSTAT: Record<string, { label: string; color: string }> = {
+      OPEN: { label: 'Em aberto', color: 'gray' }, OVERDUE: { label: 'Vencida', color: 'red' }, PAID: { label: 'Paga', color: 'green' },
+    }
+    return (
+      <Modal open onClose={onClose} title={drill.title} size="xl">
+        {loading ? <p className="py-6 text-center text-sm text-gray-400">Carregando…</p> : (<>
+          <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+            {rows.length} conta(s) · total <span className={cn('font-semibold', isPaid ? 'text-green-600' : 'text-amber-600')}>{formatCurrency(total)}</span>
+          </p>
+          <Table headers={isPaid ? ['Fornecedor / Descrição', 'Categoria', 'Pago em', 'Valor'] : ['Fornecedor / Descrição', 'Categoria', 'Vencimento', 'Status', 'Valor']}>
+            {rows.map((p) => (
+              <Tr key={p.id}>
+                <td className="px-4 py-2 font-medium">{p.supplier || p.description || '—'}</td>
+                <td className="px-4 py-2 text-gray-500">{p.categoryGroup ? `${p.categoryGroup} / ${p.categoryName}` : '—'}</td>
+                {isPaid ? (
+                  <td className="px-4 py-2">{p.paymentDate ? formatDate(p.paymentDate) : '—'}</td>
+                ) : (
+                  <>
+                    <td className="px-4 py-2">{formatDate(p.dueDate)}</td>
+                    <td className="px-4 py-2"><Badge dot color={PSTAT[p.status]?.color ?? 'gray'}>{PSTAT[p.status]?.label ?? p.status}</Badge></td>
+                  </>
+                )}
+                <td className="px-4 py-2 font-medium">{formatCurrency(p.amount)}</td>
+              </Tr>
+            ))}
+            {rows.length === 0 && <tr><td colSpan={isPaid ? 4 : 5} className="px-4 py-6 text-center text-sm text-gray-400">Nenhuma conta.</td></tr>}
+          </Table>
+        </>)}
+      </Modal>
+    )
+  }
+
+  // ---- Clientes: Ativos / Inativos / Inadimplentes ----
+  if (drill.kind === 'clients') {
+    const delinquentIds = new Set(overdue.map((i) => i.clientId))
+    const rows = clients.filter((c) =>
+      drill.key === 'Ativos' ? c.status === 'ACTIVE'
+        : drill.key === 'Inativos' ? c.status === 'INACTIVE'
+          : delinquentIds.has(c.id))
+    const STAT: Record<string, { label: string; color: string }> = {
+      ACTIVE: { label: 'Ativo', color: 'green' }, INACTIVE: { label: 'Inativo', color: 'gray' },
+    }
+    return (
+      <Modal open onClose={onClose} title={drill.title} size="xl">
+        <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">{rows.length} cliente(s)</p>
+        <Table headers={['Nome', 'CPF/CNPJ', 'Telefone', 'Cidade/UF', 'Situação']}>
+          {rows.map((c) => (
+            <Tr key={c.id}>
+              <td className="px-4 py-2 font-medium">{c.name}</td>
+              <td className="px-4 py-2">{c.document}</td>
+              <td className="px-4 py-2">{c.phone ?? '—'}</td>
+              <td className="px-4 py-2 text-gray-500">{c.city ? `${c.city}${c.state ? '/' + c.state : ''}` : '—'}</td>
+              <td className="px-4 py-2">
+                {drill.key === 'Inadimplentes'
+                  ? <Badge dot color="red">Inadimplente</Badge>
+                  : <Badge dot color={STAT[c.status]?.color ?? 'gray'}>{STAT[c.status]?.label ?? c.status}</Badge>}
+              </td>
+            </Tr>
+          ))}
+          {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">Nenhum cliente.</td></tr>}
+        </Table>
+      </Modal>
+    )
+  }
+
   if (drill.kind === 'salesByMonth') {
     const prefix = labelToMonthPrefix(drill.key)
     const rows = sales.filter((s) => s.saleDate?.startsWith(prefix))
