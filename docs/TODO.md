@@ -225,10 +225,15 @@ automática), `CORRECAO_MONETARIA` (INCC/IGPM real nas parcelas), `ASSINATURA`
         (ex.: Essencial sem VENDAS). Tratar erro por-consulta no front ou condicionar a
         consulta a `canAccess()`. Não afeta o cliente atual (Profissional, com Vendas).
 
-- [ ] **Fase 3 — Provisionamento de VM por cliente** (substitui o multitenant): script/
-      processo para subir uma VM nova (imagem Docker + banco) a cada venda e **deploy
-      automatizado** da mesma imagem para as N VMs existentes (CI → atualizar cada VM).
-      Backup e monitoramento por VM.
+- [ ] **Fase 3 — Provisionamento de VM por cliente** (substitui o multitenant):
+  - [x] **Atualização da frota (build 1x → puxa em N VMs)**: CI publica imagens
+        versionadas no GHCR (`release-images.yml`), `docker-compose.registry.yml`
+        (pull-only, frontend com API relativa serve qualquer domínio),
+        `scripts/update-fleet.sh` (atualiza todas por SSH, com canário) e Watchtower
+        opcional. Flyway migra o banco de cada cliente no boot. (docs/DEPLOY.md §8)
+  - [ ] Provisionar uma **VM nova a cada venda** (script de bootstrap: VM + banco +
+        `.env` + chave de licença + DNS) — hoje é manual (DEPLOY.md §7).
+  - [ ] **Backup e monitoramento por VM** (dump agendado do Postgres, healthcheck/alertas).
       > ~~Alternativa multitenant (DESCARTADA): `tenant_id` nas tabelas + escopo nas
       > queries + login por tenant. Só reabrir se o modelo mudar para infra única com
       > muitos clientes.~~
@@ -240,13 +245,19 @@ automática), `CORRECAO_MONETARIA` (INCC/IGPM real nas parcelas), `ASSINATURA`
       Asaas** (geração de boleto/PIX e baixa automática); **Correção monetária**
       (INCC/IGPM); **Assinatura eletrônica** de contratos.
 
-- [ ] **Fase 5 — Aplicação web de gestão de licenças** (2º sistema, separado; central
-      no modelo VM-por-cliente): painel do FORNECEDOR (você) para **gerar, cobrar e
-      gerenciar** as chaves/licenças de todos os clientes — emissão de chave por plano,
-      controle de vencimento e renovação, cobrança/faturamento, dashboard de clientes
-      ativos/inadimplentes e **inventário das VMs** (qual cliente, qual plano, qual
-      versão). A Fase 2 cria a "chave" que esta app passa a gerar automaticamente,
-      substituindo o processo manual.
+- [ ] **Fase 5 — Aplicação web de gestão de VPS, licenças e releases** (2º sistema,
+      separado; o "painel de controle" do modelo VM-por-cliente). Painel do FORNECEDOR
+      (você), com duas frentes:
+  - **Licenciamento e clientes:** gerar/renovar chaves de licença por plano, controle
+    de vencimento, cobrança/faturamento, dashboard de clientes ativos/inadimplentes e
+    **inventário das VMs** (qual cliente, qual plano, qual versão rodando). A Fase 2
+    cria a "chave" que esta app passa a gerar automaticamente.
+  - **Gestão de versões e atualizações (control plane):** **registro/catálogo das
+    versões** publicadas (releases do CI no GHCR), **liberação controlada de updates**
+    por cliente/grupo (canário → frota; agendamento; janela de manutenção), e
+    **histórico de releases disponibilizadas** (changelog + qual cliente está em qual
+    versão). Orquestra o mecanismo já pronto (CI → GHCR → `update-fleet`/Watchtower,
+    DEPLOY.md §8), substituindo o disparo manual por um fluxo central de distribuição.
 
 ### Nota de alinhamento (estado atual)
 Base aproveitável: papéis/permissões (`hasPermission`), Configurações por sistema,
