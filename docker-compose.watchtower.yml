@@ -1,0 +1,32 @@
+# ============================================================
+#  Watchtower (OPCIONAL) — auto-atualização "push e esquece"
+#
+#  Vigia o registry e, quando sai uma imagem NOVA na mesma tag (ex.: latest),
+#  baixa e reinicia automaticamente APENAS os containers marcados com a label
+#  com.centurylinklabs.watchtower.enable=true (backend e frontend).
+#
+#  Use junto do registry:
+#    docker compose -f docker-compose.registry.yml -f docker-compose.watchtower.yml up -d
+#
+#  Observações:
+#   - Só faz sentido para clientes que acompanham uma tag MÓVEL (latest).
+#     Para release pinada (APP_VERSION=vX.Y.Z, tag imutável) o Watchtower não
+#     atualiza sozinho — use o script scripts/update-fleet.sh.
+#   - Migrações (Flyway) rodam no boot do container novo => banco do cliente é
+#     migrado automaticamente.
+#   - Se a imagem GHCR for privada, monte o login do Docker (config.json).
+# ============================================================
+services:
+  watchtower:
+    image: containrrr/watchtower
+    container_name: construtora-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Imagem privada no GHCR? descomente e faça `docker login ghcr.io` antes:
+      # - ${HOME}/.docker/config.json:/config.json:ro
+    environment:
+      WATCHTOWER_CLEANUP: "true"          # remove imagens antigas após atualizar
+      WATCHTOWER_LABEL_ENABLE: "true"     # só atualiza containers marcados
+      WATCHTOWER_POLL_INTERVAL: "300"     # checa o registry a cada 5 min
+      WATCHTOWER_INCLUDE_RESTARTING: "true"

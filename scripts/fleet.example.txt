@@ -1,0 +1,8 @@
+# Inventário da frota de clientes (copie para scripts/fleet.txt e ajuste).
+# Uma VM por linha:   usuario@host[:/caminho/do/repo]
+# Caminho default quando omitido: ~/erp-construtora
+# Linhas começando com # são ignoradas.
+
+# cliente-acme       -> deploy@203.0.113.10
+# cliente-beta       -> deploy@203.0.113.11:/opt/erp-construtora
+# cliente-gama       -> root@erp.gama.com.br

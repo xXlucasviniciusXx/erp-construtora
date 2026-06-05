@@ -21,6 +21,9 @@ coverage/
 *.pem
 .dbpass
 
+# Inventário da frota (hosts/IPs de clientes) — use fleet.example.txt como modelo
+scripts/fleet.txt
+
 # ---- IDE ----
 .idea/
 *.iml

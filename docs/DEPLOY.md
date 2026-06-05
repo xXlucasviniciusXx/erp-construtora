@@ -266,7 +266,94 @@ sudo ufw enable
 
 ---
 
-## 8. Desenvolvimento local com banco local
+## 8. Atualização da frota (imagens versionadas — modelo da frota)
+
+> **Pergunta que isto resolve:** "tenho 5 clientes, preciso atualizar os 5?"
+> As VMs **não** se atualizam sozinhas (cada uma é isolada), mas a imagem é a
+> **mesma**: você builda **1 vez** (CI) e cada VM só **puxa** a imagem pronta. Dá
+> pra atualizar todas com **um comando**.
+
+### Como funciona
+1. **Build 1x:** ao dar merge na `main` (ou empurrar uma tag `vX.Y.Z`), o workflow
+   [`release-images.yml`](../.github/workflows/release-images.yml) builda e publica
+   no **GHCR**: `ghcr.io/<owner>/erp-construtora-backend` e `...-frontend`, com as
+   tags `latest`, `sha-<curto>` e `vX.Y.Z`.
+2. **Deploy por VM:** cada cliente roda com [`docker-compose.registry.yml`](../docker-compose.registry.yml),
+   que **puxa** a imagem em vez de compilar. Não há build na VM.
+3. **Banco migra sozinho:** o Flyway aplica as migrations novas no boot do container
+   — o banco de **cada** cliente é migrado automaticamente, sem SQL manual.
+
+> O **frontend** é buildado no CI com `VITE_API_BASE_URL=/api` (relativo). Como o
+> Caddy serve frontend e backend no **mesmo domínio**, a **mesma** imagem de
+> frontend serve **todos** os clientes — não precisa rebuildar por domínio.
+
+### Pré-requisito: acesso às imagens na VM
+As imagens GHCR nascem **privadas**. Escolha:
+- **Tornar públicas** (Packages → Package settings → Change visibility → Public), ou
+- **Login na VM** com um PAT read-only: `docker login ghcr.io -u <user> -p <token>`.
+
+### Primeira subida numa VM (registry)
+```bash
+git clone https://github.com/xXlucasviniciusXx/erp-construtora.git && cd erp-construtora
+cp .env.example .env && nano .env          # DOMAIN, segredos, IMAGE_REGISTRY, APP_VERSION
+docker compose -f docker-compose.registry.yml up -d
+```
+
+### Atualizar 1 VM
+```bash
+cd erp-construtora
+docker compose -f docker-compose.registry.yml pull
+docker compose -f docker-compose.registry.yml up -d
+```
+
+### Atualizar a frota TODA de uma vez
+Crie o inventário `scripts/fleet.txt` (modelo em `scripts/fleet.example.txt`):
+```
+deploy@203.0.113.10
+deploy@203.0.113.11:/opt/erp-construtora
+root@erp.gama.com.br
+```
+Depois:
+```bash
+scripts/update-fleet.sh --canary        # atualiza só a 1ª VM; valide o cliente
+scripts/update-fleet.sh                  # libera para o restante (tag 'latest')
+scripts/update-fleet.sh --version v1.4.0 # ou pin numa release específica
+```
+O script faz `pull` + `up -d` em cada VM por SSH, confirma o backend de pé e
+resume sucessos/falhas. (`scripts/fleet.txt` é git-ignored — contém IPs.)
+
+### Alternativa "push e esquece": Watchtower
+Para clientes que acompanham a tag móvel `latest`, suba o
+[`docker-compose.watchtower.yml`](../docker-compose.watchtower.yml) junto:
+```bash
+docker compose -f docker-compose.registry.yml -f docker-compose.watchtower.yml up -d
+```
+O Watchtower checa o registry a cada 5 min e atualiza **só** backend/frontend
+(marcados por label) quando sai imagem nova. Publicou → as VMs se atualizam sozinhas.
+
+### Releases e rollback
+- **Release pinada:** `git tag v1.4.0 && git push origin v1.4.0` → o CI publica
+  `...:v1.4.0`. Cada VM com `APP_VERSION=v1.4.0` roda exatamente essa versão.
+- **Rollback:** troque `APP_VERSION` para a tag anterior no `.env` e
+  `docker compose -f docker-compose.registry.yml up -d`. (Atenção: migrations de
+  banco não revertem sozinhas — rollback é seguro quando a versão anterior é
+  compatível com o schema atual.)
+
+### Build-from-source × registry
+| | `docker-compose.prod.yml` (build) | `docker-compose.registry.yml` (pull) |
+|---|---|---|
+| Onde compila | na própria VM (`--build`) | 1x no CI; VM só baixa |
+| Bom para | 1–2 clientes / sem registry | frota (vários clientes) |
+| Atualizar | `git pull && up -d --build` | `update-fleet.sh` / Watchtower |
+
+> **Gestão centralizada (futuro):** o controle de **quais versões existem**, a
+> **liberação** de updates por cliente, o **licenciamento** e o **histórico de
+> releases** ficarão no app separado de gestão de VPS/licenças (roadmap Fase 5).
+> Este mecanismo (CI → GHCR → frota) é a base que aquele painel vai orquestrar.
+
+---
+
+## 9. Desenvolvimento local com banco local
 
 ```bash
 # Cria role, banco e extensão pgcrypto (superusuário postgres)

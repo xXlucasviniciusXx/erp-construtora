@@ -1,0 +1,87 @@
+# ============================================================
+#  Stack de PRODUÇÃO por IMAGENS publicadas (GHCR) — modelo da frota
+#  (VM-por-cliente). NÃO compila nada na VM: só baixa a imagem pronta.
+#
+#  Uso na VM do cliente:
+#    docker compose -f docker-compose.registry.yml pull
+#    docker compose -f docker-compose.registry.yml up -d
+#
+#  Variáveis (.env):
+#    IMAGE_REGISTRY  -> ex.: ghcr.io/xxlucasviniciusxx  (default abaixo)
+#    APP_VERSION     -> tag da imagem a rodar: latest | vX.Y.Z | sha-xxxx
+#    DOMAIN, POSTGRES_*, JWT_SECRET, LICENSE_SECRET, APP_ADMIN_* (ver .env.example)
+#
+#  Diferença para docker-compose.prod.yml: aquele BUILDA da fonte (git) na VM;
+#  este PUXA a imagem versionada (build feito 1x no CI). Ver docs/DEPLOY.md §9.
+# ============================================================
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: construtora-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-construtora}
+      POSTGRES_USER: ${POSTGRES_USER:-construtora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+    volumes:
+      - ./docker-data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-construtora}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ${IMAGE_REGISTRY:-ghcr.io/xxlucasviniciusxx}/erp-construtora-backend:${APP_VERSION:-latest}
+    container_name: construtora-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-construtora}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-construtora}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      # Frontend e backend no mesmo domínio (Caddy) => só o domínio no CORS.
+      APP_CORS_ALLOWED_ORIGINS: https://${DOMAIN}
+      APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-admin@construtora.com.br}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?defina APP_ADMIN_PASSWORD no .env}
+      LICENSE_SECRET: ${LICENSE_SECRET:?defina LICENSE_SECRET no .env}
+    labels:
+      # Só backend/frontend são auto-atualizados pelo Watchtower (não db/caddy).
+      com.centurylinklabs.watchtower.enable: "true"
+
+  frontend:
+    # Imagem buildada no CI com VITE_API_BASE_URL=/api (relativo) => serve
+    # qualquer domínio sem rebuild.
+    image: ${IMAGE_REGISTRY:-ghcr.io/xxlucasviniciusxx}/erp-construtora-frontend:${APP_VERSION:-latest}
+    container_name: construtora-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: construtora-caddy
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"          # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN}
+
+volumes:
+  caddy_data:
+  caddy_config:
