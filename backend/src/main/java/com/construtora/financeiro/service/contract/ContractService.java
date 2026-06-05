@@ -55,7 +55,8 @@ public class ContractService {
      * normalizando para XHTML bem-formado (exigido pelo gerador de PDF).
      */
     private String buildDocument(PropertySale sale, String kind) {
-        String fragment = ContractHtml.extractFragment(templateService.defaultBody(kind));
+        UUID developmentId = sale.getLot().getBlock().getDevelopment().getId();
+        String fragment = ContractHtml.extractFragment(templateService.defaultBodyFor(kind, developmentId));
         String substituted = renderer.render(sale, settingsService.current(), fragment);
         return ContractHtml.document(substituted);
     }

@@ -57,6 +57,14 @@ public class ContractTemplateController {
         return ContractTemplateResponse.from(service.update(id, request));
     }
 
+    @PostMapping("/{id}/copy")
+    @Operation(summary = "Duplica um modelo (cria uma cópia não-padrão)")
+    @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ContractTemplateResponse copy(@PathVariable UUID id) {
+        return ContractTemplateResponse.from(service.copy(id));
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove um modelo (exceto o padrão)")
     @PreAuthorize("hasAuthority('SETTINGS_MANAGE')")

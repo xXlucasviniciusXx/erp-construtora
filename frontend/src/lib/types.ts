@@ -154,6 +154,7 @@ export interface ContractTemplate {
   kind: 'CONTRACT' | 'DISTRATO'
   name: string
   body: string
+  developmentId?: string | null   // null = global (qualquer empreendimento)
   isDefault: boolean
   active: boolean
 }

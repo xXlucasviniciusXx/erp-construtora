@@ -1,7 +1,7 @@
 import { lazy, Suspense, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
-import type { ContractTemplate } from '@/lib/types'
+import type { ContractTemplate, Development } from '@/lib/types'
 import type { RichEditorHandle } from '@/components/editor/ContractTemplateRichEditor'
 import { ActionsMenu } from '@/components/Menu'
 import { useToast } from '@/components/Toast'
@@ -20,7 +20,7 @@ const KINDS = [
 ] as const
 type Kind = (typeof KINDS)[number]['key']
 
-interface TemplateForm { id?: string; kind: Kind; name: string; body: string; isDefault: boolean; active: boolean }
+interface TemplateForm { id?: string; kind: Kind; name: string; body: string; developmentId: string; isDefault: boolean; active: boolean }
 
 export function ContractTemplatesTab() {
   const queryClient = useQueryClient()
@@ -42,8 +42,15 @@ export function ContractTemplatesTab() {
   })
   const items = (data ?? []).filter((t) => t.kind === kind)
 
+  const developments = useQuery({
+    queryKey: ['developments'],
+    queryFn: async () => (await api.get<Development[]>('/developments')).data,
+  })
+  const devName = (id?: string | null) =>
+    id ? (developments.data?.find((d) => d.id === id)?.name ?? 'Empreendimento') : 'Global'
+
   const save = useMutation({
-    mutationFn: async (f: TemplateForm) =>
+    mutationFn: async (f: Omit<TemplateForm, 'developmentId'> & { developmentId: string | null }) =>
       f.id ? api.put(`/contract-templates/${f.id}`, f) : api.post('/contract-templates', f),
     onSuccess: (_d, f) => {
       queryClient.invalidateQueries({ queryKey: ['contract-templates'] })
@@ -57,6 +64,11 @@ export function ContractTemplatesTab() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['contract-templates'] }); toast.success('Modelo removido.') },
     onError: (e) => toast.error(apiErrorMessage(e)),
   })
+  const duplicate = useMutation({
+    mutationFn: async (id: string) => api.post(`/contract-templates/${id}/copy`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['contract-templates'] }); toast.success('Modelo duplicado.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  })
 
   async function confirmRemove(t: ContractTemplate) {
     if (await confirm({ title: 'Remover modelo', message: `Remover "${t.name}"?`, confirmLabel: 'Remover', danger: true }))
@@ -65,11 +77,11 @@ export function ContractTemplatesTab() {
 
   function openNew() {
     setError(null)
-    setEditing({ kind, name: '', body: DEFAULT_FRAGMENT, isDefault: items.length === 0, active: true })
+    setEditing({ kind, name: '', body: DEFAULT_FRAGMENT, developmentId: '', isDefault: items.length === 0, active: true })
   }
   function openEdit(t: ContractTemplate) {
     setError(null)
-    setEditing({ id: t.id, kind: t.kind, name: t.name, body: t.body, isDefault: t.isDefault, active: t.active })
+    setEditing({ id: t.id, kind: t.kind, name: t.name, body: t.body, developmentId: t.developmentId ?? '', isDefault: t.isDefault, active: t.active })
   }
 
   async function runPreview() {
@@ -88,7 +100,8 @@ export function ContractTemplatesTab() {
   function submitForm(e: React.FormEvent) {
     e.preventDefault()
     if (!editing) return
-    save.mutate({ ...editing, body: currentBody() })
+    // developmentId vazio = global (envia null)
+    save.mutate({ ...editing, body: currentBody(), developmentId: editing.developmentId || null })
   }
 
   return (
@@ -121,23 +134,27 @@ export function ContractTemplatesTab() {
       </div>
 
       {isLoading ? <TableSkeleton rows={3} cols={3} /> : (
-        <Table headers={['Nome', 'Status', 'Ações']}>
+        <Table headers={['Nome', 'Escopo', 'Status', 'Ações']}>
           {items.map((t) => (
             <Tr key={t.id}>
               <td className="px-4 py-2 font-medium">
                 {t.name}
                 {t.isDefault && <span className="ml-2"><Badge color="green">padrão</Badge></span>}
               </td>
+              <td className="px-4 py-2">
+                <Badge color={t.developmentId ? 'blue' : 'gray'}>{devName(t.developmentId)}</Badge>
+              </td>
               <td className="px-4 py-2"><Badge dot color={t.active ? 'green' : 'gray'}>{t.active ? 'Ativo' : 'Inativo'}</Badge></td>
               <td className="px-4 py-2 text-right">
                 <ActionsMenu items={[
                   { label: 'Editar', onClick: () => openEdit(t) },
+                  { label: 'Duplicar', onClick: () => duplicate.mutate(t.id) },
                   { label: 'Remover', danger: true, onClick: () => confirmRemove(t) },
                 ]} />
               </td>
             </Tr>
           ))}
-          {items.length === 0 && <tr><td colSpan={3} className="px-4 py-6 text-center text-sm text-gray-400">Nenhum modelo.</td></tr>}
+          {items.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-400">Nenhum modelo.</td></tr>}
         </Table>
       )}
 
@@ -145,14 +162,23 @@ export function ContractTemplatesTab() {
       {editing && (
         <Modal open onClose={() => setEditing(null)} title={editing.id ? 'Editar modelo' : 'Novo modelo'} size="xl">
           <form className="space-y-3" onSubmit={submitForm}>
+            <Field label="Nome do modelo">
+              <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required autoFocus />
+            </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Nome do modelo">
-                <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required autoFocus />
-              </Field>
               <Field label="Tipo">
                 <Select value={editing.kind} onChange={(e) => setEditing({ ...editing, kind: e.target.value as Kind })}>
                   {KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
                 </Select>
+              </Field>
+              <Field label="Empreendimento">
+                <Select value={editing.developmentId} onChange={(e) => setEditing({ ...editing, developmentId: e.target.value })}>
+                  <option value="">Global (todos)</option>
+                  {(developments.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </Select>
+                <p className="mt-1 text-[11px] text-gray-400">
+                  Modelo específico de um empreendimento tem prioridade sobre o global na geração.
+                </p>
               </Field>
             </div>
 

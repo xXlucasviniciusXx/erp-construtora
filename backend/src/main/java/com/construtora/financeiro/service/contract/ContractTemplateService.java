@@ -43,10 +43,17 @@ public class ContractTemplateService {
                 .orElseThrow(() -> ResourceNotFoundException.of("Modelo de contrato", id));
     }
 
-    /** Corpo do template padrão do tipo informado (CONTRACT/DISTRATO). */
+    /**
+     * Corpo do modelo padrão a usar para um tipo + empreendimento, em cascata:
+     * padrão do empreendimento → padrão global → qualquer modelo do tipo.
+     */
     @Transactional(readOnly = true)
-    public String defaultBody(String kind) {
-        return repository.findFirstByKindAndIsDefaultTrue(kind)
+    public String defaultBodyFor(String kind, UUID developmentId) {
+        java.util.Optional<ContractTemplate> t = java.util.Optional.empty();
+        if (developmentId != null) {
+            t = repository.findFirstByKindAndDevelopmentIdAndIsDefaultTrue(kind, developmentId);
+        }
+        return t.or(() -> repository.findFirstByKindAndDevelopmentIdIsNullAndIsDefaultTrue(kind))
                 .or(() -> repository.findByKindOrderByNameAsc(kind).stream().findFirst())
                 .map(ContractTemplate::getBody)
                 .orElseThrow(() -> new BusinessException(
@@ -56,9 +63,9 @@ public class ContractTemplateService {
     public ContractTemplate create(ContractTemplateRequest r) {
         ContractTemplate t = new ContractTemplate();
         applyBasics(t, r);
-        // Zera o padrão dos demais ANTES de marcar este (t ainda não está no banco).
+        // Zera o padrão do MESMO escopo ANTES de marcar este (t ainda não está no banco).
         if (Boolean.TRUE.equals(r.isDefault())) {
-            repository.clearDefaults(t.getKind(), null);
+            repository.clearDefaults(t.getKind(), t.getDevelopmentId(), null);
             t.setDefault(true);
         }
         return repository.save(t);
@@ -68,11 +75,24 @@ public class ContractTemplateService {
         ContractTemplate t = get(id);
         applyBasics(t, r);
         if (Boolean.TRUE.equals(r.isDefault())) {
-            repository.clearDefaults(t.getKind(), id);   // zera os outros; mantém t
+            repository.clearDefaults(t.getKind(), t.getDevelopmentId(), id);   // zera os do escopo; mantém t
             t.setDefault(true);
         } else {
             t.setDefault(false);
         }
+        return repository.save(t);
+    }
+
+    /** Duplica um modelo existente (não-padrão, mesmo escopo). */
+    public ContractTemplate copy(UUID id) {
+        ContractTemplate src = get(id);
+        ContractTemplate t = new ContractTemplate();
+        t.setKind(src.getKind());
+        t.setName("Cópia de " + src.getName());
+        t.setBody(src.getBody());
+        t.setDevelopmentId(src.getDevelopmentId());
+        t.setActive(true);
+        t.setDefault(false);
         return repository.save(t);
     }
 
@@ -94,6 +114,7 @@ public class ContractTemplateService {
         t.setName(r.name());
         // Sanitiza o fragmento (remove script/handlers, preserva formatação e tokens).
         t.setBody(ContractHtml.sanitizeFragment(r.body()));
+        t.setDevelopmentId(r.developmentId());
         t.setActive(r.active() == null || r.active());
     }
 
