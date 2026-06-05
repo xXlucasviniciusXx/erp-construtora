@@ -98,7 +98,11 @@ GET /api/auth/me   → dados do usuário autenticado
 | GET | `/sales/{id}/installments` | Lista parcelas da venda | `VENDAS_VIEW` |
 | POST | `/sales` | Registra venda e gera parcelas automaticamente | `VENDAS_EDIT` |
 | PUT | `/sales/{id}` | Edita venda (regenera parcelas se valor/qtd mudar e nenhuma paga) | `VENDAS_EDIT` |
-| DELETE | `/sales/{id}` | Remove venda (libera o lote para `AVAILABLE`) | `VENDAS_EDIT` |
+| POST | `/sales/{id}/distrato` | Distrata a venda (cancela, registra distrato e libera o lote) | `VENDAS_EDIT` |
+| DELETE | `/sales/{id}` | Remove venda definitivamente (libera o lote para `AVAILABLE`) | `VENDAS_EDIT` |
+
+> A venda agora carrega `contractNumber` (`CT-NNNNNN`, sequencial) e, quando distratada,
+> os campos `distratoDate`, `distratoReason`, `distratoRefundAmount`, `distratoRetainedAmount`.
 
 ### Parcelas
 | Método | Caminho | Descrição | Permissão |
@@ -191,8 +195,24 @@ GET /api/auth/me   → dados do usuário autenticado
 ### Contratos
 | Método | Caminho | Descrição | Permissão |
 |--------|---------|-----------|-----------|
-| GET | `/contracts/sales/{saleId}/html` | Contrato em HTML | `VENDAS_VIEW` |
-| GET | `/contracts/sales/{saleId}/pdf` | Contrato em PDF (Flying Saucer) | `VENDAS_EDIT` |
+| GET | `/contracts/sales/{saleId}/html` | Contrato em HTML (pré-visualização) | `VENDAS_VIEW` |
+| GET | `/contracts/sales/{saleId}/pdf` | Contrato em PDF (arquiva a versão) | `VENDAS_EDIT` |
+| GET | `/contracts/sales/{saleId}/distrato/pdf` | Distrato em PDF (só vendas distratadas; arquiva) | `VENDAS_EDIT` |
+| GET | `/contracts/sales/{saleId}/documents` | Lista documentos arquivados da venda | `VENDAS_VIEW` |
+| GET | `/contracts/documents/{documentId}` | Baixa um documento arquivado | `VENDAS_VIEW` |
+
+O contrato/distrato em PDF é gerado a partir de um **modelo** persistido (XHTML com tokens
+`{{...}}`) e cada geração é **arquivada e versionada** em `contract_documents`.
+
+### Modelos de contrato/distrato
+| Método | Caminho | Descrição | Permissão |
+|--------|---------|-----------|-----------|
+| GET | `/contract-templates?kind=` | Lista modelos (`CONTRACT`/`DISTRATO`) | `SETTINGS_MANAGE` |
+| GET | `/contract-templates/{id}` | Detalha um modelo | `SETTINGS_MANAGE` |
+| POST | `/contract-templates` | Cria modelo (um padrão por tipo) | `SETTINGS_MANAGE` |
+| PUT | `/contract-templates/{id}` | Edita modelo | `SETTINGS_MANAGE` |
+| DELETE | `/contract-templates/{id}` | Remove modelo (exceto o padrão) | `SETTINGS_MANAGE` |
+| POST | `/contract-templates/preview` | Pré-visualiza um corpo com dados de exemplo (HTML) | `SETTINGS_MANAGE` |
 
 ### Dashboard
 | Método | Caminho | Descrição | Permissão |

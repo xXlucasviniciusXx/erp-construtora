@@ -61,9 +61,19 @@ Itens deixados como `TODO` propositalmente para continuação futura.
 
 ## Contratos
 
-- [ ] Modelos personalizáveis por empreendimento (`contract_templates`).
-- [ ] Editor de template no frontend (ADMIN/COMERCIAL).
-- [ ] Versionamento de templates e assinatura eletrônica.
+- [x] **Numeração sequencial** de contrato (`CT-NNNNNN`) atribuída na venda; backfill
+      das vendas existentes (V19). Exibida na lista/detalhe de Vendas e no PDF.
+- [x] **Modelos persistidos e editáveis** (`contract_templates`, V19): CRUD com tipos
+      `CONTRACT`/`DISTRATO`, um padrão por tipo (índice único parcial), corpo XHTML com
+      tokens `{{...}}` substituídos no `ContractRenderer`.
+- [x] **Editor de template no frontend** (Configurações → Contratos): edição do corpo,
+      paleta de tokens, marcar padrão/ativo e **pré-visualização** com dados de exemplo.
+- [x] **Distrato** (rescisão amigável): cancela a venda (preserva no histórico),
+      registra data/motivo/devolução/retido e libera o lote; documento próprio em PDF.
+- [x] **Arquivamento/versionamento dos PDFs** (`contract_documents`, V19): cada geração
+      de contrato/distrato é arquivada e versionada; histórico baixável na tela de Vendas.
+- [ ] Modelos vinculados por empreendimento (hoje o padrão é global por tipo).
+- [ ] Assinatura eletrônica e aditivo contratual (Premium / Fase 4).
 
 ## Notificações
 

@@ -74,6 +74,7 @@ public class SaleService {
         }
 
         PropertySale sale = new PropertySale();
+        sale.setContractNumber(nextContractNumber());
         sale.setClient(client);
         sale.setLot(lot);
         sale.setTotalValue(request.totalValue());     // valor que foi vendido
@@ -194,6 +195,45 @@ public class SaleService {
         lot.setSaleValue(null);
         lotRepository.save(lot);
         saleRepository.delete(sale);
+    }
+
+    /**
+     * Distrato (rescisão amigável): preserva a venda para histórico, marca-a como
+     * CANCELADA, registra os dados do distrato e libera o lote. Diferente de
+     * {@link #delete} (que remove o registro), o distrato mantém o contrato no
+     * sistema para fins de auditoria e gera documento próprio.
+     */
+    @Auditable(action = "SALE_DISTRATO", entity = "property_sales")
+    public SaleResponse distrato(UUID id, com.construtora.financeiro.dto.sale.DistratoRequest request) {
+        PropertySale sale = getEntity(id);
+        if (sale.getStatus() == com.construtora.financeiro.model.enums.SaleStatus.CANCELLED) {
+            throw new BusinessException("Esta venda já está cancelada/distratada.");
+        }
+        BigDecimal refund = orZero(request.refundAmount());
+        BigDecimal retained = orZero(request.retainedAmount());
+        if (refund.add(retained).compareTo(sale.getTotalValue()) > 0) {
+            throw new BusinessException("Devolução + retido não pode exceder o valor vendido.");
+        }
+
+        sale.setStatus(com.construtora.financeiro.model.enums.SaleStatus.CANCELLED);
+        sale.setDistratoDate(request.distratoDate() != null
+                ? request.distratoDate() : java.time.LocalDate.now());
+        sale.setDistratoReason(request.reason());
+        sale.setDistratoRefundAmount(refund);
+        sale.setDistratoRetainedAmount(retained);
+
+        // Libera o lote para nova comercialização.
+        Lot lot = sale.getLot();
+        lot.setStatus(PropertyStatus.AVAILABLE);
+        lot.setSaleValue(null);
+        lotRepository.save(lot);
+
+        return mapper.toResponse(saleRepository.save(sale));
+    }
+
+    /** Gera o próximo número de contrato no formato CT-NNNNNN. */
+    private String nextContractNumber() {
+        return String.format("CT-%06d", saleRepository.nextContractSequence());
     }
 
     public PropertySale getEntity(UUID id) {

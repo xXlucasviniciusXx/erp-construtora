@@ -1,6 +1,12 @@
 package com.construtora.financeiro.service.contract;
 
+import com.construtora.financeiro.exception.BusinessException;
+import com.construtora.financeiro.exception.ResourceNotFoundException;
+import com.construtora.financeiro.model.ContractDocument;
 import com.construtora.financeiro.model.PropertySale;
+import com.construtora.financeiro.model.enums.SaleStatus;
+import com.construtora.financeiro.repository.ContractDocumentRepository;
+import com.construtora.financeiro.security.SecurityUtils;
 import com.construtora.financeiro.service.NotificationService;
 import com.construtora.financeiro.service.SaleService;
 import com.construtora.financeiro.service.SettingsService;
@@ -9,42 +15,99 @@ import org.springframework.transaction.annotation.Transactional;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import java.io.ByteArrayOutputStream;
+import java.util.List;
 import java.util.UUID;
 
 @Service
-@Transactional(readOnly = true)
+@Transactional
 public class ContractService {
 
     private final SaleService saleService;
     private final SettingsService settingsService;
     private final ContractTemplateService templateService;
+    private final ContractRenderer renderer;
+    private final ContractDocumentRepository documentRepository;
     private final NotificationService notificationService;
 
     public ContractService(SaleService saleService, SettingsService settingsService,
-                           ContractTemplateService templateService, NotificationService notificationService) {
+                           ContractTemplateService templateService, ContractRenderer renderer,
+                           ContractDocumentRepository documentRepository,
+                           NotificationService notificationService) {
         this.saleService = saleService;
         this.settingsService = settingsService;
         this.templateService = templateService;
+        this.renderer = renderer;
+        this.documentRepository = documentRepository;
         this.notificationService = notificationService;
     }
 
+    // ---- HTML (pré-visualização) ----
+
+    @Transactional(readOnly = true)
     public String generateHtml(UUID saleId) {
         PropertySale sale = saleService.getEntity(saleId);
-        return templateService.render(sale, settingsService.current());
+        return renderer.render(sale, settingsService.current(), templateService.defaultBody("CONTRACT"));
     }
 
-    public byte[] generatePdf(UUID saleId) {
+    // ---- Geração de PDF + arquivamento ----
+
+    public byte[] generateContractPdf(UUID saleId) {
         PropertySale sale = saleService.getEntity(saleId);
-        String html = templateService.render(sale, settingsService.current());
+        String html = renderer.render(sale, settingsService.current(), templateService.defaultBody("CONTRACT"));
+        byte[] pdf = toPdf(html, "contrato");
+        archive(sale, "CONTRACT", pdf);
+        notificationService.notifyContractGenerated(sale);
+        return pdf;
+    }
+
+    public byte[] generateDistratoPdf(UUID saleId) {
+        PropertySale sale = saleService.getEntity(saleId);
+        if (sale.getStatus() != SaleStatus.CANCELLED || sale.getDistratoDate() == null) {
+            throw new BusinessException("Distrato disponível apenas para vendas já distratadas.");
+        }
+        String html = renderer.render(sale, settingsService.current(), templateService.defaultBody("DISTRATO"));
+        byte[] pdf = toPdf(html, "distrato");
+        archive(sale, "DISTRATO", pdf);
+        return pdf;
+    }
+
+    private byte[] toPdf(String html, String label) {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             ITextRenderer renderer = new ITextRenderer();
             renderer.setDocumentFromString(html);
             renderer.layout();
             renderer.createPDF(out);
-            notificationService.notifyContractGenerated(sale);
             return out.toByteArray();
         } catch (Exception e) {
-            throw new RuntimeException("Falha ao gerar PDF do contrato: " + e.getMessage(), e);
+            throw new BusinessException("Falha ao gerar PDF do " + label
+                    + ". Verifique se o modelo (Configurações → Contratos) é um XHTML válido. Detalhe: " + e.getMessage());
         }
+    }
+
+    /** Salva uma cópia versionada do documento gerado. */
+    private void archive(PropertySale sale, String type, byte[] pdf) {
+        int version = documentRepository.countBySaleIdAndType(sale.getId(), type) + 1;
+        ContractDocument doc = new ContractDocument();
+        doc.setSale(sale);
+        doc.setType(type);
+        doc.setVersion(version);
+        String number = sale.getContractNumber() != null ? sale.getContractNumber() : sale.getId().toString();
+        doc.setFileName((type.equals("DISTRATO") ? "distrato-" : "contrato-") + number + "-v" + version + ".pdf");
+        doc.setPdfData(pdf);
+        SecurityUtils.currentUsername().ifPresent(doc::setGeneratedBy);
+        documentRepository.save(doc);
+    }
+
+    // ---- Arquivo de documentos ----
+
+    @Transactional(readOnly = true)
+    public List<ContractDocument> listDocuments(UUID saleId) {
+        return documentRepository.findBySaleIdOrderByGeneratedAtDesc(saleId);
+    }
+
+    @Transactional(readOnly = true)
+    public ContractDocument getDocument(UUID documentId) {
+        return documentRepository.findById(documentId)
+                .orElseThrow(() -> ResourceNotFoundException.of("Documento", documentId));
     }
 }

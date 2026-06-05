@@ -18,4 +18,14 @@ public final class SecurityUtils {
         }
         return Optional.empty();
     }
+
+    /** Nome de usuário (login/e-mail) autenticado, se houver. */
+    public static Optional<String> currentUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getName() != null
+                && !"anonymousUser".equals(auth.getName())) {
+            return Optional.of(auth.getName());
+        }
+        return Optional.empty();
+    }
 }

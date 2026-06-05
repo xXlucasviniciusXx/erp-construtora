@@ -109,6 +109,7 @@ export interface Installment {
 
 export interface Sale {
   id: string
+  contractNumber?: string
   clientId: string
   clientName: string
   lotId: string
@@ -126,10 +127,35 @@ export interface Sale {
   status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
   saleDate: string
   notes?: string
+  distratoDate?: string | null
+  distratoReason?: string | null
+  distratoRefundAmount?: number | null
+  distratoRetainedAmount?: number | null
   paidInstallments?: number
   paidAmount?: number
   openAmount?: number
   installments: Installment[]
+}
+
+/** Documento (contrato/distrato) arquivado de uma venda. */
+export interface ContractDocument {
+  id: string
+  saleId: string
+  type: 'CONTRACT' | 'DISTRATO'
+  version: number
+  fileName: string
+  generatedAt: string
+  generatedBy?: string | null
+}
+
+/** Modelo de contrato/distrato editável. */
+export interface ContractTemplate {
+  id: string
+  kind: 'CONTRACT' | 'DISTRATO'
+  name: string
+  body: string
+  isDefault: boolean
+  active: boolean
 }
 
 export interface BankAccount {

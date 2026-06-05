@@ -15,6 +15,10 @@ public interface PropertySaleRepository extends JpaRepository<PropertySale, UUID
 
     List<PropertySale> findByClientId(UUID clientId);
 
+    /** Próximo número de contrato a partir da sequência do banco. */
+    @Query(value = "SELECT nextval('contract_number_seq')", nativeQuery = true)
+    long nextContractSequence();
+
     /** Busca paginada de vendas: por cliente, status e texto (cliente/empreendimento/quadra/lote). */
     @Query(value = """
             select s from PropertySale s

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage, getToken } from '@/lib/api'
-import type { Client, Lot, NamedItem, Page, Sale } from '@/lib/types'
+import type { Client, ContractDocument, Lot, NamedItem, Page, Sale } from '@/lib/types'
 import type { ComboOption } from '@/components/Combobox'
 import { FileSignature } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
@@ -9,7 +9,9 @@ import { ActionsMenu } from '@/components/Menu'
 import { Combobox } from '@/components/Combobox'
 import { useToast } from '@/components/Toast'
 import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select, Table, TableSkeleton, Tr } from '@/components/ui'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
+
+interface DistratoForm { distratoDate: string; reason: string; refundAmount: number; retainedAmount: number }
 
 const INSTALLMENT_STATUS: Record<string, { label: string; color: string }> = {
   PAID: { label: 'Paga', color: 'green' }, OVERDUE: { label: 'Vencida', color: 'red' },
@@ -57,6 +59,12 @@ export function SalesPage() {
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(0)
+
+  // Distrato + histórico de documentos
+  const [distratoFor, setDistratoFor] = useState<Sale | null>(null)
+  const [distratoForm, setDistratoForm] = useState<DistratoForm>({ distratoDate: '', reason: '', refundAmount: 0, retainedAmount: 0 })
+  const [distratoError, setDistratoError] = useState<string | null>(null)
+  const [docsFor, setDocsFor] = useState<Sale | null>(null)
 
   // ---- search state para os comboboxes (server-side) ----
   const [clientSearch, setClientSearch] = useState('')
@@ -132,6 +140,26 @@ export function SalesPage() {
     onError: (e) => setError(apiErrorMessage(e)),
   })
 
+  const distrato = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: DistratoForm }) =>
+      api.post(`/sales/${id}/distrato`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] })
+      queryClient.invalidateQueries({ queryKey: ['lots-search'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] })
+      setDistratoFor(null)
+      toast.success('Venda distratada. O lote foi liberado.')
+    },
+    onError: (e) => setDistratoError(apiErrorMessage(e)),
+  })
+
+  // Documentos arquivados da venda selecionada
+  const documents = useQuery({
+    queryKey: ['contract-documents', docsFor?.id],
+    queryFn: async () => (await api.get<ContractDocument[]>(`/contracts/sales/${docsFor!.id}/documents`)).data,
+    enabled: !!docsFor,
+  })
+
   const filtered = sales.data?.content ?? []  // filtrado/paginado no servidor
 
   // ---- helpers do formulário ----
@@ -165,9 +193,17 @@ export function SalesPage() {
     setLotSeed(lot ? { value: lot.id, label: lot.label, hint: '' } : null)
     setForm((f) => ({ ...f, lotId: id, totalValue: f.totalValue || Number(lot?.plannedValue ?? 0) }))
   }
-  function downloadContract(saleId: string) {
-    fetch(`${api.defaults.baseURL}/contracts/sales/${saleId}/pdf`, { headers: { Authorization: `Bearer ${getToken()}` } })
-      .then((r) => r.blob()).then((blob) => window.open(URL.createObjectURL(blob)))
+  function openPdf(path: string) {
+    fetch(`${api.defaults.baseURL}${path}`, { headers: { Authorization: `Bearer ${getToken()}` } })
+      .then((r) => { if (!r.ok) throw new Error(); return r.blob() })
+      .then((blob) => window.open(URL.createObjectURL(blob)))
+      .catch(() => toast.error('Não foi possível gerar o documento.'))
+  }
+  function downloadContract(saleId: string) { openPdf(`/contracts/sales/${saleId}/pdf`) }
+  function openDistrato(s: Sale) {
+    setDistratoFor(s)
+    setDistratoForm({ distratoDate: new Date().toISOString().slice(0, 10), reason: '', refundAmount: s.paidAmount ?? 0, retainedAmount: 0 })
+    setDistratoError(null)
   }
 
   return (
@@ -188,7 +224,10 @@ export function SalesPage() {
         <Table headers={['Cliente', 'Lote', 'Total', 'Parcelas (Qtd / Pagas)', 'Status', 'Ações']}>
           {filtered.map((s) => (
             <Tr key={s.id}>
-              <td className="px-4 py-2 font-medium">{s.clientName}</td>
+              <td className="px-4 py-2 font-medium">
+                {s.clientName}
+                {s.contractNumber && <div className="text-[11px] font-normal text-gray-400">{s.contractNumber}</div>}
+              </td>
               <td className="px-4 py-2">{s.propertyLabel}</td>
               <td className="px-4 py-2">{formatCurrency(s.totalValue)}</td>
               <td className="px-4 py-2">{s.installmentsCount} / <span className="font-medium text-green-600">{s.paidInstallments ?? 0}</span></td>
@@ -200,8 +239,15 @@ export function SalesPage() {
               <td className="px-4 py-2 text-right">
                 <ActionsMenu items={[
                   { label: 'Visualizar venda', onClick: () => setView(s) },
-                  ...(canWrite ? [{ label: 'Editar venda', onClick: () => openEdit(s) }] : []),
+                  ...(canWrite && s.status !== 'CANCELLED' ? [{ label: 'Editar venda', onClick: () => openEdit(s) }] : []),
                   { label: 'Gerar contrato', onClick: () => downloadContract(s.id), disabled: !canContract },
+                  { label: 'Histórico de documentos', onClick: () => setDocsFor(s) },
+                  ...(canWrite && s.status !== 'CANCELLED'
+                    ? [{ label: 'Distratar venda', danger: true, onClick: () => openDistrato(s) }]
+                    : []),
+                  ...(s.status === 'CANCELLED' && s.distratoDate
+                    ? [{ label: 'Gerar distrato (PDF)', onClick: () => openPdf(`/contracts/sales/${s.id}/distrato/pdf`), disabled: !canContract }]
+                    : []),
                 ]} />
               </td>
             </Tr>
@@ -224,6 +270,7 @@ export function SalesPage() {
       {view && (
         <Modal open onClose={() => setView(null)} title={`Venda — ${view.clientName}`}>
           <div className="mb-3 grid grid-cols-2 gap-2 text-sm">
+            <Info label="Nº do contrato" value={view.contractNumber} />
             <Info label="Lote" value={view.propertyLabel} />
             <Info label="Forma de compra" value={view.purchaseType} />
             <Info label="Valor esperado" value={formatCurrency(view.expectedValue)} />
@@ -231,6 +278,16 @@ export function SalesPage() {
             <Info label="Entrada" value={formatCurrency(view.downPayment)} />
             <Info label="Forma de pagamento" value={view.paymentMethod} />
           </div>
+          {view.status === 'CANCELLED' && view.distratoDate && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900/40 dark:bg-amber-900/20">
+              <div className="mb-1 font-medium text-amber-700 dark:text-amber-300">Distrato em {formatDate(view.distratoDate)}</div>
+              <div className="grid grid-cols-2 gap-2">
+                <Info label="Devolvido ao comprador" value={formatCurrency(view.distratoRefundAmount)} />
+                <Info label="Retido pela vendedora" value={formatCurrency(view.distratoRetainedAmount)} />
+              </div>
+              {view.distratoReason && <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">Motivo: {view.distratoReason}</div>}
+            </div>
+          )}
           <div className="mb-2 text-sm">
             Pago: <span className="font-medium text-green-600">{formatCurrency(view.paidAmount ?? 0)}</span> ·
             {' '}Saldo devedor: <span className="font-medium text-amber-600">{formatCurrency(view.openAmount ?? 0)}</span>
@@ -344,6 +401,70 @@ export function SalesPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Modal: distrato (rescisão amigável) */}
+      {distratoFor && (
+        <Modal open onClose={() => setDistratoFor(null)} title={`Distratar venda — ${distratoFor.clientName}`}>
+          <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); distrato.mutate({ id: distratoFor.id, payload: distratoForm }) }}>
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+              A venda será <strong>cancelada</strong> (mantida no histórico) e o lote <strong>{distratoFor.propertyLabel}</strong> será liberado.
+              O documento de distrato pode ser gerado em seguida.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Data do distrato">
+                <Input type="date" value={distratoForm.distratoDate} onChange={(e) => setDistratoForm({ ...distratoForm, distratoDate: e.target.value })} required />
+              </Field>
+              <Field label="Valor a devolver">
+                <Input type="number" step="0.01" min={0} value={distratoForm.refundAmount} onChange={(e) => setDistratoForm({ ...distratoForm, refundAmount: Number(e.target.value) })} />
+              </Field>
+              <Field label="Valor retido">
+                <Input type="number" step="0.01" min={0} value={distratoForm.retainedAmount} onChange={(e) => setDistratoForm({ ...distratoForm, retainedAmount: Number(e.target.value) })} />
+              </Field>
+            </div>
+            <Field label="Motivo do distrato">
+              <textarea
+                className="min-h-[72px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
+                value={distratoForm.reason}
+                onChange={(e) => setDistratoForm({ ...distratoForm, reason: e.target.value })}
+                placeholder="Ex.: desistência do comprador, inadimplência…"
+              />
+            </Field>
+            {distratoError && <p className="text-sm text-red-600">{distratoError}</p>}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setDistratoFor(null)}>Cancelar</Button>
+              <Button type="submit" variant="danger" loading={distrato.isPending}>Confirmar distrato</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal: histórico de documentos arquivados */}
+      {docsFor && (
+        <Modal open onClose={() => setDocsFor(null)} title={`Documentos — ${docsFor.clientName}`}>
+          {documents.isLoading ? (
+            <p className="text-sm text-gray-500">Carregando…</p>
+          ) : (documents.data ?? []).length === 0 ? (
+            <EmptyState icon={FileSignature} title="Nenhum documento gerado"
+              description="Gere o contrato ou o distrato para arquivar uma versão aqui." />
+          ) : (
+            <Table headers={['Tipo', 'Versão', 'Gerado em', 'Por', 'Ações']}>
+              {(documents.data ?? []).map((d) => (
+                <Tr key={d.id}>
+                  <td className="px-4 py-2">
+                    <Badge color={d.type === 'DISTRATO' ? 'yellow' : 'blue'}>{d.type === 'DISTRATO' ? 'Distrato' : 'Contrato'}</Badge>
+                  </td>
+                  <td className="px-4 py-2">v{d.version}</td>
+                  <td className="px-4 py-2">{formatDateTime(d.generatedAt)}</td>
+                  <td className="px-4 py-2 text-gray-500">{d.generatedBy ?? '—'}</td>
+                  <td className="px-4 py-2 text-right">
+                    <Button variant="outline" onClick={() => openPdf(`/contracts/documents/${d.id}`)}>Baixar</Button>
+                  </td>
+                </Tr>
+              ))}
+            </Table>
+          )}
+        </Modal>
+      )}
     </div>
   )
 }

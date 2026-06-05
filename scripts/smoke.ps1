@@ -187,6 +187,46 @@ if ($firstDev) {
     Write-Host "  [SKIP] reserva de lote (nenhum empreendimento cadastrado)" -ForegroundColor Yellow
 }
 
+# --- V19: Contratos (numeração, templates, distrato, arquivo) ---
+$salesPage = Invoke-RestMethod -Uri "$base/sales?size=50" -Headers $h2
+$someSale = @($salesPage.content)[0]
+Check "vendas trazem numero de contrato (CT-NNNNNN)" { $someSale.contractNumber -match '^CT-\d{6}$' }
+
+# Gera contrato PDF e confere arquivamento versionado
+$cpdf = Invoke-WebRequest -UseBasicParsing -Uri "$base/contracts/sales/$($someSale.id)/pdf" -Headers $h2
+Check "contrato PDF gerado (%PDF)" {
+    ($cpdf.Headers['Content-Type'] -match 'pdf') -and ([Text.Encoding]::ASCII.GetString($cpdf.Content[0..3]) -eq '%PDF')
+}
+$cdocs = @(Invoke-RestMethod -Uri "$base/contracts/sales/$($someSale.id)/documents" -Headers $h2)
+Check "documento de contrato arquivado" { @($cdocs | Where-Object { $_.type -eq 'CONTRACT' }).Count -ge 1 }
+
+# Templates: 1 padrao por tipo + preview substitui tokens
+$tpls = Invoke-RestMethod -Uri "$base/contract-templates" -Headers $h2
+Check "2 modelos padrao (CONTRACT + DISTRATO)" { @($tpls | Where-Object isDefault).Count -eq 2 }
+$prev = Invoke-WebRequest -UseBasicParsing -Uri "$base/contract-templates/preview" -Method Post -Headers $h2 `
+    -Body ([Text.Encoding]::UTF8.GetBytes('{"body":"<x>{{cliente_nome}}</x>"}')) -ContentType 'application/json'
+Check "preview de modelo substitui tokens" { "$($prev.Content)" -match 'Jo.o da Silva' }
+
+# Fluxo de distrato: cria venda -> distrata -> libera lote -> remove (cleanup)
+$cli = @((Invoke-RestMethod -Uri "$base/clients?size=1" -Headers $h2).content)[0]
+$lotsAll = Invoke-RestMethod -Uri "$base/lots" -Headers $h2
+$freeLot = @($lotsAll | Where-Object { $_.status -eq 'AVAILABLE' })[0]
+if ($cli -and $freeLot) {
+    $saleJson = @{ clientId=$cli.id; lotId=$freeLot.id; totalValue=120000; downPayment=0; installmentsCount=6;
+        firstDueDate='2026-09-10'; purchaseType='Financiamento próprio'; paymentMethod='Boleto'; correctionIndex='Sem correção' } | ConvertTo-Json
+    $newSale = Invoke-RestMethod -Uri "$base/sales" -Method Post -Headers $h2 -Body ([Text.Encoding]::UTF8.GetBytes($saleJson)) -ContentType 'application/json'
+    Check "venda criada recebe contractNumber sequencial" { $newSale.contractNumber -match '^CT-\d{6}$' }
+    $distJson = @{ distratoDate='2026-06-05'; reason='Smoke distrato'; refundAmount=0; retainedAmount=0 } | ConvertTo-Json
+    $distd = Invoke-RestMethod -Uri "$base/sales/$($newSale.id)/distrato" -Method Post -Headers $h2 -Body ([Text.Encoding]::UTF8.GetBytes($distJson)) -ContentType 'application/json'
+    Check "distrato marca CANCELLED e grava data" { $distd.status -eq 'CANCELLED' -and $null -ne $distd.distratoDate }
+    Check "lote liberado apos distrato" { (Invoke-RestMethod -Uri "$base/lots/$($freeLot.id)" -Headers $h2).status -eq 'AVAILABLE' }
+    $dpdf = Invoke-WebRequest -UseBasicParsing -Uri "$base/contracts/sales/$($newSale.id)/distrato/pdf" -Headers $h2
+    Check "distrato PDF gerado (%PDF)" { [Text.Encoding]::ASCII.GetString($dpdf.Content[0..3]) -eq '%PDF' }
+    Invoke-RestMethod -Uri "$base/sales/$($newSale.id)" -Method Delete -Headers $h2 | Out-Null
+} else {
+    Write-Host "  [SKIP] fluxo de distrato (sem cliente ou lote disponivel)" -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "Resultado: $pass passaram, $fail falharam" -ForegroundColor $(if ($fail -eq 0) { 'Green' } else { 'Red' })
 if ($fail -gt 0) { exit 1 }
