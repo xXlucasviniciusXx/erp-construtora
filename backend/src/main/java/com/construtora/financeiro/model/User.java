@@ -7,6 +7,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.OffsetDateTime;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -31,6 +33,13 @@ public class User {
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "role_id")
     private Role role;
+
+    /** Empreendimentos a que o usuário tem acesso (escopo). Vazio + sem acesso global = não enxerga nada. */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "user_developments",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "development_id"))
+    private Set<Development> developments = new HashSet<>();
 
     @Column(nullable = false)
     private boolean active = true;

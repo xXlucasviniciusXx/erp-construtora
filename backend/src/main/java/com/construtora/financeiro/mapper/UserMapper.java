@@ -1,6 +1,7 @@
 package com.construtora.financeiro.mapper;
 
 import com.construtora.financeiro.dto.user.UserResponse;
+import com.construtora.financeiro.model.Development;
 import com.construtora.financeiro.model.User;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,7 @@ public class UserMapper {
                 user.getEmail(),
                 user.getRole().getName(),
                 user.isActive(),
-                user.getCreatedAt());
+                user.getCreatedAt(),
+                user.getDevelopments().stream().map(Development::getId).toList());
     }
 }

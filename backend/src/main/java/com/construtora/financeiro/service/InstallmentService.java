@@ -22,24 +22,33 @@ public class InstallmentService {
 
     private final InstallmentRepository repository;
     private final NotificationService notificationService;
+    private final com.construtora.financeiro.security.DevelopmentScopeService scope;
     private final SaleMapper mapper;
 
     public InstallmentService(InstallmentRepository repository,
-                              NotificationService notificationService, SaleMapper mapper) {
+                              NotificationService notificationService,
+                              com.construtora.financeiro.security.DevelopmentScopeService scope, SaleMapper mapper) {
         this.repository = repository;
         this.notificationService = notificationService;
+        this.scope = scope;
         this.mapper = mapper;
+    }
+
+    /** Empreendimento da parcela (via venda → lote → quadra). */
+    private static UUID devOf(Installment i) {
+        return i.getSale().getLot().getBlock().getDevelopment().getId();
     }
 
     @Transactional(readOnly = true)
     public List<InstallmentResponse> findBySale(UUID saleId) {
-        return repository.findBySaleId(saleId).stream().map(mapper::toInstallmentResponse).toList();
+        return scope.filter(repository.findBySaleId(saleId), InstallmentService::devOf)
+                .stream().map(mapper::toInstallmentResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public List<InstallmentResponse> findOverdue() {
-        return repository.findOverdueUnpaid(LocalDate.now()).stream()
-                .map(mapper::toInstallmentResponse).toList();
+        return scope.filter(repository.findOverdueUnpaid(LocalDate.now()), InstallmentService::devOf)
+                .stream().map(mapper::toInstallmentResponse).toList();
     }
 
     /** Lista parcelas (com dados do cliente) aplicando filtros opcionais, paginado. */
@@ -48,7 +57,9 @@ public class InstallmentService {
             String q, InstallmentStatus status, LocalDate dueFrom, LocalDate dueTo,
             org.springframework.data.domain.Pageable pageable) {
         String query = (q != null && !q.isBlank()) ? q.trim() : "";
-        return repository.search(query, status, dueFrom, dueTo, pageable).map(mapper::toDetailResponse);
+        var qs = scope.queryScope();
+        return repository.search(query, status, dueFrom, dueTo, qs.unrestricted(), qs.devIds(), pageable)
+                .map(mapper::toDetailResponse);
     }
 
     /** Confirma o pagamento de uma parcela e dispara a notificação de confirmação. */

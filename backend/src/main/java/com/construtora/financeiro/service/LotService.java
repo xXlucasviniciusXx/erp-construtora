@@ -31,19 +31,24 @@ public class LotService {
     private final LotRepository repository;
     private final BlockService blockService;
     private final PropertySaleRepository saleRepository;
+    private final com.construtora.financeiro.security.DevelopmentScopeService scope;
     private final LotMapper mapper;
 
     public LotService(LotRepository repository, BlockService blockService,
-                      PropertySaleRepository saleRepository, LotMapper mapper) {
+                      PropertySaleRepository saleRepository,
+                      com.construtora.financeiro.security.DevelopmentScopeService scope, LotMapper mapper) {
         this.repository = repository;
         this.blockService = blockService;
         this.saleRepository = saleRepository;
+        this.scope = scope;
         this.mapper = mapper;
     }
 
     @Transactional(readOnly = true)
     public List<LotResponse> findByBlock(UUID blockId) {
-        return repository.findByBlockIdOrderByInternalCode(blockId).stream().map(mapper::toResponse).toList();
+        return scope.filter(
+                repository.findByBlockIdOrderByInternalCode(blockId).stream().map(mapper::toResponse).toList(),
+                LotResponse::developmentId);
     }
 
     @Transactional(readOnly = true)
@@ -58,6 +63,7 @@ public class LotService {
      */
     @Transactional(readOnly = true)
     public List<LotResponse> findByDevelopment(UUID developmentId, UUID clientId, PropertyStatus status) {
+        if (!scope.canAccess(developmentId)) return List.of();
         List<Lot> lots = repository.findByBlockDevelopmentIdOrderByInternalCode(developmentId);
         Map<UUID, PropertySale> activeByLot = saleRepository
                 .findCurrentSalesByDevelopment(developmentId).stream()
@@ -75,7 +81,8 @@ public class LotService {
 
     @Transactional(readOnly = true)
     public List<LotResponse> findAll() {
-        return repository.findAll().stream().map(mapper::toResponse).toList();
+        return scope.filter(repository.findAll().stream().map(mapper::toResponse).toList(),
+                LotResponse::developmentId);
     }
 
     /**
@@ -86,8 +93,8 @@ public class LotService {
     @Transactional(readOnly = true)
     public List<LotResponse> search(String q) {
         String term = (q == null || q.isBlank()) ? "" : q.trim();
-        return repository.searchByQuery(term, PageRequest.of(0, 30))
-                .stream().map(mapper::toResponse).toList();
+        return scope.filter(repository.searchByQuery(term, PageRequest.of(0, 30))
+                .stream().map(mapper::toResponse).toList(), LotResponse::developmentId);
     }
 
     public LotResponse create(LotRequest r) {
@@ -154,7 +161,9 @@ public class LotService {
 
     @Transactional(readOnly = true)
     public LotResponse findById(UUID id) {
-        return mapper.toResponse(getEntity(id));
+        Lot lot = getEntity(id);
+        scope.requireAccess(lot.getBlock().getDevelopment().getId(), "Lote", id);
+        return mapper.toResponse(lot);
     }
 
     public Lot getEntity(UUID id) {
