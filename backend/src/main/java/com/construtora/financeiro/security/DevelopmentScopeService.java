@@ -91,6 +91,16 @@ public class DevelopmentScopeService {
     /** UUID-sentinela que nunca casa com um empreendimento real (evita {@code IN ()} vazio). */
     private static final UUID NONE = new UUID(0L, 0L);
 
+    /**
+     * Assinatura estável do escopo do usuário atual, para compor chaves de cache
+     * (evita servir um agregado calculado para um escopo a outro usuário).
+     */
+    public String cacheKey() {
+        Optional<Set<UUID>> allowed = allowedDevelopmentIds();
+        if (allowed.isEmpty()) return "ALL";
+        return allowed.get().stream().map(UUID::toString).sorted().reduce("", (a, b) -> a + "," + b);
+    }
+
     /** Par (irrestrito, devIds) para queries no formato {@code :unrestricted = true or x in :devIds}. */
     public record QueryScope(boolean unrestricted, Collection<UUID> devIds) {}
 

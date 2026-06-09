@@ -40,3 +40,6 @@ docker-data/
 
 # ---- Uploads (POC local storage) ----
 backend/uploads/
+
+# Override local de teste do Docker (não versionar)
+dctest.yml
