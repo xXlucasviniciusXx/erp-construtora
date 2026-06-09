@@ -47,6 +47,18 @@ public class Development {
 
     private String dimensions;
 
+    /** Classificação do empreendimento: CORRETORA ou TERRENISTA. */
+    @Column(nullable = false)
+    private String category = "CORRETORA";
+
+    /** Só para TERRENISTA — quantidade de terrenistas (opcional, regras futuras). */
+    @Column(name = "terrenista_count")
+    private Integer terrenistaCount;
+
+    /** Só para TERRENISTA — percentual de divisão (opcional, regras futuras). */
+    @Column(name = "division_percent")
+    private BigDecimal divisionPercent;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

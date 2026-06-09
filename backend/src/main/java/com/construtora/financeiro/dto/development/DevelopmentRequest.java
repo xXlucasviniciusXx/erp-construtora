@@ -11,5 +11,8 @@ public record DevelopmentRequest(
         BigDecimal expectedValue,
         String address,
         String status,
-        String dimensions
+        String dimensions,
+        String category,              // CORRETORA | TERRENISTA (default CORRETORA)
+        Integer terrenistaCount,      // opcional (só Terrenista)
+        BigDecimal divisionPercent    // opcional (só Terrenista)
 ) {}

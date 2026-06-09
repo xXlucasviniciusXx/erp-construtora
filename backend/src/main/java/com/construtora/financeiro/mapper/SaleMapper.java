@@ -74,6 +74,7 @@ public class SaleMapper {
                 s.getStatus(), s.getSaleDate(), s.getNotes(),
                 s.getDistratoDate(), s.getDistratoReason(),
                 s.getDistratoRefundAmount(), s.getDistratoRetainedAmount(),
+                s.getDistratoRule(), s.getDistratoRuleDetail(),
                 paidCount, paidAmount, openAmount, installments);
     }
 }

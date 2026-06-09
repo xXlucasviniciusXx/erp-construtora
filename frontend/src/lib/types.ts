@@ -55,6 +55,9 @@ export interface Development {
   address?: string
   status?: string
   dimensions?: string
+  category?: 'CORRETORA' | 'TERRENISTA'
+  terrenistaCount?: number | null
+  divisionPercent?: number | null
 }
 
 export interface Block {
@@ -131,6 +134,8 @@ export interface Sale {
   distratoReason?: string | null
   distratoRefundAmount?: number | null
   distratoRetainedAmount?: number | null
+  distratoRule?: string | null
+  distratoRuleDetail?: string | null
   paidInstallments?: number
   paidAmount?: number
   openAmount?: number

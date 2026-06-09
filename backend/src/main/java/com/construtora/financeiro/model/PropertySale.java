@@ -87,6 +87,14 @@ public class PropertySale {
     @Column(name = "distrato_retained_amount")
     private BigDecimal distratoRetainedAmount;
 
+    /** Regra aplicada na efetivação do distrato (ex.: "Retenção de 20% sobre o pago"). */
+    @Column(name = "distrato_rule")
+    private String distratoRule;
+
+    /** Memória de cálculo / detalhe da regra aplicada (rastreabilidade/auditoria). */
+    @Column(name = "distrato_rule_detail", columnDefinition = "text")
+    private String distratoRuleDetail;
+
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("number ASC")
     private List<Installment> installments = new ArrayList<>();

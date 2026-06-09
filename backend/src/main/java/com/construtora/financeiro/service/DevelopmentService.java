@@ -68,6 +68,17 @@ public class DevelopmentService {
         d.setAddress(r.address());
         d.setStatus(r.status() != null ? r.status() : "ACTIVE");
         d.setDimensions(r.dimensions());
+
+        String category = "TERRENISTA".equals(r.category()) ? "TERRENISTA" : "CORRETORA";
+        d.setCategory(category);
+        // Campos de terrenista só fazem sentido na categoria Terrenista.
+        if ("TERRENISTA".equals(category)) {
+            d.setTerrenistaCount(r.terrenistaCount());
+            d.setDivisionPercent(r.divisionPercent());
+        } else {
+            d.setTerrenistaCount(null);
+            d.setDivisionPercent(null);
+        }
     }
 
     /** Código sequencial E001, E002, ... */
@@ -84,6 +95,7 @@ public class DevelopmentService {
                 lotRepository.receivedTotalByDevelopment(d.getId()),
                 blockRepository.countByDevelopmentId(d.getId()),
                 lotRepository.countByBlockDevelopmentId(d.getId()),
-                d.getAddress(), d.getStatus(), d.getDimensions());
+                d.getAddress(), d.getStatus(), d.getDimensions(),
+                d.getCategory(), d.getTerrenistaCount(), d.getDivisionPercent());
     }
 }

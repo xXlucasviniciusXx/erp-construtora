@@ -80,6 +80,8 @@ public class ContractRenderer {
         t.put("distrato_motivo", esc(sale.getDistratoReason()));
         t.put("distrato_devolucao", esc(nz(sale.getDistratoRefundAmount())));
         t.put("distrato_retido", esc(nz(sale.getDistratoRetainedAmount())));
+        t.put("distrato_regra", esc(sale.getDistratoRule()));
+        t.put("distrato_regra_detalhe", esc(sale.getDistratoRuleDetail()));
         // Tabela de parcelas (HTML já bem-formado, NÃO escapar)
         t.put("parcelas_tabela", rows.toString());
 

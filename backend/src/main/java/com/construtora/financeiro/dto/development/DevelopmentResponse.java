@@ -16,5 +16,8 @@ public record DevelopmentResponse(
         long actualLots,              // lotes já cadastrados
         String address,
         String status,
-        String dimensions
+        String dimensions,
+        String category,
+        Integer terrenistaCount,
+        BigDecimal divisionPercent
 ) {}
