@@ -1,5 +1,6 @@
 package com.construtora.financeiro.controller;
 
+import com.construtora.financeiro.dto.receivable.ReceivableRejectRequest;
 import com.construtora.financeiro.dto.receivable.ReceivableRequest;
 import com.construtora.financeiro.dto.receivable.ReceivableResponse;
 import com.construtora.financeiro.service.ReceivableService;
@@ -66,6 +67,21 @@ public class ReceivableController {
                                       @RequestParam(required = false)
                                       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate receiveDate) {
         return service.confirmReceive(id, receiveDate);
+    }
+
+    @PostMapping("/{id}/approve")
+    @Operation(summary = "Aprova conta a receber")
+    @PreAuthorize("hasAuthority('CONTAS_RECEBER_EDIT')")
+    public ReceivableResponse approve(@PathVariable UUID id) {
+        return service.approve(id);
+    }
+
+    @PostMapping("/{id}/reject")
+    @Operation(summary = "Rejeita conta a receber")
+    @PreAuthorize("hasAuthority('CONTAS_RECEBER_EDIT')")
+    public ReceivableResponse reject(@PathVariable UUID id,
+                                     @RequestBody(required = false) ReceivableRejectRequest request) {
+        return service.reject(id, request != null ? request.reason() : null);
     }
 
     @DeleteMapping("/{id}")

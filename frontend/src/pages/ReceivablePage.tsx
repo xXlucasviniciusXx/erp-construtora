@@ -135,9 +135,15 @@ interface Receivable {
   status: 'OPEN' | 'RECEIVED' | 'OVERDUE' | 'CANCELLED'
   paymentMethod?: string
   notes?: string
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED'
+  approvedBy?: string
+  approvedAt?: string
+  rejectionReason?: string
 }
 const EMPTY: Partial<Receivable> = { status: 'OPEN' }
 const RECV_COLOR: Record<string, string> = { OPEN: 'gray', RECEIVED: 'green', OVERDUE: 'red', CANCELLED: 'gray' }
+const APPROVAL_LABEL: Record<string, string> = { PENDING: 'Pendente', APPROVED: 'Aprovada', REJECTED: 'Rejeitada' }
+const APPROVAL_COLOR: Record<string, string> = { PENDING: 'yellow', APPROVED: 'green', REJECTED: 'red' }
 
 function StandaloneTab() {
   const { hasPermission } = useAuth()
@@ -150,7 +156,10 @@ function StandaloneTab() {
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [approvalFilter, setApprovalFilter] = useState('')
   const [page, setPage] = useState(0)
+  const [rejectTarget, setRejectTarget] = useState<Receivable | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
   const canWrite = hasPermission('CONTAS_RECEBER_EDIT')
 
   const { data, isLoading } = useQuery({
@@ -179,17 +188,28 @@ function StandaloneTab() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['receivable'] }); toast.success('Conta excluída.') },
     onError: (e) => toast.error(apiErrorMessage(e)),
   })
+  const approve = useMutation({
+    mutationFn: async (id: string) => api.post(`/accounts-receivable/${id}/approve`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['receivable'] }); toast.success('Conta aprovada.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  })
+  const reject = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => api.post(`/accounts-receivable/${id}/reject`, { reason: reason || undefined }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['receivable'] }); setRejectTarget(null); setRejectReason(''); toast.success('Conta rejeitada.') },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  })
 
   async function confirmRemove(id: string) {
     if (await confirm({ title: 'Excluir conta', message: 'Excluir esta conta a receber?', confirmLabel: 'Excluir', danger: true })) remove.mutate(id)
   }
 
-  const filtered = data?.content ?? []  // filtrado/paginado no servidor
+  // status operacional/busca filtrados no servidor; aprovação filtrada no cliente (página atual)
+  const filtered = (data?.content ?? []).filter((r) => !approvalFilter || (r.approvalStatus ?? 'APPROVED') === approvalFilter)
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:max-w-lg">
+        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3 lg:max-w-2xl">
           <Input placeholder="Buscar por cliente ou descrição…" value={q} onChange={(e) => { setQ(e.target.value); setPage(0) }} />
           <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}>
             <option value="">Todos os status</option>
@@ -198,33 +218,55 @@ function StandaloneTab() {
             <option value="OVERDUE">Atrasada</option>
             <option value="CANCELLED">Cancelada</option>
           </Select>
+          <Select value={approvalFilter} onChange={(e) => { setApprovalFilter(e.target.value); setPage(0) }}>
+            <option value="">Toda aprovação</option>
+            <option value="PENDING">Pendente</option>
+            <option value="APPROVED">Aprovada</option>
+            <option value="REJECTED">Rejeitada</option>
+          </Select>
         </div>
         {canWrite && <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Nova conta</Button>}
       </div>
 
       {isLoading ? <TableSkeleton rows={6} cols={6} /> : (
-        <Table headers={['Cliente', 'Descrição', 'Valor', 'Vencimento', 'Status', 'Ações']}>
-          {filtered.map((r) => (
+        <Table headers={['Cliente', 'Descrição', 'Valor', 'Vencimento', 'Status', 'Aprovação', 'Ações']}>
+          {filtered.map((r) => {
+            const approval = r.approvalStatus ?? 'APPROVED'
+            return (
             <Tr key={r.id}>
               <td className="px-4 py-2 font-medium">{r.clientName ?? '—'}</td>
               <td className="px-4 py-2">{r.description ?? '—'}</td>
               <td className="px-4 py-2">{formatCurrency(r.amount)}</td>
               <td className="px-4 py-2">{formatDate(r.dueDate)}</td>
               <td className="px-4 py-2"><Badge dot color={RECV_COLOR[r.status]}>{RECV_LABEL[r.status] ?? r.status}</Badge></td>
+              <td className="px-4 py-2">
+                <Badge dot color={APPROVAL_COLOR[approval]} >{APPROVAL_LABEL[approval] ?? approval}</Badge>
+              </td>
               <td className="px-4 py-2 text-right">
                 <ActionsMenu items={[
                   { label: 'Consultar', onClick: () => setView(r) },
                   ...(canWrite ? [
-                    ...(r.status !== 'RECEIVED' ? [{ label: 'Confirmar recebimento', onClick: () => receive.mutate(r.id) }] : []),
+                    ...(approval === 'PENDING' ? [
+                      { label: 'Aprovar', onClick: () => approve.mutate(r.id) },
+                      { label: 'Rejeitar', danger: true, onClick: () => { setRejectReason(''); setRejectTarget(r) } },
+                    ] : []),
+                    ...(r.status !== 'RECEIVED' ? [{
+                      label: 'Confirmar recebimento',
+                      disabled: approval !== 'APPROVED',
+                      onClick: () => {
+                        if (approval !== 'APPROVED') { toast.error('Conta a receber não aprovada. Aprove antes de dar baixa.'); return }
+                        receive.mutate(r.id)
+                      },
+                    }] : []),
                     { label: 'Alterar', onClick: () => { setForm(r); setError(null); setModalOpen(true) } },
                     { label: 'Excluir', danger: true, onClick: () => confirmRemove(r.id) },
                   ] : []),
                 ]} />
               </td>
             </Tr>
-          ))}
+          )})}
           {filtered.length === 0 && (
-            <tr><td colSpan={6} className="p-0">
+            <tr><td colSpan={7} className="p-0">
               <EmptyState
                 icon={ArrowDownCircle}
                 title="Nenhuma conta avulsa"
@@ -242,12 +284,15 @@ function StandaloneTab() {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <Info label="Cliente" value={view.clientName} />
             <Info label="Status" value={RECV_LABEL[view.status] ?? view.status} />
+            <Info label="Aprovação" value={APPROVAL_LABEL[view.approvalStatus ?? 'APPROVED'] ?? view.approvalStatus} />
+            <Info label="Aprovada/rejeitada em" value={view.approvedAt ? formatDate(view.approvedAt) : '—'} />
             <Info label="Descrição" value={view.description} />
             <Info label="Valor" value={formatCurrency(view.amount)} />
             <Info label="Vencimento" value={formatDate(view.dueDate)} />
             <Info label="Recebimento" value={view.receiveDate ? formatDate(view.receiveDate) : '—'} />
             <Info label="Forma de pagamento" value={view.paymentMethod} />
           </div>
+          {view.rejectionReason && <div className="mt-3"><Info label="Motivo da rejeição" value={view.rejectionReason} /></div>}
           {view.notes && <div className="mt-3"><Info label="Observações" value={view.notes} /></div>}
         </Modal>
       )}
@@ -272,6 +317,29 @@ function StandaloneTab() {
           </div>
         </form>
       </Modal>
+
+      {rejectTarget && (
+        <Modal open onClose={() => setRejectTarget(null)} title="Rejeitar conta a receber">
+          <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); reject.mutate({ id: rejectTarget.id, reason: rejectReason }) }}>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {rejectTarget.clientName ?? 'Conta'} · {formatCurrency(rejectTarget.amount)}
+            </p>
+            <Field label="Motivo (opcional)">
+              <textarea
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-gray-600 dark:bg-gray-800"
+                rows={3}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Descreva o motivo da rejeição…"
+              />
+            </Field>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setRejectTarget(null)}>Cancelar</Button>
+              <Button type="submit" variant="danger" loading={reject.isPending}>Rejeitar</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   )
 }
