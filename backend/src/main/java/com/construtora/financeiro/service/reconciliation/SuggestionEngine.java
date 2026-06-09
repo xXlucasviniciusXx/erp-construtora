@@ -59,14 +59,22 @@ public class SuggestionEngine {
         BigDecimal absAmount = txn.getAmount().abs();
         List<SuggestionResponse> suggestions = new ArrayList<>();
 
+        // Escopo por empreendimento: se a conta bancária está vinculada a um
+        // empreendimento, restringe os candidatos a esse empreendimento
+        // (lançamentos gerais — sem empreendimento — continuam elegíveis).
+        java.util.UUID devId = txn.getBankAccount() != null && txn.getBankAccount().getDevelopment() != null
+                ? txn.getBankAccount().getDevelopment().getId() : null;
+
         if (txn.getType() == TransactionType.CREDIT) {
             for (AccountReceivable r : receivableRepository.findReconcilableByAmount(absAmount)) {
+                if (!receivableInScope(r, devId)) continue;
                 String name = r.getClient() != null ? r.getClient().getName() : null;
                 suggestions.add(score(TargetType.RECEIVABLE, r.getId(),
                         labelReceivable(r), r.getAmount(), r.getDueDate(),
                         clientDocument(r), name, txn));
             }
             for (Installment i : installmentRepository.findReconcilableByAmount(absAmount)) {
+                if (!installmentInScope(i, devId)) continue;
                 var client = i.getSale().getClient();
                 suggestions.add(score(TargetType.INSTALLMENT, i.getId(),
                         labelInstallment(i), i.getAmount(), i.getDueDate(),
@@ -74,6 +82,7 @@ public class SuggestionEngine {
             }
         } else {
             for (AccountPayable p : payableRepository.findReconcilableByAmount(absAmount)) {
+                if (!payableInScope(p, devId)) continue;
                 suggestions.add(score(TargetType.PAYABLE, p.getId(),
                         "Pagar: " + p.getSupplier(), p.getAmount(), p.getDueDate(), null, p.getSupplier(), txn));
             }
@@ -81,6 +90,33 @@ public class SuggestionEngine {
 
         suggestions.sort(Comparator.comparing(SuggestionResponse::score).reversed());
         return suggestions;
+    }
+
+    /** Parcela pertence ao empreendimento (via venda → lote → quadra → empreendimento). */
+    private boolean installmentInScope(Installment i, java.util.UUID devId) {
+        if (devId == null) return true;
+        try {
+            return devId.equals(i.getSale().getLot().getBlock().getDevelopment().getId());
+        } catch (NullPointerException e) {
+            return false;
+        }
+    }
+
+    /** Conta a receber: do empreendimento (via venda) ou geral (sem venda vinculada). */
+    private boolean receivableInScope(AccountReceivable r, java.util.UUID devId) {
+        if (devId == null) return true;
+        if (r.getSale() == null) return true; // recebível avulso permanece elegível
+        try {
+            return devId.equals(r.getSale().getLot().getBlock().getDevelopment().getId());
+        } catch (NullPointerException e) {
+            return true;
+        }
+    }
+
+    /** Conta a pagar: do empreendimento ou geral (sem empreendimento). */
+    private boolean payableInScope(AccountPayable p, java.util.UUID devId) {
+        if (devId == null) return true;
+        return p.getDevelopment() == null || devId.equals(p.getDevelopment().getId());
     }
 
     private SuggestionResponse score(TargetType type, java.util.UUID id, String label,

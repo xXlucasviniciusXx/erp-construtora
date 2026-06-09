@@ -177,6 +177,8 @@ export interface BankAccount {
   accountNumber?: string
   initialBalance: number
   active: boolean
+  developmentId?: string | null   // null = conta geral
+  developmentName?: string | null
 }
 
 export interface BankTransaction {
