@@ -188,6 +188,9 @@ public class ReconciliationService {
                         .orElseThrow(() -> ResourceNotFoundException.of("Conta a receber", id));
                 r.setStatus(ReceivableStatus.RECEIVED);
                 r.setReceiveDate(date);
+                // Registro informativo da data do crédito no extrato (uso futuro).
+                // A baixa (receiveDate) continua sendo a referência financeira principal.
+                r.setBankCreditDate(txn.getTransactionDate());
                 receivableRepository.save(r);
             }
             case PAYABLE -> {
@@ -202,6 +205,9 @@ public class ReconciliationService {
                         .orElseThrow(() -> ResourceNotFoundException.of("Parcela", id));
                 i.setStatus(InstallmentStatus.PAID);
                 i.setPaymentDate(date);
+                // Registro informativo da data do crédito no extrato (uso futuro).
+                // A baixa (paymentDate) continua sendo a referência financeira principal.
+                i.setBankCreditDate(txn.getTransactionDate());
                 installmentRepository.save(i);
             }
         }
@@ -212,6 +218,7 @@ public class ReconciliationService {
             case RECEIVABLE -> receivableRepository.findById(id).ifPresent(r -> {
                 r.setStatus(ReceivableStatus.OPEN);
                 r.setReceiveDate(null);
+                r.setBankCreditDate(null);
                 receivableRepository.save(r);
             });
             case PAYABLE -> payableRepository.findById(id).ifPresent(p -> {
@@ -222,6 +229,7 @@ public class ReconciliationService {
             case INSTALLMENT -> installmentRepository.findById(id).ifPresent(i -> {
                 i.setStatus(InstallmentStatus.OPEN);
                 i.setPaymentDate(null);
+                i.setBankCreditDate(null);
                 installmentRepository.save(i);
             });
         }

@@ -27,5 +27,7 @@ public record ReceivableResponse(
         ReceivableApprovalStatus approvalStatus,
         UUID approvedBy,
         OffsetDateTime approvedAt,
-        String rejectionReason
+        String rejectionReason,
+        // Data do crédito no extrato bancário, capturada na conciliação (informativo, uso futuro).
+        LocalDate bankCreditDate
 ) {}

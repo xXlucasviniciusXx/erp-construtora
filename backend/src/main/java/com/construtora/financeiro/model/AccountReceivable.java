@@ -52,6 +52,14 @@ public class AccountReceivable {
     @Column(name = "receive_date")
     private LocalDate receiveDate;
 
+    /**
+     * Data do crédito no extrato bancário, capturada na conciliação (uso futuro).
+     * É um registro informativo; a referência financeira principal continua sendo
+     * a data da baixa ({@link #receiveDate}).
+     */
+    @Column(name = "bank_credit_date")
+    private LocalDate bankCreditDate;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ReceivableStatus status = ReceivableStatus.OPEN;

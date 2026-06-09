@@ -112,6 +112,7 @@ export interface Installment {
   penaltyAmount: number
   interestAmount: number
   updatedAmount: number
+  bankCreditDate?: string | null   // data do crédito no extrato (capturada na conciliação)
 }
 
 export interface Sale {
@@ -281,6 +282,7 @@ export interface InstallmentDetail {
   penaltyAmount: number
   interestAmount: number
   updatedAmount: number
+  bankCreditDate?: string | null   // data do crédito no extrato (capturada na conciliação)
 }
 
 export interface Supplier {
