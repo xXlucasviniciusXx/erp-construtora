@@ -91,9 +91,10 @@ export function Badge({ children, color = 'gray', dot }: { children: ReactNode; 
     red: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
     yellow: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
     blue: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
   }
   const dotColors: Record<string, string> = {
-    gray: 'bg-gray-400', green: 'bg-green-500', red: 'bg-red-500', yellow: 'bg-yellow-500', blue: 'bg-blue-500',
+    gray: 'bg-gray-400', green: 'bg-green-500', red: 'bg-red-500', yellow: 'bg-yellow-500', blue: 'bg-blue-500', orange: 'bg-orange-500',
   }
   return (
     <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium', colors[color])}>

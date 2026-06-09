@@ -1,3 +1,3 @@
 package com.construtora.financeiro.model.enums;
 
-public enum PropertyStatus { AVAILABLE, RESERVED, SOLD, CANCELLED }
+public enum PropertyStatus { AVAILABLE, RESERVED, SOLD, EM_DISTRATO, CANCELLED }

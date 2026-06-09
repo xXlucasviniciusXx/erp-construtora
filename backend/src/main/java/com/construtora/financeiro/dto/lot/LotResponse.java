@@ -21,6 +21,7 @@ public record LotResponse(
         BigDecimal builtArea,
         BigDecimal plannedValue,
         BigDecimal saleValue,
+        BigDecimal retentionPercent,
         PropertyStatus status,
         String contractExtra,
         String notes,

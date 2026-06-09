@@ -53,6 +53,10 @@ public class Lot {
     @Column(name = "sale_value")
     private BigDecimal saleValue;
 
+    /** Percentual padrão de retenção (%) sugerido no distrato deste lote. */
+    @Column(name = "retention_percent")
+    private BigDecimal retentionPercent;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PropertyStatus status = PropertyStatus.AVAILABLE;

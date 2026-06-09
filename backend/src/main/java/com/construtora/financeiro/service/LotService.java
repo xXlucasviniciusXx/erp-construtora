@@ -170,6 +170,7 @@ public class LotService {
         lot.setTotalArea(r.totalArea());
         lot.setBuiltArea(r.builtArea());
         lot.setPlannedValue(r.plannedValue());
+        lot.setRetentionPercent(r.retentionPercent());
         lot.setContractExtra(r.contractExtra());
         lot.setNotes(r.notes());
         if (r.status() != null) {

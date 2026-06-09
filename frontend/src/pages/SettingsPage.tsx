@@ -13,6 +13,7 @@ import { ModulesTab } from './settings/ModulesTab'
 import { AccessProfilesTab } from './settings/AccessProfilesTab'
 import { ListsTab } from './settings/ListsTab'
 import { ContractTemplatesTab } from './settings/ContractTemplatesTab'
+import { DistratoConfigTab } from './settings/DistratoConfigTab'
 
 const TABS = [
   { key: 'general', label: 'Geral' },
@@ -24,6 +25,7 @@ const TABS = [
   { key: 'cost-centers', label: 'Centros de Custo' },
   { key: 'lists', label: 'Listas' },
   { key: 'contracts', label: 'Contratos' },
+  { key: 'distrato', label: 'Distrato' },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
@@ -61,6 +63,7 @@ export function SettingsPage() {
       {tab === 'cost-centers' && <CostCentersTab />}
       {tab === 'lists' && <ListsTab />}
       {tab === 'contracts' && <ContractTemplatesTab />}
+      {tab === 'distrato' && <DistratoConfigTab />}
     </div>
   )
 }

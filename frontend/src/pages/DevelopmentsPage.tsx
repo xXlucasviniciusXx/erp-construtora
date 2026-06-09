@@ -10,8 +10,8 @@ import { useConfirm } from '@/components/Confirm'
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { cn, formatCurrency } from '@/lib/utils'
 
-const LOT_COLOR: Record<LotStatus, string> = { AVAILABLE: 'green', RESERVED: 'yellow', SOLD: 'blue', CANCELLED: 'gray' }
-const LOT_LABEL: Record<LotStatus, string> = { AVAILABLE: 'Disponível', RESERVED: 'Reservado', SOLD: 'Vendido', CANCELLED: 'Cancelado' }
+const LOT_COLOR: Record<LotStatus, string> = { AVAILABLE: 'green', RESERVED: 'yellow', SOLD: 'blue', EM_DISTRATO: 'orange', CANCELLED: 'gray' }
+const LOT_LABEL: Record<LotStatus, string> = { AVAILABLE: 'Disponível', RESERVED: 'Reservado', SOLD: 'Vendido', EM_DISTRATO: 'Em distrato', CANCELLED: 'Cancelado' }
 
 export function DevelopmentsPage() {
   const { hasPermission } = useAuth()
@@ -91,7 +91,7 @@ function LotsExplorer() {
           <Field label="Status">
             <Select value={status} onChange={(e) => setStatus(e.target.value as LotStatus | '')} disabled={!developmentId}>
               <option value="">Todos</option>
-              {(['AVAILABLE', 'RESERVED', 'SOLD', 'CANCELLED'] as LotStatus[]).map((s) => <option key={s} value={s}>{LOT_LABEL[s]}</option>)}
+              {(['AVAILABLE', 'RESERVED', 'SOLD', 'EM_DISTRATO', 'CANCELLED'] as LotStatus[]).map((s) => <option key={s} value={s}>{LOT_LABEL[s]}</option>)}
             </Select>
           </Field>
         </div>
@@ -320,6 +320,7 @@ const CELL_STYLE: Record<LotStatus, string> = {
   AVAILABLE: 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800',
   RESERVED: 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800',
   SOLD: 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
+  EM_DISTRATO: 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800',
   CANCELLED: 'bg-gray-100 text-gray-400 border-gray-300 line-through hover:bg-gray-200 dark:bg-gray-700/40 dark:text-gray-500 dark:border-gray-600',
 }
 
@@ -605,9 +606,13 @@ function LotsSection({ development, block, canWrite, onChange }: { development: 
       <Modal open={open} onClose={() => setOpen(false)} title={form.id ? 'Editar lote' : 'Novo lote'}>
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate(form) }}>
           <Field label="Nome do lote"><Input value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Field label="Matrícula do cartório (opcional)"><Input value={form.registration ?? ''} onChange={(e) => setForm({ ...form, registration: e.target.value })} /></Field>
             <Field label="Valor previsto"><Input type="number" step="0.01" value={form.plannedValue ?? ''} onChange={(e) => setForm({ ...form, plannedValue: Number(e.target.value) })} /></Field>
+            <Field label="Retenção padrão (%) no distrato">
+              <Input type="number" step="0.01" min={0} max={100} value={form.retentionPercent ?? ''}
+                onChange={(e) => setForm({ ...form, retentionPercent: e.target.value === '' ? null : Number(e.target.value) })} />
+            </Field>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <Field label="Unidade"><Input value={form.unit ?? ''} onChange={(e) => setForm({ ...form, unit: e.target.value })} /></Field>

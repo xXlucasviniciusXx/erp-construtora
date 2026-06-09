@@ -68,6 +68,12 @@ public class SaleService {
         if (lot.getStatus() == PropertyStatus.SOLD) {
             throw new BusinessException("Lote já está vendido");
         }
+        if (lot.getStatus() == PropertyStatus.EM_DISTRATO) {
+            throw new BusinessException("Lote em processo de distrato: não pode ser vendido até a conclusão.");
+        }
+        if (lot.getStatus() == PropertyStatus.CANCELLED) {
+            throw new BusinessException("Lote cancelado: não pode ser vendido.");
+        }
         BigDecimal down = resolveDownPayment(request);
         if (down.compareTo(request.totalValue()) > 0) {
             throw new BusinessException("Entrada não pode ser maior que o valor vendido");

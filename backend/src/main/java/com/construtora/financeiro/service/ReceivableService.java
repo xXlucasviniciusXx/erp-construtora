@@ -71,6 +71,14 @@ public class ReceivableService {
         return mapper.toResponse(repository.save(a));
     }
 
+    @Auditable(action = "RECEIVABLE_CANCEL", entity = "accounts_receivable")
+    public ReceivableResponse cancel(UUID id) {
+        AccountReceivable a = getEntity(id);
+        a.setStatus(ReceivableStatus.CANCELLED);
+        a.setReceiveDate(null);
+        return mapper.toResponse(repository.save(a));
+    }
+
     @Auditable(action = "RECEIVABLE_DELETE", entity = "accounts_receivable")
     public void delete(UUID id) {
         repository.delete(getEntity(id));

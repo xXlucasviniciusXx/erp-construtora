@@ -39,7 +39,7 @@ export interface Client {
   status: 'ACTIVE' | 'INACTIVE'
 }
 
-export type LotStatus = 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'CANCELLED'
+export type LotStatus = 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'EM_DISTRATO' | 'CANCELLED'
 
 export interface Development {
   id: string
@@ -86,6 +86,7 @@ export interface Lot {
   builtArea?: number
   plannedValue?: number
   saleValue?: number
+  retentionPercent?: number | null
   status: LotStatus
   contractExtra?: string
   notes?: string
@@ -130,7 +131,7 @@ export interface Sale {
   correctionIndex?: string
   interestRate?: number
   penaltyRate?: number
-  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
+  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'DISTRATADO'
   saleDate: string
   notes?: string
   distratoDate?: string | null
@@ -456,4 +457,85 @@ export interface IndexQuote {
   lastValue?: number | null
   lastRef?: string | null
   available: boolean
+}
+
+// ---- Distrato (rescisão de contrato de lote) ----
+
+export type DistratoStatus =
+  | 'SOLICITADO' | 'APROVADO' | 'AGUARDANDO_QUITACAO_FINANCEIRA' | 'CONCLUIDO' | 'CANCELADO'
+
+export type DistratoFinancialRule =
+  | 'APENAS_RETENCAO_SOBRE_VALOR_PAGO'
+  | 'RETENCAO_MAIS_PARCELAS_VENCIDAS'
+  | 'RETENCAO_MAIS_PARCELAS_VENCIDAS_E_ENCARGOS'
+  | 'RETENCAO_MAIS_SALDO_DEVEDOR_TOTAL'
+
+export type DistratoFinancialOutcome = 'PAYABLE' | 'RECEIVABLE' | 'ZERO'
+
+export interface DistratoSimulation {
+  saleId: string
+  contractNumber?: string
+  clientName: string
+  developmentName?: string
+  blockName?: string
+  lotName?: string
+  contractTotal: number
+  paidAmount: number
+  defaultRetentionPercent?: number | null
+  usedRetentionPercent: number
+  retentionAmount: number
+  financialRule: DistratoFinancialRule
+  overdueAmount: number
+  chargesAmount: number
+  totalDebtAmount: number
+  deductions: number
+  finalBalance: number
+  financialOutcome: DistratoFinancialOutcome
+  financialEntryAmount: number
+  reason?: string | null
+}
+
+export interface Distrato {
+  id: string
+  saleId: string
+  contractNumber?: string
+  clientId: string
+  clientName: string
+  lotId: string
+  developmentName?: string
+  blockName?: string
+  lotName?: string
+  status: DistratoStatus
+  financialRule: DistratoFinancialRule
+  reason?: string | null
+  contractTotal: number
+  paidAmount: number
+  defaultRetentionPercent?: number | null
+  usedRetentionPercent: number
+  retentionChangeReason?: string | null
+  retentionAmount: number
+  overdueAmount: number
+  chargesAmount: number
+  totalDebtAmount: number
+  finalBalance: number
+  financialOutcome: DistratoFinancialOutcome
+  financialEntryAmount: number
+  payableId?: string | null
+  receivableId?: string | null
+  requestedBy?: string | null
+  approvedBy?: string | null
+  settledBy?: string | null
+  requestedAt?: string | null
+  approvedAt?: string | null
+  concludedAt?: string | null
+  calculationMemory?: string | null
+  createdAt?: string
+}
+
+export interface DistratoConfig {
+  id: string
+  developmentId?: string | null   // null = global
+  developmentName?: string | null
+  financialRule: DistratoFinancialRule
+  active: boolean
 }
