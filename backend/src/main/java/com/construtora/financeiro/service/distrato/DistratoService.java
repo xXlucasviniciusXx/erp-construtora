@@ -224,6 +224,9 @@ public class DistratoService {
                     "Distrato contrato " + d.getSale().getContractNumber() + " — saldo devido pelo cliente",
                     entry, LocalDate.now(), null, ReceivableStatus.OPEN, null,
                     "Lançamento gerado automaticamente pelo distrato " + d.getId()));
+            // Recebível gerado por um distrato já APROVADO entra aprovado: a baixa
+            // (settle) usa confirmReceive, que exige aprovação prévia.
+            receivableService.approve(receivable.id());
             d.setReceivableId(receivable.id());
         }
         d.setStatus(DistratoStatus.AGUARDANDO_QUITACAO_FINANCEIRA);

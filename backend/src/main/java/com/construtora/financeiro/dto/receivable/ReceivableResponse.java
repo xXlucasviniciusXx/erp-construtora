@@ -1,9 +1,11 @@
 package com.construtora.financeiro.dto.receivable;
 
+import com.construtora.financeiro.model.enums.ReceivableApprovalStatus;
 import com.construtora.financeiro.model.enums.ReceivableStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record ReceivableResponse(
@@ -22,6 +24,10 @@ public record ReceivableResponse(
         ReceivableStatus status,
         String paymentMethod,
         String notes,
+        ReceivableApprovalStatus approvalStatus,
+        UUID approvedBy,
+        OffsetDateTime approvedAt,
+        String rejectionReason,
         // Data do crédito no extrato bancário, capturada na conciliação (informativo, uso futuro).
         LocalDate bankCreditDate
 ) {}

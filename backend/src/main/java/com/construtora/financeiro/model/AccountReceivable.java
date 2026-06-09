@@ -1,5 +1,6 @@
 package com.construtora.financeiro.model;
 
+import com.construtora.financeiro.model.enums.ReceivableApprovalStatus;
 import com.construtora.financeiro.model.enums.ReceivableStatus;
 import jakarta.persistence.*;
 import jakarta.persistence.FetchType;
@@ -68,6 +69,20 @@ public class AccountReceivable {
 
     @Column(columnDefinition = "text")
     private String notes;
+
+    /** Ciclo de aprovação (separado do status operacional). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status", nullable = false, length = 20)
+    private ReceivableApprovalStatus approvalStatus = ReceivableApprovalStatus.PENDING;
+
+    @Column(name = "approved_by")
+    private UUID approvedBy;
+
+    @Column(name = "approved_at")
+    private OffsetDateTime approvedAt;
+
+    @Column(name = "rejection_reason", columnDefinition = "text")
+    private String rejectionReason;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
