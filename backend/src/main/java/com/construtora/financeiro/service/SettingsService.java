@@ -3,9 +3,12 @@ package com.construtora.financeiro.service;
 import com.construtora.financeiro.dto.settings.PublicSettingsResponse;
 import com.construtora.financeiro.dto.settings.SettingsRequest;
 import com.construtora.financeiro.dto.settings.SettingsResponse;
+import com.construtora.financeiro.config.CacheConfig;
 import com.construtora.financeiro.exception.BusinessException;
 import com.construtora.financeiro.model.SystemSettings;
 import com.construtora.financeiro.repository.SystemSettingsRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,12 +32,14 @@ public class SettingsService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(CacheConfig.PUBLIC_SETTINGS)
     public PublicSettingsResponse getPublic() {
         SystemSettings s = current();
         return new PublicSettingsResponse(s.getSystemName(), versionedLogoUrl(s), s.getPrimaryColor(),
                 s.getSecondaryColor(), s.getTheme(), s.getFooterText());
     }
 
+    @CacheEvict(value = CacheConfig.PUBLIC_SETTINGS, allEntries = true)
     public SettingsResponse update(SettingsRequest r) {
         SystemSettings s = current();
         s.setSystemName(r.systemName());
@@ -64,6 +69,7 @@ public class SettingsService {
     private static final long MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2 MB
 
     /** Faz upload do logo e o armazena no banco. Retorna a config atualizada. */
+    @CacheEvict(value = CacheConfig.PUBLIC_SETTINGS, allEntries = true)
     public SettingsResponse uploadLogo(MultipartFile file) throws IOException {
         String mime = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
         if (!ALLOWED_MIME.contains(mime)) {
@@ -81,6 +87,7 @@ public class SettingsService {
     }
 
     /** Remove o logo armazenado no banco (a logo_url volta a ser o campo manual). */
+    @CacheEvict(value = CacheConfig.PUBLIC_SETTINGS, allEntries = true)
     public SettingsResponse deleteLogo() {
         SystemSettings s = current();
         s.setLogoData(null);

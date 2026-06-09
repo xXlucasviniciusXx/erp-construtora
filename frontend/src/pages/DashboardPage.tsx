@@ -144,24 +144,33 @@ export function DashboardPage() {
     enabled: canEmp,
   })
 
-  // Fontes para o drill-down (clicar no gráfico → lista detalhada)
+  const [drill, setDrill] = useState<DrillState | null>(null)
+
+  // Fontes para o drill-down — LAZY: carregam só quando o drill que precisa
+  // delas é aberto (evita puxar milhares de linhas no mount do dashboard).
+  const dk = drill?.kind
+  const needSales = dk === 'sales' || dk === 'salesByMonth'
+  const needOverdue = dk === 'overdue' || dk === 'overdueByAging' || dk === 'clients'
+  const needPaid = dk === 'receivedByMonth' || (dk === 'receivables' && drill?.key === 'Recebido')
+
   const allSales = useQuery({
     queryKey: ['sales-all'],
     queryFn: async () => (await api.get<Page<Sale>>('/sales', { params: { size: 2000 } })).data.content,
-    enabled: canVendas,
+    enabled: canVendas && needSales,
+    staleTime: 120_000,
   })
   const overdueInst = useQuery({
     queryKey: ['installments-overdue'],
     queryFn: async () => (await api.get<Page<InstallmentDetail>>('/installments', { params: { status: 'OVERDUE', size: 1000 } })).data.content,
-    enabled: canVendas,
+    enabled: canVendas && needOverdue,
+    staleTime: 120_000,
   })
   const paidInst = useQuery({
     queryKey: ['installments-paid'],
     queryFn: async () => (await api.get<Page<InstallmentDetail>>('/installments', { params: { status: 'PAID', size: 2000 } })).data.content,
-    enabled: canVendas,
+    enabled: canVendas && needPaid,
+    staleTime: 120_000,
   })
-
-  const [drill, setDrill] = useState<DrillState | null>(null)
 
   // Queries LAZY — carregam apenas quando o drill-down correspondente é aberto
   const drillNeedsOpenInst = drill?.kind === 'toReceiveByMonth'
@@ -422,8 +431,11 @@ export function DashboardPage() {
         <DrillModal
           drill={drill}
           sales={allSales.data ?? []}
+          salesLoading={allSales.isFetching}
           overdue={overdueInst.data ?? []}
+          overdueLoading={overdueInst.isFetching}
           paid={paidInst.data ?? []}
+          paidLoading={paidInst.isFetching}
           open={openInst.data ?? []}
           openLoading={openInst.isFetching}
           payables={paidPayables.data ?? []}
@@ -455,15 +467,31 @@ function agingRange(label: string): [number, number] {
   return [91, Infinity]
 }
 
-function DrillModal({ drill, sales, overdue, paid, open, openLoading, payables, payablesLoading, openPayables, openPayablesLoading, clients, onClose }: {
+function DrillModal({ drill, sales, salesLoading, overdue, overdueLoading, paid, paidLoading, open, openLoading, payables, payablesLoading, openPayables, openPayablesLoading, clients, onClose }: {
   drill: DrillState
-  sales: Sale[]; overdue: InstallmentDetail[]; paid: InstallmentDetail[]
+  sales: Sale[]; salesLoading: boolean
+  overdue: InstallmentDetail[]; overdueLoading: boolean
+  paid: InstallmentDetail[]; paidLoading: boolean
   open: InstallmentDetail[]; openLoading: boolean
   payables: Payable[]; payablesLoading: boolean
   openPayables: Payable[]; openPayablesLoading: boolean
   clients: Client[]
   onClose: () => void
 }) {
+  // Guarda única: enquanto a fonte lazy do drill carrega, mostra "Carregando…".
+  const k = drill.kind
+  const waiting =
+    ((k === 'sales' || k === 'salesByMonth') && salesLoading)
+    || ((k === 'overdue' || k === 'overdueByAging' || (k === 'clients' && drill.key === 'Inadimplentes')) && overdueLoading)
+    || ((k === 'receivedByMonth' || (k === 'receivables' && drill.key === 'Recebido')) && paidLoading)
+  if (waiting) {
+    return (
+      <Modal open onClose={onClose} title={drill.title} size="xl">
+        <p className="py-6 text-center text-sm text-gray-400">Carregando…</p>
+      </Modal>
+    )
+  }
+
   // ---- Contas a Receber: Recebido × A receber ----
   if (drill.kind === 'receivables') {
     const isReceived = drill.key === 'Recebido'

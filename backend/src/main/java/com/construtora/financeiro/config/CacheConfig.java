@@ -24,6 +24,7 @@ public class CacheConfig {
     public static final String DASHBOARD_ANALYTICS = "dashboardAnalytics";
     public static final String DASHBOARD_SUMMARY = "dashboardSummary";
     public static final String BCB_INDEX = "bcbIndex";
+    public static final String PUBLIC_SETTINGS = "publicSettings";
 
     @Bean
     public CacheManager cacheManager() {
@@ -38,6 +39,13 @@ public class CacheConfig {
         manager.registerCustomCache(BCB_INDEX, Caffeine.newBuilder()
                 .expireAfterWrite(6, TimeUnit.HOURS)
                 .maximumSize(50)
+                .build());
+        // Settings públicos: lidos em todo carregamento de página (branding),
+        // mudam raramente. Cache de 10 min, invalidado nas escritas — evita reler
+        // a linha (incluindo o BYTEA do logo) a cada requisição.
+        manager.registerCustomCache(PUBLIC_SETTINGS, Caffeine.newBuilder()
+                .expireAfterWrite(10, TimeUnit.MINUTES)
+                .maximumSize(4)
                 .build());
         return manager;
     }
