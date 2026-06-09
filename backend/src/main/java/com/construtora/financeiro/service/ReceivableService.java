@@ -2,9 +2,11 @@ package com.construtora.financeiro.service;
 
 import com.construtora.financeiro.dto.receivable.ReceivableRequest;
 import com.construtora.financeiro.dto.receivable.ReceivableResponse;
+import com.construtora.financeiro.exception.BusinessException;
 import com.construtora.financeiro.exception.ResourceNotFoundException;
 import com.construtora.financeiro.mapper.ReceivableMapper;
 import com.construtora.financeiro.model.AccountReceivable;
+import com.construtora.financeiro.model.enums.ReceivableApprovalStatus;
 import com.construtora.financeiro.model.enums.ReceivableStatus;
 import com.construtora.financeiro.annotation.Auditable;
 import com.construtora.financeiro.repository.AccountReceivableRepository;
@@ -12,12 +14,15 @@ import com.construtora.financeiro.repository.CategoryRepository;
 import com.construtora.financeiro.repository.ClientRepository;
 import com.construtora.financeiro.repository.InstallmentRepository;
 import com.construtora.financeiro.repository.PropertySaleRepository;
+import com.construtora.financeiro.security.SecurityUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Service
@@ -66,8 +71,43 @@ public class ReceivableService {
     @Auditable(action = "RECEIVABLE_CONFIRM", entity = "accounts_receivable")
     public ReceivableResponse confirmReceive(UUID id, LocalDate receiveDate) {
         AccountReceivable a = getEntity(id);
+        if (a.getApprovalStatus() != ReceivableApprovalStatus.APPROVED) {
+            throw new BusinessException(
+                    "Conta a receber não aprovada. Apenas contas APROVADAS podem ser baixadas. Aprovação atual: "
+                            + a.getApprovalStatus());
+        }
         a.setStatus(ReceivableStatus.RECEIVED);
         a.setReceiveDate(receiveDate != null ? receiveDate : LocalDate.now());
+        return mapper.toResponse(repository.save(a));
+    }
+
+    @Auditable(action = "RECEIVABLE_APPROVE", entity = "accounts_receivable")
+    public ReceivableResponse approve(UUID id) {
+        AccountReceivable a = getEntity(id);
+        if (a.getApprovalStatus() != ReceivableApprovalStatus.PENDING) {
+            throw new BusinessException(
+                    "Apenas contas a receber PENDENTES podem ser aprovadas. Aprovação atual: "
+                            + a.getApprovalStatus());
+        }
+        a.setApprovalStatus(ReceivableApprovalStatus.APPROVED);
+        a.setApprovedBy(SecurityUtils.currentUserId().orElse(null));
+        a.setApprovedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        a.setRejectionReason(null);
+        return mapper.toResponse(repository.save(a));
+    }
+
+    @Auditable(action = "RECEIVABLE_REJECT", entity = "accounts_receivable")
+    public ReceivableResponse reject(UUID id, String reason) {
+        AccountReceivable a = getEntity(id);
+        if (a.getApprovalStatus() != ReceivableApprovalStatus.PENDING) {
+            throw new BusinessException(
+                    "Apenas contas a receber PENDENTES podem ser rejeitadas. Aprovação atual: "
+                            + a.getApprovalStatus());
+        }
+        a.setApprovalStatus(ReceivableApprovalStatus.REJECTED);
+        a.setApprovedBy(SecurityUtils.currentUserId().orElse(null));
+        a.setApprovedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        a.setRejectionReason(reason);
         return mapper.toResponse(repository.save(a));
     }
 
@@ -105,6 +145,10 @@ public class ReceivableService {
         a.setStatus(r.status() != null ? r.status() : ReceivableStatus.OPEN);
         a.setPaymentMethod(r.paymentMethod());
         a.setNotes(r.notes());
+        // Entidade nova nasce PENDENTE de aprovação; no update o approvalStatus não é alterado.
+        if (a.getId() == null) {
+            a.setApprovalStatus(ReceivableApprovalStatus.PENDING);
+        }
         return a;
     }
 }

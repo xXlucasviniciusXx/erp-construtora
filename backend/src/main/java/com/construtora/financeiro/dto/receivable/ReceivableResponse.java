@@ -1,9 +1,11 @@
 package com.construtora.financeiro.dto.receivable;
 
+import com.construtora.financeiro.model.enums.ReceivableApprovalStatus;
 import com.construtora.financeiro.model.enums.ReceivableStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record ReceivableResponse(
@@ -21,5 +23,9 @@ public record ReceivableResponse(
         LocalDate receiveDate,
         ReceivableStatus status,
         String paymentMethod,
-        String notes
+        String notes,
+        ReceivableApprovalStatus approvalStatus,
+        UUID approvedBy,
+        OffsetDateTime approvedAt,
+        String rejectionReason
 ) {}

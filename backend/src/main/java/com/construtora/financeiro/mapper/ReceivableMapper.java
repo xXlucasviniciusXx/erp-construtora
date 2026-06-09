@@ -20,6 +20,7 @@ public class ReceivableMapper {
                 cat != null ? cat.getName() : null,
                 cat != null ? cat.getGrupo() : null,
                 a.getDescription(), a.getAmount(), a.getDueDate(), a.getReceiveDate(),
-                a.getStatus(), a.getPaymentMethod(), a.getNotes());
+                a.getStatus(), a.getPaymentMethod(), a.getNotes(),
+                a.getApprovalStatus(), a.getApprovedBy(), a.getApprovedAt(), a.getRejectionReason());
     }
 }
