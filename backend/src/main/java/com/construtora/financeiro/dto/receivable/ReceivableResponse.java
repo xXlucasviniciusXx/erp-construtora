@@ -21,5 +21,7 @@ public record ReceivableResponse(
         LocalDate receiveDate,
         ReceivableStatus status,
         String paymentMethod,
-        String notes
+        String notes,
+        // Data do crédito no extrato bancário, capturada na conciliação (informativo, uso futuro).
+        LocalDate bankCreditDate
 ) {}

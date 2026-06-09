@@ -135,6 +135,7 @@ interface Receivable {
   status: 'OPEN' | 'RECEIVED' | 'OVERDUE' | 'CANCELLED'
   paymentMethod?: string
   notes?: string
+  bankCreditDate?: string | null   // data do crédito no extrato (capturada na conciliação)
 }
 const EMPTY: Partial<Receivable> = { status: 'OPEN' }
 const RECV_COLOR: Record<string, string> = { OPEN: 'gray', RECEIVED: 'green', OVERDUE: 'red', CANCELLED: 'gray' }
@@ -246,6 +247,7 @@ function StandaloneTab() {
             <Info label="Valor" value={formatCurrency(view.amount)} />
             <Info label="Vencimento" value={formatDate(view.dueDate)} />
             <Info label="Recebimento" value={view.receiveDate ? formatDate(view.receiveDate) : '—'} />
+            <Info label="Crédito (extrato)" value={view.bankCreditDate ? formatDate(view.bankCreditDate) : '—'} />
             <Info label="Forma de pagamento" value={view.paymentMethod} />
           </div>
           {view.notes && <div className="mt-3"><Info label="Observações" value={view.notes} /></div>}

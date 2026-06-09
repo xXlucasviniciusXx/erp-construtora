@@ -20,5 +20,7 @@ public record InstallmentResponse(
         long daysLate,
         BigDecimal penaltyAmount,
         BigDecimal interestAmount,
-        BigDecimal updatedAmount
+        BigDecimal updatedAmount,
+        // Data do crédito no extrato bancário, capturada na conciliação (informativo, uso futuro).
+        LocalDate bankCreditDate
 ) {}

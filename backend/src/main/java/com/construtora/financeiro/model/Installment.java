@@ -38,6 +38,14 @@ public class Installment {
     @Column(name = "payment_date")
     private LocalDate paymentDate;
 
+    /**
+     * Data do crédito no extrato bancário, capturada na conciliação (uso futuro).
+     * É um registro informativo; a referência financeira principal continua sendo
+     * a data da baixa ({@link #paymentDate}).
+     */
+    @Column(name = "bank_credit_date")
+    private LocalDate bankCreditDate;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private InstallmentStatus status = InstallmentStatus.OPEN;

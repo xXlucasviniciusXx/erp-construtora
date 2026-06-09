@@ -30,7 +30,8 @@ public class SaleMapper {
         return new InstallmentResponse(
                 i.getId(), i.getSale().getId(), i.getNumber(), i.getAmount(), i.getDueDate(),
                 i.getPaymentDate(), i.getStatus(), i.getPaymentMethod(), i.getReceiptUrl(), i.getNotes(),
-                f.daysLate(), f.penaltyAmount(), f.interestAmount(), f.updatedAmount());
+                f.daysLate(), f.penaltyAmount(), f.interestAmount(), f.updatedAmount(),
+                i.getBankCreditDate());
     }
 
     public InstallmentDetailResponse toDetailResponse(Installment i) {
@@ -43,7 +44,8 @@ public class SaleMapper {
                 i.getPaymentDate(), i.getStatus(),
                 c.getId(), c.getName(), c.getDocument(), c.getPhone(),
                 lot.getBlock().getDevelopment().getName(), LotMapper.label(lot),
-                f.daysLate(), f.penaltyAmount(), f.interestAmount(), f.updatedAmount());
+                f.daysLate(), f.penaltyAmount(), f.interestAmount(), f.updatedAmount(),
+                i.getBankCreditDate());
     }
 
     public SaleResponse toResponse(PropertySale s) {
