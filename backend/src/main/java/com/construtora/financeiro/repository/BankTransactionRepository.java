@@ -20,6 +20,9 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
 
     Page<BankTransaction> findByBankAccountIdOrderByTransactionDateDesc(UUID bankAccountId, Pageable pageable);
 
+    Page<BankTransaction> findByBankAccountIdAndStatusOrderByTransactionDateDesc(
+            UUID bankAccountId, TransactionStatus status, Pageable pageable);
+
     long countByStatus(TransactionStatus status);
 
     boolean existsByBankAccountIdAndBankIdentifier(UUID bankAccountId, String bankIdentifier);

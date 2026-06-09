@@ -1,3 +1,3 @@
 package com.construtora.financeiro.model.enums;
 
-public enum FileFormat { CSV, OFX }
+public enum FileFormat { CSV, OFX, XLSX, PDF }

@@ -109,7 +109,9 @@ public class StatementImportService {
         String lower = name.toLowerCase();
         if (lower.endsWith(".csv")) return FileFormat.CSV;
         if (lower.endsWith(".ofx")) return FileFormat.OFX;
-        throw new BusinessException("Extensão não suportada. Use .csv ou .ofx");
+        if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) return FileFormat.XLSX;
+        if (lower.endsWith(".pdf")) return FileFormat.PDF;
+        throw new BusinessException("Extensão não suportada. Use .csv, .ofx, .xlsx ou .pdf");
     }
 
     private ImportResultResponse toResponse(BankStatementImport i) {
