@@ -221,6 +221,8 @@ public class SaleService {
         sale.setDistratoReason(request.reason());
         sale.setDistratoRefundAmount(refund);
         sale.setDistratoRetainedAmount(retained);
+        sale.setDistratoRule(request.rule());
+        sale.setDistratoRuleDetail(request.ruleDetail());
 
         // Libera o lote para nova comercialização.
         Lot lot = sale.getLot();

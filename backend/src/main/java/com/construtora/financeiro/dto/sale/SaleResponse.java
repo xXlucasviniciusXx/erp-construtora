@@ -32,6 +32,8 @@ public record SaleResponse(
         String distratoReason,
         BigDecimal distratoRefundAmount,
         BigDecimal distratoRetainedAmount,
+        String distratoRule,
+        String distratoRuleDetail,
         // Indicadores derivados das parcelas
         Integer paidInstallments,
         BigDecimal paidAmount,

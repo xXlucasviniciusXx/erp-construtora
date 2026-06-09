@@ -100,6 +100,31 @@ function DevelopmentsList({ canWrite, onManage }: { canWrite: boolean; onManage:
             <Field label="Endereço"><Input value={form.address ?? ''} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
             <Field label="Dimensões"><Input value={form.dimensions ?? ''} onChange={(e) => setForm({ ...form, dimensions: e.target.value })} /></Field>
           </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Categoria">
+              <Select value={form.category ?? 'CORRETORA'} onChange={(e) => setForm({ ...form, category: e.target.value as Development['category'] })}>
+                <option value="CORRETORA">Corretora</option>
+                <option value="TERRENISTA">Terrenista</option>
+              </Select>
+            </Field>
+            {form.category === 'TERRENISTA' && (
+              <>
+                <Field label="Qtd. de terrenistas">
+                  <Input type="number" min={0} value={form.terrenistaCount ?? ''}
+                    onChange={(e) => setForm({ ...form, terrenistaCount: e.target.value ? Number(e.target.value) : null })} />
+                </Field>
+                <Field label="Percentual de divisão (%)">
+                  <Input type="number" step="0.01" min={0} max={100} value={form.divisionPercent ?? ''}
+                    onChange={(e) => setForm({ ...form, divisionPercent: e.target.value ? Number(e.target.value) : null })} />
+                </Field>
+              </>
+            )}
+          </div>
+          {form.category === 'TERRENISTA' && (
+            <p className="rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+              Empreendimento <strong>Terrenista</strong>: os campos de quantidade e percentual ficam disponíveis para as regras de divisão financeira (uso futuro).
+            </p>
+          )}
           <p className="text-xs text-gray-400">Valor previsto total e valor recebido são calculados automaticamente a partir dos lotes.</p>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">

@@ -13,7 +13,7 @@ import { useToast } from '@/components/Toast'
 import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
 
-interface DistratoForm { distratoDate: string; reason: string; refundAmount: number; retainedAmount: number }
+interface DistratoForm { distratoDate: string; reason: string; refundAmount: number; retainedAmount: number; rule: string; ruleDetail: string }
 
 const INSTALLMENT_STATUS: Record<string, { label: string; color: string }> = {
   PAID: { label: 'Paga', color: 'green' }, OVERDUE: { label: 'Vencida', color: 'red' },
@@ -66,7 +66,7 @@ export function SalesPage() {
 
   // Distrato + histórico de documentos
   const [distratoFor, setDistratoFor] = useState<Sale | null>(null)
-  const [distratoForm, setDistratoForm] = useState<DistratoForm>({ distratoDate: '', reason: '', refundAmount: 0, retainedAmount: 0 })
+  const [distratoForm, setDistratoForm] = useState<DistratoForm>({ distratoDate: '', reason: '', refundAmount: 0, retainedAmount: 0, rule: '', ruleDetail: '' })
   const [distratoError, setDistratoError] = useState<string | null>(null)
   const [docsFor, setDocsFor] = useState<Sale | null>(null)
 
@@ -203,7 +203,7 @@ export function SalesPage() {
   function downloadContract(saleId: string) { openPdf(`/contracts/sales/${saleId}/pdf`) }
   function openDistrato(s: Sale) {
     setDistratoFor(s)
-    setDistratoForm({ distratoDate: new Date().toISOString().slice(0, 10), reason: '', refundAmount: s.paidAmount ?? 0, retainedAmount: 0 })
+    setDistratoForm({ distratoDate: new Date().toISOString().slice(0, 10), reason: '', refundAmount: s.paidAmount ?? 0, retainedAmount: 0, rule: '', ruleDetail: '' })
     setDistratoError(null)
   }
 
@@ -287,6 +287,8 @@ export function SalesPage() {
                 <Info label="Retido pela vendedora" value={formatCurrency(view.distratoRetainedAmount)} />
               </div>
               {view.distratoReason && <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">Motivo: {view.distratoReason}</div>}
+              {view.distratoRule && <div className="mt-1 text-xs text-amber-800 dark:text-amber-300">Regra aplicada: <strong>{view.distratoRule}</strong></div>}
+              {view.distratoRuleDetail && <div className="mt-0.5 whitespace-pre-line text-xs text-gray-600 dark:text-gray-300">Memória de cálculo: {view.distratoRuleDetail}</div>}
             </div>
           )}
           <div className="mb-2 text-sm">
@@ -433,12 +435,36 @@ export function SalesPage() {
             </div>
             <Field label="Motivo do distrato">
               <textarea
-                className="min-h-[72px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
+                className="min-h-[60px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
                 value={distratoForm.reason}
                 onChange={(e) => setDistratoForm({ ...distratoForm, reason: e.target.value })}
                 placeholder="Ex.: desistência do comprador, inadimplência…"
               />
             </Field>
+            <Field label="Regra aplicada (registrada no histórico p/ auditoria)">
+              <Input list="distrato-rules" value={distratoForm.rule} required
+                onChange={(e) => setDistratoForm({ ...distratoForm, rule: e.target.value })}
+                placeholder="Ex.: Retenção de 20% sobre o valor pago" />
+              <datalist id="distrato-rules">
+                <option value="Retenção de 20% sobre o valor pago" />
+                <option value="Retenção de 10% sobre o valor pago" />
+                <option value="Retenção de cláusula penal (Lei 13.786/2018)" />
+                <option value="Devolução integral (sem retenção)" />
+              </datalist>
+            </Field>
+            <Field label="Memória de cálculo (opcional)">
+              <textarea
+                className="min-h-[48px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
+                value={distratoForm.ruleDetail}
+                onChange={(e) => setDistratoForm({ ...distratoForm, ruleDetail: e.target.value })}
+                placeholder="Ex.: 20% de R$ 24.000 pagos = R$ 4.800 retidos; devolução de R$ 19.200."
+              />
+            </Field>
+            {distratoForm.rule && (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+                Regra que será aplicada e registrada: <strong>{distratoForm.rule}</strong>
+              </p>
+            )}
             {distratoError && <p className="text-sm text-red-600">{distratoError}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setDistratoFor(null)}>Cancelar</Button>

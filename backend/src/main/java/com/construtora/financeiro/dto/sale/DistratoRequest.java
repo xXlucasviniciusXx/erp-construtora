@@ -10,5 +10,7 @@ public record DistratoRequest(
         LocalDate distratoDate,
         String reason,
         @PositiveOrZero BigDecimal refundAmount,
-        @PositiveOrZero BigDecimal retainedAmount
+        @PositiveOrZero BigDecimal retainedAmount,
+        String rule,         // regra aplicada (ex.: "Retenção de 20% sobre o pago")
+        String ruleDetail    // memória de cálculo / detalhe da regra
 ) {}
