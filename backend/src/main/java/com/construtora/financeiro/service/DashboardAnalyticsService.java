@@ -28,13 +28,16 @@ import java.util.UUID;
 public class DashboardAnalyticsService {
 
     private final NamedParameterJdbcTemplate jdbc;
+    private final com.construtora.financeiro.security.DevelopmentScopeService scope;
 
-    public DashboardAnalyticsService(NamedParameterJdbcTemplate jdbc) {
+    public DashboardAnalyticsService(NamedParameterJdbcTemplate jdbc,
+                                     com.construtora.financeiro.security.DevelopmentScopeService scope) {
         this.jdbc = jdbc;
+        this.scope = scope;
     }
 
     @Cacheable(value = CacheConfig.DASHBOARD_ANALYTICS,
-               key = "T(java.util.Objects).hash(#from, #to, #clientId, #propertyId)")
+               key = "T(java.util.Objects).hash(#from, #to, #clientId, #propertyId, @developmentScopeService.cacheKey())")
     public DashboardAnalyticsResponse analytics(LocalDate from, LocalDate to, UUID clientId, UUID propertyId) {
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("from", from != null ? from : LocalDate.of(1900, 1, 1))
@@ -52,6 +55,26 @@ public class DashboardAnalyticsService {
             p.addValue("propertyId", propertyId);
             instF += " and s.lot_id = :propertyId";
             saleF += " and ps.lot_id = :propertyId";
+        }
+
+        // Escopo por empreendimento (Fase E): usuários restritos só veem os seus.
+        var qs = scope.queryScope();
+        boolean restricted = !qs.unrestricted();
+        // Subconsulta de lotes do escopo (reusada por installments/sales/receivables/clients).
+        String lotSub = "(select lt.id from lots lt join blocks bk on bk.id = lt.block_id"
+                + " where bk.development_id in (:devIds))";
+        String apDevF = "";    // accounts_payable alias ap
+        String payDevF = "";   // accounts_payable sem alias
+        String recvDevF = "";  // accounts_receivable sem alias (via sale)
+        String clientDevF = "";// clients (via vendas)
+        if (restricted) {
+            p.addValue("devIds", qs.devIds());
+            instF += " and s.lot_id in " + lotSub;
+            saleF += " and ps.lot_id in " + lotSub;
+            apDevF = " and ap.development_id in (:devIds)";
+            payDevF = " and development_id in (:devIds)";
+            recvDevF = " and sale_id in (select ps.id from property_sales ps where ps.lot_id in " + lotSub + ")";
+            clientDevF = " and id in (select distinct ps.client_id from property_sales ps where ps.lot_id in " + lotSub + ")";
         }
 
         // ---- Cards ----
@@ -75,10 +98,13 @@ public class DashboardAnalyticsService {
                  where i.status in ('OPEN','OVERDUE') and i.due_date < current_date""" + instF, p);
 
         // Retrato de carteira (não filtrado por período)
-        long active = lng("select count(*) from clients where status='ACTIVE'", p);
-        long inactive = lng("select count(*) from clients where status='INACTIVE'", p);
-        long lotsSold = lng("select count(*) from lots where status='SOLD'", p);
-        long lotsAvailable = lng("select count(*) from lots where status='AVAILABLE'", p);
+        long active = lng("select count(*) from clients where status='ACTIVE'" + clientDevF, p);
+        long inactive = lng("select count(*) from clients where status='INACTIVE'" + clientDevF, p);
+        String lotsFrom = restricted
+                ? "from lots lt join blocks bk on bk.id = lt.block_id where bk.development_id in (:devIds) and lt.status="
+                : "from lots where status=";
+        long lotsSold = lng("select count(*) " + lotsFrom + "'SOLD'", p);
+        long lotsAvailable = lng("select count(*) " + lotsFrom + "'AVAILABLE'", p);
 
         // ---- Séries ----
         List<Point> received = points("""
@@ -127,15 +153,16 @@ public class DashboardAnalyticsService {
 
         // Contas a pagar: pagas x em aberto (sem filtro de cliente/imóvel)
         List<Point> payablesPaidVsOpen = List.of(
-                new Point("Pagas", big("select coalesce(sum(amount),0) from accounts_payable where status='PAID'", p).doubleValue()),
-                new Point("Em aberto", big("select coalesce(sum(amount),0) from accounts_payable where status in ('OPEN','OVERDUE')", p).doubleValue()));
+                new Point("Pagas", big("select coalesce(sum(amount),0) from accounts_payable where status='PAID'" + payDevF, p).doubleValue()),
+                new Point("Em aberto", big("select coalesce(sum(amount),0) from accounts_payable where status in ('OPEN','OVERDUE')" + payDevF, p).doubleValue()));
 
         // Despesas (pagas) por empreendimento — nulo = "Geral / Administrativo"
         List<Point> expensesByDevelopment = points("""
                 select coalesce(dv.name, 'Geral / Administrativo') as label, sum(ap.amount) as value
                 from accounts_payable ap
                   left join developments dv on dv.id = ap.development_id
-                where ap.status='PAID'
+                where ap.status='PAID'""" + apDevF + """
+
                 group by 1 order by 2 desc""", p);
 
         // Despesas (pagas) por categoria e por centro de custo
@@ -143,13 +170,15 @@ public class DashboardAnalyticsService {
                 select coalesce(cat.grupo || ' / ' || cat.name, 'Sem categoria') as label, sum(ap.amount) as value
                 from accounts_payable ap
                   left join categories cat on cat.id = ap.category_id
-                where ap.status='PAID'
+                where ap.status='PAID'""" + apDevF + """
+
                 group by 1 order by 2 desc""", p);
         List<Point> expensesByCostCenter = points("""
                 select coalesce(cc.name, 'Sem centro de custo') as label, sum(ap.amount) as value
                 from accounts_payable ap
                   left join cost_centers cc on cc.id = ap.cost_center_id
-                where ap.status='PAID'
+                where ap.status='PAID'""" + apDevF + """
+
                 group by 1 order by 2 desc""", p);
 
         // Lucro/prejuízo por empreendimento (caixa): recebido (parcelas pagas) − despesas pagas
@@ -160,7 +189,8 @@ public class DashboardAnalyticsService {
                   join lots lt on lt.id = s.lot_id
                   join blocks bk on bk.id = lt.block_id
                   join developments dv on dv.id = bk.development_id
-                where i.status='PAID'
+                where i.status='PAID'""" + (restricted ? " and bk.development_id in (:devIds)" : "") + """
+
                 group by dv.name""", p));
         Map<String, Double> expenseByDev = new LinkedHashMap<>();
         expensesByDevelopment.forEach(pt -> {
@@ -180,9 +210,9 @@ public class DashboardAnalyticsService {
         double receivedTotal = big("""
                 select coalesce(sum(i.amount),0) from installments i join property_sales s on s.id=i.sale_id
                  where i.status='PAID'""" + instF, p).doubleValue()
-                + big("select coalesce(sum(amount),0) from accounts_receivable where status='RECEIVED'" + recvClientF, p).doubleValue();
+                + big("select coalesce(sum(amount),0) from accounts_receivable where status='RECEIVED'" + recvClientF + recvDevF, p).doubleValue();
         double toReceiveTotal = totalOpen.doubleValue()
-                + big("select coalesce(sum(amount),0) from accounts_receivable where status in ('OPEN','OVERDUE')" + recvClientF, p).doubleValue();
+                + big("select coalesce(sum(amount),0) from accounts_receivable where status in ('OPEN','OVERDUE')" + recvClientF + recvDevF, p).doubleValue();
         List<Point> receivablesReceivedVsOpen = List.of(
                 new Point("Recebido", receivedTotal),
                 new Point("A receber", toReceiveTotal));
@@ -193,7 +223,8 @@ public class DashboardAnalyticsService {
                 select to_char(due_date,'YYYY-MM') as label, sum(amount) as value
                 from accounts_payable
                 where status in ('OPEN','OVERDUE') and due_date >= date_trunc('month', current_date)
-                  and due_date < date_trunc('month', current_date) + interval '6 months'
+                  and due_date < date_trunc('month', current_date) + interval '6 months'""" + payDevF + """
+
                 group by 1 order by 1""", p));
         List<Point> cashFlow = new ArrayList<>();
         java.util.TreeSet<String> months = new java.util.TreeSet<>();
