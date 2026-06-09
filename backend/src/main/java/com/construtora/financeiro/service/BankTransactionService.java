@@ -31,4 +31,10 @@ public class BankTransactionService {
             TransactionStatus status, org.springframework.data.domain.Pageable pageable) {
         return repository.findByStatusOrderByTransactionDateDesc(status, pageable).map(mapper::toResponse);
     }
+
+    public org.springframework.data.domain.Page<BankTransactionResponse> findByAccountAndStatus(
+            UUID bankAccountId, TransactionStatus status, org.springframework.data.domain.Pageable pageable) {
+        return repository.findByBankAccountIdAndStatusOrderByTransactionDateDesc(bankAccountId, status, pageable)
+                .map(mapper::toResponse);
+    }
 }

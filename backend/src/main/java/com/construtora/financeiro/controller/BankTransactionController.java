@@ -30,11 +30,14 @@ public class BankTransactionController {
     public Page<BankTransactionResponse> list(@RequestParam(required = false) UUID bankAccountId,
                                               @RequestParam(required = false) TransactionStatus status,
                                               @PageableDefault(size = 20) Pageable pageable) {
-        if (status != null) {
-            return service.findByStatus(status, pageable);
+        if (bankAccountId != null && status != null) {
+            return service.findByAccountAndStatus(bankAccountId, status, pageable);
         }
         if (bankAccountId != null) {
             return service.findByAccount(bankAccountId, pageable);
+        }
+        if (status != null) {
+            return service.findByStatus(status, pageable);
         }
         return service.findByStatus(TransactionStatus.PENDING, pageable);
     }

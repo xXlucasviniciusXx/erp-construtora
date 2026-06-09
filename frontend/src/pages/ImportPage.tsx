@@ -53,10 +53,10 @@ export function ImportPage() {
           </Select>
         </Field>
 
-        <Field label="Arquivo (.csv ou .ofx)">
+        <Field label="Arquivo (.csv, .ofx, .xlsx ou .pdf)">
           <input
             type="file"
-            accept=".csv,.ofx"
+            accept=".csv,.ofx,.xlsx,.xls,.pdf"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm"
           />
@@ -69,8 +69,9 @@ export function ImportPage() {
         </Button>
 
         <p className="text-xs text-gray-400">
-          CSV esperado com cabeçalho contendo ao menos as colunas <code>data</code> e <code>valor</code>.
-          Veja exemplos em <code>database/samples/</code>.
+          Formatos: <code>CSV</code>/<code>OFX</code> (cabeçalho com <code>data</code> e <code>valor</code>),
+          <code>XLSX</code> (ex.: extrato do Asaas) e <code>PDF</code>. A conciliação cruza valor, data e
+          o <strong>nome do pagador</strong> do histórico com as parcelas/contas.
         </p>
       </Card>
 

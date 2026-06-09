@@ -138,6 +138,18 @@
             <version>1.18.3</version>
         </dependency>
 
+        <!-- Importacao de extratos: XLSX (Apache POI) e PDF (PDFBox) -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.3.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>2.0.32</version>
+        </dependency>
+
         <!-- Dev -->
         <dependency>
             <groupId>org.projectlombok</groupId>
