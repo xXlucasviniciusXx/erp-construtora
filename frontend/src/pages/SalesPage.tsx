@@ -25,7 +25,7 @@ const PURCHASE_TYPES = ['À vista', PURCHASE_WITH_DOWN, 'Financiamento próprio'
 // Fallback enquanto a API ainda não respondeu
 const PAYMENT_METHODS_FALLBACK = ['Boleto', 'PIX', 'Transferência bancária', 'Cartão', 'Dinheiro', 'Outro']
 const CORRECTION_INDEXES_FALLBACK = ['Sem correção', 'INCC', 'IPCA', 'IGP-M', 'Juros fixo mensal', 'Outro']
-const SALE_STATUS: Record<string, string> = { ACTIVE: 'Ativa', COMPLETED: 'Quitada', CANCELLED: 'Cancelada' }
+const SALE_STATUS: Record<string, string> = { ACTIVE: 'Ativa', COMPLETED: 'Quitada', CANCELLED: 'Cancelada', DISTRATADO: 'Distratada' }
 
 interface SaleForm {
   clientId: string
@@ -233,7 +233,7 @@ export function SalesPage() {
               <td className="px-4 py-2">{formatCurrency(s.totalValue)}</td>
               <td className="px-4 py-2">{s.installmentsCount} / <span className="font-medium text-green-600">{s.paidInstallments ?? 0}</span></td>
               <td className="px-4 py-2">
-                <Badge dot color={s.status === 'ACTIVE' ? 'blue' : s.status === 'COMPLETED' ? 'green' : 'gray'}>
+                <Badge dot color={s.status === 'ACTIVE' ? 'blue' : s.status === 'COMPLETED' ? 'green' : s.status === 'DISTRATADO' ? 'orange' : 'gray'}>
                   {SALE_STATUS[s.status] ?? s.status}
                 </Badge>
               </td>

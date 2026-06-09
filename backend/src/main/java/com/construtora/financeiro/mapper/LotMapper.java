@@ -25,6 +25,7 @@ public class LotMapper {
                 l.getId(), block.getId(), block.getName(), dev.getId(), dev.getName(),
                 l.getName(), l.getInternalCode(), l.getRegistration(), l.getUnit(), l.getAddress(),
                 l.getTotalArea(), l.getBuiltArea(), l.getPlannedValue(), l.getSaleValue(),
+                l.getRetentionPercent(),
                 l.getStatus(), l.getContractExtra(), l.getNotes(), label(l),
                 l.getReservationExpiresAt(),
                 activeSale != null ? activeSale.getClient().getId() : null,

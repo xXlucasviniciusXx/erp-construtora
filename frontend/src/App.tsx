@@ -12,6 +12,7 @@ const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((m) => ({ 
 const ClientsPage = lazy(() => import('@/pages/ClientsPage').then((m) => ({ default: m.ClientsPage })))
 const DevelopmentsPage = lazy(() => import('@/pages/DevelopmentsPage').then((m) => ({ default: m.DevelopmentsPage })))
 const SalesPage = lazy(() => import('@/pages/SalesPage').then((m) => ({ default: m.SalesPage })))
+const DistratosPage = lazy(() => import('@/pages/DistratosPage').then((m) => ({ default: m.DistratosPage })))
 const PayablePage = lazy(() => import('@/pages/PayablePage').then((m) => ({ default: m.PayablePage })))
 const ReceivablePage = lazy(() => import('@/pages/ReceivablePage').then((m) => ({ default: m.ReceivablePage })))
 const SuppliersPage = lazy(() => import('@/pages/SuppliersPage').then((m) => ({ default: m.SuppliersPage })))
@@ -40,6 +41,7 @@ export function App() {
           <Route path="clients" element={<ModuleGuard code="CLIENTES"><ClientsPage /></ModuleGuard>} />
           <Route path="properties" element={<ModuleGuard code="EMPREENDIMENTOS"><DevelopmentsPage /></ModuleGuard>} />
           <Route path="sales" element={<ModuleGuard code="VENDAS"><SalesPage /></ModuleGuard>} />
+          <Route path="distratos" element={<ModuleGuard code="VENDAS"><DistratosPage /></ModuleGuard>} />
           <Route path="payable" element={<ModuleGuard code="CONTAS_PAGAR"><PayablePage /></ModuleGuard>} />
           <Route path="receivable" element={<ModuleGuard code="CONTAS_RECEBER"><ReceivablePage /></ModuleGuard>} />
           <Route path="suppliers" element={<ModuleGuard code="FORNECEDORES"><SuppliersPage /></ModuleGuard>} />

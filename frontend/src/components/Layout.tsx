@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Building2, FileSignature, ArrowDownCircle,
   ArrowUpCircle, Banknote, Upload, BarChart3, Settings, ShieldCheck, LogOut, Menu,
-  ChevronLeft, ChevronRight, Sun, Moon, Truck, Scale, Mail, AlertTriangle,
+  ChevronLeft, ChevronRight, Sun, Moon, Truck, Scale, Mail, AlertTriangle, FileX2,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { useLicensing } from '@/licensing/LicensingContext'
@@ -26,6 +26,7 @@ const NAV: NavItem[] = [
   { to: '/clients', label: 'Clientes', icon: Users, permission: 'CLIENTES_VIEW', module: 'CLIENTES' },
   { to: '/properties', label: 'Imóveis / Lotes', icon: Building2, permission: 'EMPREENDIMENTOS_VIEW', module: 'EMPREENDIMENTOS' },
   { to: '/sales', label: 'Vendas', icon: FileSignature, permission: 'VENDAS_VIEW', module: 'VENDAS' },
+  { to: '/distratos', label: 'Distratos', icon: FileX2, permission: 'VENDAS_VIEW', module: 'VENDAS' },
   { to: '/payable', label: 'Contas a Pagar', icon: ArrowUpCircle, permission: 'CONTAS_PAGAR_VIEW', module: 'CONTAS_PAGAR' },
   { to: '/receivable', label: 'Contas a Receber', icon: ArrowDownCircle, permission: 'CONTAS_RECEBER_VIEW', module: 'CONTAS_RECEBER' },
   { to: '/suppliers', label: 'Fornecedores', icon: Truck, permission: 'FORNECEDORES_VIEW', module: 'FORNECEDORES' },

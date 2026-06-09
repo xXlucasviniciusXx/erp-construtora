@@ -15,6 +15,7 @@ public record LotRequest(
         BigDecimal totalArea,
         BigDecimal builtArea,
         BigDecimal plannedValue,    // valor previsto
+        BigDecimal retentionPercent, // % padrão de retenção no distrato
         PropertyStatus status,
         String contractExtra,
         String notes
