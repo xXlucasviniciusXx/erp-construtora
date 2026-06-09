@@ -15,6 +15,20 @@ public interface PropertySaleRepository extends JpaRepository<PropertySale, UUID
 
     List<PropertySale> findByClientId(UUID clientId);
 
+    /**
+     * Vendas vigentes (não canceladas) de um empreendimento, com cliente carregado.
+     * Usada para anexar o comprador atual a cada lote na tela de Lotes — um lote
+     * vendido pode ter venda ACTIVE (em pagamento) ou COMPLETED (quitada); apenas o
+     * distrato (CANCELLED) desvincula o comprador.
+     */
+    @Query("""
+            select s from PropertySale s
+            join fetch s.client
+            where s.lot.block.development.id = :developmentId
+              and s.status <> com.construtora.financeiro.model.enums.SaleStatus.CANCELLED
+            """)
+    List<PropertySale> findCurrentSalesByDevelopment(@Param("developmentId") UUID developmentId);
+
     /** Próximo número de contrato a partir da sequência do banco. */
     @Query(value = "SELECT nextval('contract_number_seq')", nativeQuery = true)
     long nextContractSequence();

@@ -26,13 +26,15 @@ public class LotController {
     }
 
     @GetMapping
-    @Operation(summary = "Lista lotes. Suporta ?blockId=, ?developmentId= ou ?q= (busca textual)")
+    @Operation(summary = "Lista lotes. Suporta ?blockId=, ?developmentId= (com filtros ?clientId=/?status=) ou ?q= (busca textual)")
     @PreAuthorize("hasAuthority('EMPREENDIMENTOS_VIEW')")
     public List<LotResponse> list(@RequestParam(required = false) UUID blockId,
                                   @RequestParam(required = false) UUID developmentId,
+                                  @RequestParam(required = false) UUID clientId,
+                                  @RequestParam(required = false) com.construtora.financeiro.model.enums.PropertyStatus status,
                                   @RequestParam(required = false) String q) {
         if (blockId != null) return service.findByBlock(blockId);
-        if (developmentId != null) return service.findByDevelopment(developmentId);
+        if (developmentId != null) return service.findByDevelopment(developmentId, clientId, status);
         if (q != null) return service.search(q);   // busca textual (combobox server-side)
         return service.findAll();
     }
