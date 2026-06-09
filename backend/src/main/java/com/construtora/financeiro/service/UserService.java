@@ -7,12 +7,14 @@ import com.construtora.financeiro.exception.ResourceNotFoundException;
 import com.construtora.financeiro.mapper.UserMapper;
 import com.construtora.financeiro.model.Role;
 import com.construtora.financeiro.model.User;
+import com.construtora.financeiro.repository.DevelopmentRepository;
 import com.construtora.financeiro.repository.RoleRepository;
 import com.construtora.financeiro.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,13 +24,16 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final DevelopmentRepository developmentRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper mapper;
 
     public UserService(UserRepository userRepository, RoleRepository roleRepository,
+                       DevelopmentRepository developmentRepository,
                        PasswordEncoder passwordEncoder, UserMapper mapper) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.developmentRepository = developmentRepository;
         this.passwordEncoder = passwordEncoder;
         this.mapper = mapper;
     }
@@ -56,6 +61,7 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(resolveRole(request.role()));
         user.setActive(request.active() == null || request.active());
+        applyDevelopments(user, request);
         return mapper.toResponse(userRepository.save(user));
     }
 
@@ -70,7 +76,18 @@ public class UserService {
         if (request.password() != null && !request.password().isBlank()) {
             user.setPasswordHash(passwordEncoder.encode(request.password()));
         }
+        applyDevelopments(user, request);
         return mapper.toResponse(userRepository.save(user));
+    }
+
+    /** Define os empreendimentos vinculados (escopo). {@code null} = não altera. */
+    private void applyDevelopments(User user, UserRequest request) {
+        if (request.developmentIds() == null) return;
+        user.getDevelopments().clear();
+        if (!request.developmentIds().isEmpty()) {
+            user.getDevelopments().addAll(
+                    new HashSet<>(developmentRepository.findAllById(request.developmentIds())));
+        }
     }
 
     public void delete(UUID id) {

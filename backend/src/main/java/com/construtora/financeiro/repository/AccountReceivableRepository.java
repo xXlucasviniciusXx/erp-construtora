@@ -15,7 +15,12 @@ import java.util.UUID;
 
 public interface AccountReceivableRepository extends JpaRepository<AccountReceivable, UUID> {
 
-    /** Busca paginada por cliente/descrição + filtro opcional de status. */
+    /**
+     * Busca paginada por cliente/descrição + filtro opcional de status.
+     * Escopo: quando {@code unrestricted=false}, retorna apenas recebíveis cuja
+     * venda pertence a {@code devIds} (recebíveis avulsos — sem venda — ficam
+     * ocultos para usuários restritos a empreendimentos).
+     */
     @Query("""
             select a from AccountReceivable a
               left join a.client c
@@ -23,9 +28,13 @@ public interface AccountReceivableRepository extends JpaRepository<AccountReceiv
                    or lower(coalesce(c.name, '')) like lower(concat('%', :q, '%'))
                    or lower(coalesce(a.description, '')) like lower(concat('%', :q, '%')))
               and (:status is null or a.status = :status)
+              and (:unrestricted = true
+                   or (a.sale is not null and a.sale.lot.block.development.id in :devIds))
             """)
     Page<AccountReceivable> search(@Param("q") String q,
                                    @Param("status") ReceivableStatus status,
+                                   @Param("unrestricted") boolean unrestricted,
+                                   @Param("devIds") java.util.Collection<UUID> devIds,
                                    Pageable pageable);
 
     List<AccountReceivable> findByDueDateBetween(LocalDate start, LocalDate end);

@@ -33,11 +33,15 @@ public interface PropertySaleRepository extends JpaRepository<PropertySale, UUID
     @Query(value = "SELECT nextval('contract_number_seq')", nativeQuery = true)
     long nextContractSequence();
 
-    /** Busca paginada de vendas: por cliente, status e texto (cliente/empreendimento/quadra/lote). */
+    /**
+     * Busca paginada de vendas: por cliente, status e texto (cliente/empreendimento/quadra/lote).
+     * Escopo de empreendimento: quando {@code unrestricted=false}, restringe a {@code devIds}.
+     */
     @Query(value = """
             select s from PropertySale s
             where (:clientId is null or s.client.id = :clientId)
               and (:status is null or s.status = :status)
+              and (:unrestricted = true or s.lot.block.development.id in :devIds)
               and (:q = ''
                    or lower(s.client.name) like lower(concat('%', :q, '%'))
                    or lower(s.lot.name) like lower(concat('%', :q, '%'))
@@ -48,6 +52,7 @@ public interface PropertySaleRepository extends JpaRepository<PropertySale, UUID
             select count(s) from PropertySale s
             where (:clientId is null or s.client.id = :clientId)
               and (:status is null or s.status = :status)
+              and (:unrestricted = true or s.lot.block.development.id in :devIds)
               and (:q = ''
                    or lower(s.client.name) like lower(concat('%', :q, '%'))
                    or lower(s.lot.name) like lower(concat('%', :q, '%'))
@@ -57,6 +62,8 @@ public interface PropertySaleRepository extends JpaRepository<PropertySale, UUID
     Page<PropertySale> search(@Param("q") String q,
                               @Param("status") SaleStatus status,
                               @Param("clientId") UUID clientId,
+                              @Param("unrestricted") boolean unrestricted,
+                              @Param("devIds") java.util.Collection<UUID> devIds,
                               Pageable pageable);
 
     @Query("""

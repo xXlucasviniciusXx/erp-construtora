@@ -75,6 +75,7 @@ public interface InstallmentRepository extends JpaRepository<Installment, UUID> 
             where (:status is null or i.status = :status)
               and (:dueFrom is null or i.dueDate >= :dueFrom)
               and (:dueTo is null or i.dueDate <= :dueTo)
+              and (:unrestricted = true or i.sale.lot.block.development.id in :devIds)
               and (:q = ''
                    or lower(i.sale.client.name) like lower(concat('%', :q, '%'))
                    or i.sale.client.document like concat('%', :q, '%'))
@@ -84,6 +85,7 @@ public interface InstallmentRepository extends JpaRepository<Installment, UUID> 
             where (:status is null or i.status = :status)
               and (:dueFrom is null or i.dueDate >= :dueFrom)
               and (:dueTo is null or i.dueDate <= :dueTo)
+              and (:unrestricted = true or i.sale.lot.block.development.id in :devIds)
               and (:q = ''
                    or lower(i.sale.client.name) like lower(concat('%', :q, '%'))
                    or i.sale.client.document like concat('%', :q, '%'))
@@ -92,5 +94,7 @@ public interface InstallmentRepository extends JpaRepository<Installment, UUID> 
                              @Param("status") InstallmentStatus status,
                              @Param("dueFrom") LocalDate dueFrom,
                              @Param("dueTo") LocalDate dueTo,
+                             @Param("unrestricted") boolean unrestricted,
+                             @Param("devIds") java.util.Collection<UUID> devIds,
                              Pageable pageable);
 }

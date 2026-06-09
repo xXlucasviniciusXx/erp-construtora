@@ -24,13 +24,16 @@ public class DistratoConfigService {
 
     private final DistratoConfigRepository repository;
     private final DevelopmentRepository developmentRepository;
+    private final com.construtora.financeiro.security.DevelopmentScopeService scope;
     private final DistratoMapper mapper;
 
     public DistratoConfigService(DistratoConfigRepository repository,
                                  DevelopmentRepository developmentRepository,
+                                 com.construtora.financeiro.security.DevelopmentScopeService scope,
                                  DistratoMapper mapper) {
         this.repository = repository;
         this.developmentRepository = developmentRepository;
+        this.scope = scope;
         this.mapper = mapper;
     }
 
@@ -54,7 +57,10 @@ public class DistratoConfigService {
 
     @Transactional(readOnly = true)
     public List<DistratoConfigResponse> list() {
-        return repository.findAllByOrderByDevelopmentIdAsc().stream().map(mapper::toResponse).toList();
+        return repository.findAllByOrderByDevelopmentIdAsc().stream()
+                // global (sem empreendimento) sempre visível; específicas só dentro do escopo
+                .filter(c -> c.getDevelopment() == null || scope.canAccess(c.getDevelopment().getId()))
+                .map(mapper::toResponse).toList();
     }
 
     public DistratoConfigResponse upsert(DistratoConfigRequest request) {

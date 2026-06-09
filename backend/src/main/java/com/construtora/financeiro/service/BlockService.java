@@ -21,15 +21,20 @@ public class BlockService {
     private final BlockRepository repository;
     private final LotRepository lotRepository;
     private final DevelopmentService developmentService;
+    private final com.construtora.financeiro.security.DevelopmentScopeService scope;
 
-    public BlockService(BlockRepository repository, LotRepository lotRepository, DevelopmentService developmentService) {
+    public BlockService(BlockRepository repository, LotRepository lotRepository,
+                        DevelopmentService developmentService,
+                        com.construtora.financeiro.security.DevelopmentScopeService scope) {
         this.repository = repository;
         this.lotRepository = lotRepository;
         this.developmentService = developmentService;
+        this.scope = scope;
     }
 
     @Transactional(readOnly = true)
     public List<BlockResponse> findByDevelopment(UUID developmentId) {
+        if (!scope.canAccess(developmentId)) return List.of();
         return repository.findByDevelopmentIdOrderByInternalCode(developmentId).stream().map(this::toResponse).toList();
     }
 

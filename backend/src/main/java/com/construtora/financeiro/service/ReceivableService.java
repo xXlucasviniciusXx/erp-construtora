@@ -34,28 +34,38 @@ public class ReceivableService {
     private final PropertySaleRepository saleRepository;
     private final InstallmentRepository installmentRepository;
     private final CategoryRepository categoryRepository;
+    private final com.construtora.financeiro.security.DevelopmentScopeService scope;
     private final ReceivableMapper mapper;
 
     public ReceivableService(AccountReceivableRepository repository, ClientRepository clientRepository,
                              PropertySaleRepository saleRepository, InstallmentRepository installmentRepository,
-                             CategoryRepository categoryRepository, ReceivableMapper mapper) {
+                             CategoryRepository categoryRepository,
+                             com.construtora.financeiro.security.DevelopmentScopeService scope, ReceivableMapper mapper) {
         this.repository = repository;
         this.clientRepository = clientRepository;
         this.saleRepository = saleRepository;
         this.installmentRepository = installmentRepository;
         this.categoryRepository = categoryRepository;
+        this.scope = scope;
         this.mapper = mapper;
     }
 
     @Transactional(readOnly = true)
     public Page<ReceivableResponse> search(String q, com.construtora.financeiro.model.enums.ReceivableStatus status, Pageable pageable) {
         String query = (q != null && !q.isBlank()) ? q.trim() : "";
-        return repository.search(query, status, pageable).map(mapper::toResponse);
+        var qs = scope.queryScope();
+        return repository.search(query, status, qs.unrestricted(), qs.devIds(), pageable).map(mapper::toResponse);
     }
 
     @Transactional(readOnly = true)
     public ReceivableResponse findById(UUID id) {
-        return mapper.toResponse(getEntity(id));
+        com.construtora.financeiro.model.AccountReceivable a = getEntity(id);
+        if (scope.isRestricted()) {
+            UUID dev = a.getSale() != null
+                    ? a.getSale().getLot().getBlock().getDevelopment().getId() : null;
+            scope.requireAccess(dev, "Conta a receber", id);
+        }
+        return mapper.toResponse(a);
     }
 
     @Auditable(action = "RECEIVABLE_CREATE", entity = "accounts_receivable")

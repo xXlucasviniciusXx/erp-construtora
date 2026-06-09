@@ -48,6 +48,7 @@ public class DistratoService {
     private final PayableService payableService;
     private final ReceivableService receivableService;
     private final AuditService auditService;
+    private final com.construtora.financeiro.security.DevelopmentScopeService scope;
     private final DistratoMapper mapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -55,7 +56,8 @@ public class DistratoService {
                            PropertySaleRepository saleRepository, LotRepository lotRepository,
                            InstallmentRepository installmentRepository, LateFeeCalculator lateFeeCalculator,
                            PayableService payableService, ReceivableService receivableService,
-                           AuditService auditService, DistratoMapper mapper) {
+                           AuditService auditService,
+                           com.construtora.financeiro.security.DevelopmentScopeService scope, DistratoMapper mapper) {
         this.repository = repository;
         this.configService = configService;
         this.saleRepository = saleRepository;
@@ -65,6 +67,7 @@ public class DistratoService {
         this.payableService = payableService;
         this.receivableService = receivableService;
         this.auditService = auditService;
+        this.scope = scope;
         this.mapper = mapper;
     }
 
@@ -75,12 +78,15 @@ public class DistratoService {
         var entities = status != null
                 ? repository.findByStatusOrderByCreatedAtDesc(status)
                 : repository.findAllByOrderByCreatedAtDesc();
-        return entities.stream().map(mapper::toResponse).toList();
+        return scope.filter(entities, d -> d.getLot().getBlock().getDevelopment().getId())
+                .stream().map(mapper::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public DistratoResponse findById(UUID id) {
-        return mapper.toResponse(getEntity(id));
+        Distrato d = getEntity(id);
+        scope.requireAccess(d.getLot().getBlock().getDevelopment().getId(), "Distrato", id);
+        return mapper.toResponse(d);
     }
 
     // ===================== Simulação =====================
@@ -88,6 +94,7 @@ public class DistratoService {
     @Transactional(readOnly = true)
     public DistratoSimulationResponse simulate(DistratoSimulationRequest req) {
         PropertySale sale = getSale(req.saleId());
+        scope.requireAccess(sale.getLot().getBlock().getDevelopment().getId(), "Venda", req.saleId());
         return buildSimulation(sale, req.usedRetentionPercent(), req.financialRule());
     }
 

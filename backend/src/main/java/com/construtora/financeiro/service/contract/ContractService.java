@@ -28,17 +28,25 @@ public class ContractService {
     private final ContractRenderer renderer;
     private final ContractDocumentRepository documentRepository;
     private final NotificationService notificationService;
+    private final com.construtora.financeiro.security.DevelopmentScopeService scope;
 
     public ContractService(SaleService saleService, SettingsService settingsService,
                            ContractTemplateService templateService, ContractRenderer renderer,
                            ContractDocumentRepository documentRepository,
-                           NotificationService notificationService) {
+                           NotificationService notificationService,
+                           com.construtora.financeiro.security.DevelopmentScopeService scope) {
         this.saleService = saleService;
         this.settingsService = settingsService;
         this.templateService = templateService;
         this.renderer = renderer;
         this.documentRepository = documentRepository;
         this.notificationService = notificationService;
+        this.scope = scope;
+    }
+
+    /** Garante que o usuário tem escopo sobre o empreendimento da venda (anti-IDOR). */
+    private void checkScope(PropertySale sale, Object id) {
+        scope.requireAccess(sale.getLot().getBlock().getDevelopment().getId(), "Venda", id);
     }
 
     // ---- HTML (pré-visualização) ----
@@ -46,6 +54,7 @@ public class ContractService {
     @Transactional(readOnly = true)
     public String generateHtml(UUID saleId) {
         PropertySale sale = saleService.getEntity(saleId);
+        checkScope(sale, saleId);
         return buildDocument(sale, "CONTRACT");
     }
 
@@ -65,6 +74,7 @@ public class ContractService {
 
     public byte[] generateContractPdf(UUID saleId) {
         PropertySale sale = saleService.getEntity(saleId);
+        checkScope(sale, saleId);
         byte[] pdf = toPdf(buildDocument(sale, "CONTRACT"), "contrato");
         archive(sale, "CONTRACT", pdf);
         notificationService.notifyContractGenerated(sale);
@@ -73,6 +83,7 @@ public class ContractService {
 
     public byte[] generateDistratoPdf(UUID saleId) {
         PropertySale sale = saleService.getEntity(saleId);
+        checkScope(sale, saleId);
         if (sale.getStatus() != SaleStatus.CANCELLED || sale.getDistratoDate() == null) {
             throw new BusinessException("Distrato disponível apenas para vendas já distratadas.");
         }
@@ -112,12 +123,15 @@ public class ContractService {
 
     @Transactional(readOnly = true)
     public List<ContractDocument> listDocuments(UUID saleId) {
+        checkScope(saleService.getEntity(saleId), saleId);
         return documentRepository.findBySaleIdOrderByGeneratedAtDesc(saleId);
     }
 
     @Transactional(readOnly = true)
     public ContractDocument getDocument(UUID documentId) {
-        return documentRepository.findById(documentId)
+        ContractDocument doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> ResourceNotFoundException.of("Documento", documentId));
+        checkScope(doc.getSale(), documentId);
+        return doc;
     }
 }

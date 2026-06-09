@@ -7,6 +7,7 @@ import com.construtora.financeiro.model.Development;
 import com.construtora.financeiro.repository.BlockRepository;
 import com.construtora.financeiro.repository.DevelopmentRepository;
 import com.construtora.financeiro.repository.LotRepository;
+import com.construtora.financeiro.security.DevelopmentScopeService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,20 +22,27 @@ public class DevelopmentService {
     private final DevelopmentRepository repository;
     private final BlockRepository blockRepository;
     private final LotRepository lotRepository;
+    private final DevelopmentScopeService scope;
 
-    public DevelopmentService(DevelopmentRepository repository, BlockRepository blockRepository, LotRepository lotRepository) {
+    public DevelopmentService(DevelopmentRepository repository, BlockRepository blockRepository,
+                              LotRepository lotRepository, DevelopmentScopeService scope) {
         this.repository = repository;
         this.blockRepository = blockRepository;
         this.lotRepository = lotRepository;
+        this.scope = scope;
     }
 
     @Transactional(readOnly = true)
     public List<DevelopmentResponse> findAll() {
-        return repository.findAllByOrderByName().stream().map(this::toResponse).toList();
+        var allowed = scope.allowedDevelopmentIds();
+        return repository.findAllByOrderByName().stream()
+                .filter(d -> allowed.isEmpty() || allowed.get().contains(d.getId()))
+                .map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public DevelopmentResponse findById(UUID id) {
+        scope.requireAccess(id, "Empreendimento", id);
         return toResponse(getEntity(id));
     }
 

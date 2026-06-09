@@ -2,14 +2,15 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ShieldCheck } from 'lucide-react'
 import { api, apiErrorMessage } from '@/lib/api'
-import type { AppUser, Role } from '@/lib/types'
+import type { AppUser, Development, Role } from '@/lib/types'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/Confirm'
 import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 
+const GLOBAL_ACCESS = 'ACESSO_GLOBAL_EMPREENDIMENTOS'
 const FALLBACK_ROLES = ['ADMIN', 'FINANCEIRO', 'CONTABILIDADE', 'COMERCIAL', 'VISUALIZADOR']
-interface UserForm { id?: string; name: string; email: string; password?: string; role: string; active: boolean }
-const EMPTY: UserForm = { name: '', email: '', password: '', role: 'VISUALIZADOR', active: true }
+interface UserForm { id?: string; name: string; email: string; password?: string; role: string; active: boolean; developmentIds: string[] }
+const EMPTY: UserForm = { name: '', email: '', password: '', role: 'VISUALIZADOR', active: true, developmentIds: [] }
 
 export function UsersPage() {
   const queryClient = useQueryClient()
@@ -29,6 +30,22 @@ export function UsersPage() {
     queryFn: async () => (await api.get<Role[]>('/roles')).data,
   })
   const roleNames = roles?.map((r) => r.name) ?? FALLBACK_ROLES
+
+  const { data: developments } = useQuery({
+    queryKey: ['developments'],
+    queryFn: async () => (await api.get<Development[]>('/developments')).data,
+  })
+  // O perfil selecionado tem acesso global? (então o escopo por empreendimento não restringe)
+  const selectedRole = roles?.find((r) => r.name === form.role)
+  const roleHasGlobalAccess = selectedRole ? selectedRole.permissions.includes(GLOBAL_ACCESS) : true
+  function toggleDev(id: string) {
+    setForm((f) => ({
+      ...f,
+      developmentIds: f.developmentIds.includes(id)
+        ? f.developmentIds.filter((d) => d !== id)
+        : [...f.developmentIds, id],
+    }))
+  }
 
   const save = useMutation({
     mutationFn: async (p: UserForm) => (p.id ? api.put(`/users/${p.id}`, p) : api.post('/users', p)),
@@ -58,7 +75,7 @@ export function UsersPage() {
               <td className="px-4 py-2"><Badge color="blue">{u.role}</Badge></td>
               <td className="px-4 py-2"><Badge dot color={u.active ? 'green' : 'gray'}>{u.active ? 'Ativo' : 'Inativo'}</Badge></td>
               <td className="px-4 py-2 text-right">
-                <Button variant="ghost" onClick={() => { setForm({ id: u.id, name: u.name, email: u.email, role: u.role, active: u.active }); setError(null); setModalOpen(true) }}>Editar</Button>
+                <Button variant="ghost" onClick={() => { setForm({ id: u.id, name: u.name, email: u.email, role: u.role, active: u.active, developmentIds: u.developmentIds ?? [] }); setError(null); setModalOpen(true) }}>Editar</Button>
                 <Button variant="ghost" onClick={() => confirmRemove(u)}>Desativar</Button>
               </td>
             </Tr>
@@ -91,6 +108,28 @@ export function UsersPage() {
               </Select>
             </Field>
           </div>
+
+          <Field label="Empreendimentos com acesso (escopo)">
+            {roleHasGlobalAccess ? (
+              <p className="rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+                Este perfil tem <strong>acesso global</strong> — enxerga todos os empreendimentos. O escopo abaixo não restringe.
+              </p>
+            ) : (
+              <p className="mb-1.5 text-xs text-amber-600 dark:text-amber-400">
+                Perfil restrito: o usuário verá <strong>apenas</strong> os empreendimentos marcados (sem nenhum = não vê nada).
+              </p>
+            )}
+            <div className="max-h-40 space-y-1 overflow-auto rounded-md border border-gray-200 p-2 dark:border-gray-700">
+              {(developments ?? []).map((d) => (
+                <label key={d.id} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={form.developmentIds.includes(d.id)} onChange={() => toggleDev(d.id)} />
+                  {d.name}
+                </label>
+              ))}
+              {(developments ?? []).length === 0 && <p className="text-xs text-gray-400">Nenhum empreendimento cadastrado.</p>}
+            </div>
+          </Field>
+
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>

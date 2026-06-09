@@ -34,16 +34,19 @@ public class SaleService {
     private final ClientService clientService;
     private final LotService lotService;
     private final NotificationService notificationService;
+    private final com.construtora.financeiro.security.DevelopmentScopeService scope;
     private final SaleMapper mapper;
 
     public SaleService(PropertySaleRepository saleRepository, LotRepository lotRepository,
                        ClientService clientService, LotService lotService,
-                       NotificationService notificationService, SaleMapper mapper) {
+                       NotificationService notificationService,
+                       com.construtora.financeiro.security.DevelopmentScopeService scope, SaleMapper mapper) {
         this.saleRepository = saleRepository;
         this.lotRepository = lotRepository;
         this.clientService = clientService;
         this.lotService = lotService;
         this.notificationService = notificationService;
+        this.scope = scope;
         this.mapper = mapper;
     }
 
@@ -52,12 +55,16 @@ public class SaleService {
             String q, com.construtora.financeiro.model.enums.SaleStatus status, UUID clientId,
             org.springframework.data.domain.Pageable pageable) {
         String query = (q != null && !q.isBlank()) ? q.trim() : "";
-        return saleRepository.search(query, status, clientId, pageable).map(mapper::toResponse);
+        var qs = scope.queryScope();
+        return saleRepository.search(query, status, clientId, qs.unrestricted(), qs.devIds(), pageable)
+                .map(mapper::toResponse);
     }
 
     @Transactional(readOnly = true)
     public SaleResponse findById(UUID id) {
-        return mapper.toResponse(getEntity(id));
+        PropertySale sale = getEntity(id);
+        scope.requireAccess(sale.getLot().getBlock().getDevelopment().getId(), "Venda", id);
+        return mapper.toResponse(sale);
     }
 
     @Auditable(action = "SALE_CREATE", entity = "property_sales")

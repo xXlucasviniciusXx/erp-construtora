@@ -1,6 +1,7 @@
 package com.construtora.financeiro.dto.user;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record UserResponse(
@@ -9,5 +10,6 @@ public record UserResponse(
         String email,
         String role,
         boolean active,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        List<UUID> developmentIds   // empreendimentos vinculados (escopo de acesso)
 ) {}

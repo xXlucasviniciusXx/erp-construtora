@@ -356,6 +356,7 @@ export interface AppUser {
   role: string
   active: boolean
   createdAt: string
+  developmentIds?: string[]   // empreendimentos vinculados (escopo de acesso)
 }
 
 // ---- Licenciamento (Fase 1: módulos / feature flags + licença) ----
