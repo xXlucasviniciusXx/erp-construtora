@@ -91,6 +91,9 @@ export interface Lot {
   notes?: string
   label: string
   reservationExpiresAt?: string | null   // ISO datetime; presente apenas quando RESERVED
+  clientId?: string | null               // comprador da venda ATIVA (null se não vendido)
+  clientName?: string | null             // nome do comprador da venda ATIVA
+  saleStatus?: string | null             // status da venda ATIVA (ex.: ACTIVE)
 }
 
 export interface Installment {

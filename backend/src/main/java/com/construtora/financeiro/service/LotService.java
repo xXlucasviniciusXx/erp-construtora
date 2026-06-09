@@ -9,15 +9,20 @@ import com.construtora.financeiro.mapper.LotMapper;
 import com.construtora.financeiro.model.Block;
 import com.construtora.financeiro.model.Development;
 import com.construtora.financeiro.model.Lot;
+import com.construtora.financeiro.model.PropertySale;
 import com.construtora.financeiro.model.enums.PropertyStatus;
 import com.construtora.financeiro.repository.LotRepository;
+import com.construtora.financeiro.repository.PropertySaleRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -25,11 +30,14 @@ public class LotService {
 
     private final LotRepository repository;
     private final BlockService blockService;
+    private final PropertySaleRepository saleRepository;
     private final LotMapper mapper;
 
-    public LotService(LotRepository repository, BlockService blockService, LotMapper mapper) {
+    public LotService(LotRepository repository, BlockService blockService,
+                      PropertySaleRepository saleRepository, LotMapper mapper) {
         this.repository = repository;
         this.blockService = blockService;
+        this.saleRepository = saleRepository;
         this.mapper = mapper;
     }
 
@@ -40,7 +48,29 @@ public class LotService {
 
     @Transactional(readOnly = true)
     public List<LotResponse> findByDevelopment(UUID developmentId) {
-        return repository.findByBlockDevelopmentIdOrderByInternalCode(developmentId).stream().map(mapper::toResponse).toList();
+        return findByDevelopment(developmentId, null, null);
+    }
+
+    /**
+     * Lista os lotes de um empreendimento já enriquecidos com o comprador da venda
+     * ATIVA (coluna "Cliente" da tela de Lotes). Aceita filtros opcionais por cliente
+     * (comprador da venda ativa) e por status do lote.
+     */
+    @Transactional(readOnly = true)
+    public List<LotResponse> findByDevelopment(UUID developmentId, UUID clientId, PropertyStatus status) {
+        List<Lot> lots = repository.findByBlockDevelopmentIdOrderByInternalCode(developmentId);
+        Map<UUID, PropertySale> activeByLot = saleRepository
+                .findCurrentSalesByDevelopment(developmentId).stream()
+                .collect(Collectors.toMap(s -> s.getLot().getId(), Function.identity(), (a, b) -> a));
+        return lots.stream()
+                .filter(l -> status == null || l.getStatus() == status)
+                .filter(l -> clientId == null || matchesClient(activeByLot.get(l.getId()), clientId))
+                .map(l -> mapper.toResponse(l, activeByLot.get(l.getId())))
+                .toList();
+    }
+
+    private boolean matchesClient(PropertySale sale, UUID clientId) {
+        return sale != null && sale.getClient().getId().equals(clientId);
     }
 
     @Transactional(readOnly = true)

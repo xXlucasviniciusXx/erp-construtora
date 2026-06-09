@@ -17,9 +17,111 @@ export function DevelopmentsPage() {
   const { hasPermission } = useAuth()
   const canWrite = hasPermission('EMPREENDIMENTOS_EDIT')
   const [manage, setManage] = useState<Development | null>(null)
+  const [tab, setTab] = useState<'devs' | 'lots'>('devs')
 
   if (manage) return <DevelopmentManager development={manage} canWrite={canWrite} onBack={() => setManage(null)} />
-  return <DevelopmentsList canWrite={canWrite} onManage={setManage} />
+  return (
+    <div className="space-y-4">
+      <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-gray-800">
+        {([['devs', 'Empreendimentos'], ['lots', 'Lotes']] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={cn(
+              'rounded-md px-4 py-1.5 text-sm font-medium transition',
+              tab === key ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === 'devs'
+        ? <DevelopmentsList canWrite={canWrite} onManage={setManage} />
+        : <LotsExplorer />}
+    </div>
+  )
+}
+
+/* ---------------- Explorador de Lotes (lista plana filtrável) ---------------- */
+function LotsExplorer() {
+  const [developmentId, setDevelopmentId] = useState('')
+  const [clientId, setClientId] = useState('')
+  const [status, setStatus] = useState<LotStatus | ''>('')
+
+  const developments = useQuery({
+    queryKey: ['developments'],
+    queryFn: async () => (await api.get<Development[]>('/developments')).data,
+  })
+
+  const lots = useQuery({
+    queryKey: ['lots-explorer', developmentId],
+    queryFn: async () => (await api.get<Lot[]>('/lots', { params: { developmentId } })).data,
+    enabled: !!developmentId,
+  })
+
+  // Opções de cliente derivadas dos compradores presentes nos lotes carregados.
+  const clientOptions = (() => {
+    const map = new Map<string, string>()
+    for (const l of lots.data ?? []) if (l.clientId && l.clientName) map.set(l.clientId, l.clientName)
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  })()
+
+  const filtered = (lots.data ?? [])
+    .filter((l) => !clientId || l.clientId === clientId)
+    .filter((l) => !status || l.status === status)
+
+  return (
+    <div>
+      <PageHeader title="Lotes" subtitle="Selecione um empreendimento para listar seus lotes e compradores" />
+      <Card className="mb-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Field label="Empreendimento *">
+            <Select value={developmentId} onChange={(e) => { setDevelopmentId(e.target.value); setClientId('') }}>
+              <option value="">— selecione —</option>
+              {(developments.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Cliente (comprador)">
+            <Select value={clientId} onChange={(e) => setClientId(e.target.value)} disabled={!developmentId}>
+              <option value="">Todos</option>
+              {clientOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Status">
+            <Select value={status} onChange={(e) => setStatus(e.target.value as LotStatus | '')} disabled={!developmentId}>
+              <option value="">Todos</option>
+              {(['AVAILABLE', 'RESERVED', 'SOLD', 'CANCELLED'] as LotStatus[]).map((s) => <option key={s} value={s}>{LOT_LABEL[s]}</option>)}
+            </Select>
+          </Field>
+        </div>
+      </Card>
+
+      {!developmentId ? (
+        <EmptyState icon={Building2} title="Selecione um empreendimento" description="O filtro de empreendimento é obrigatório para listar os lotes." />
+      ) : lots.isLoading ? (
+        <TableSkeleton rows={6} cols={6} />
+      ) : (
+        <Table headers={['Lote', 'Quadra', 'Cliente', 'Status', 'Valor previsto', 'Valor vendido']}>
+          {filtered.map((l) => (
+            <Tr key={l.id}>
+              <td className="px-4 py-2 font-medium">{l.name}<div className="text-xs text-gray-400">{l.internalCode}</div></td>
+              <td className="px-4 py-2">{l.blockName}</td>
+              <td className="px-4 py-2">{l.clientName ?? <span className="text-gray-400">—</span>}</td>
+              <td className="px-4 py-2"><Badge dot color={LOT_COLOR[l.status]}>{LOT_LABEL[l.status]}</Badge></td>
+              <td className="px-4 py-2">{formatCurrency(l.plannedValue)}</td>
+              <td className="px-4 py-2 text-green-600">{l.saleValue != null ? formatCurrency(l.saleValue) : '—'}</td>
+            </Tr>
+          ))}
+          {filtered.length === 0 && (
+            <tr><td colSpan={6} className="p-0">
+              <EmptyState icon={Building2} title="Nenhum lote encontrado" description="Ajuste os filtros de cliente/status." />
+            </td></tr>
+          )}
+        </Table>
+      )}
+    </div>
+  )
 }
 
 /* ---------------- Lista de empreendimentos ---------------- */

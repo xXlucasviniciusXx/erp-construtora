@@ -25,5 +25,8 @@ public record LotResponse(
         String contractExtra,
         String notes,
         String label,                          // "Empreendimento / Quadra / Lote"
-        LocalDateTime reservationExpiresAt     // não-nulo apenas quando RESERVED
+        LocalDateTime reservationExpiresAt,    // não-nulo apenas quando RESERVED
+        UUID clientId,                         // comprador da venda ATIVA (null se não vendido)
+        String clientName,                     // nome do comprador da venda ATIVA
+        String saleStatus                      // status da venda ATIVA (ex.: ACTIVE)
 ) {}
