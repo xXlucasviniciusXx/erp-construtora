@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '@/lib/api'
-import type { BankAccount } from '@/lib/types'
+import type { BankAccount, Development } from '@/lib/types'
 import { ActionsMenu } from '@/components/Menu'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/Confirm'
-import { Badge, Button, Field, Input, Modal, Table, TableSkeleton, Tr } from '@/components/ui'
+import { Badge, Button, Field, Input, Modal, Select, Table, TableSkeleton, Tr } from '@/components/ui'
 import { formatCurrency } from '@/lib/utils'
 
 const EMPTY: Partial<BankAccount> = { active: true, initialBalance: 0 }
@@ -21,6 +21,10 @@ export function BankAccountsTab() {
   const { data, isLoading } = useQuery({
     queryKey: ['bank-accounts'],
     queryFn: async () => (await api.get<BankAccount[]>('/bank-accounts')).data,
+  })
+  const developments = useQuery({
+    queryKey: ['developments'],
+    queryFn: async () => (await api.get<Development[]>('/developments')).data,
   })
 
   const save = useMutation({
@@ -45,12 +49,12 @@ export function BankAccountsTab() {
         <Button onClick={() => { setForm(EMPTY); setError(null); setModalOpen(true) }}>Nova conta bancária</Button>
       </div>
       {isLoading ? <TableSkeleton rows={4} cols={7} /> : (
-        <Table headers={['Nome', 'Banco', 'Agência', 'Conta', 'Saldo inicial', 'Status', 'Ações']}>
+        <Table headers={['Nome', 'Banco', 'Empreendimento', 'Conta', 'Saldo inicial', 'Status', 'Ações']}>
           {data?.map((a) => (
             <Tr key={a.id}>
               <td className="px-4 py-2 font-medium">{a.name}</td>
               <td className="px-4 py-2">{[a.bankCode, a.bankName].filter(Boolean).join(' - ') || '—'}</td>
-              <td className="px-4 py-2">{a.agency ?? '—'}</td>
+              <td className="px-4 py-2">{a.developmentName ?? <span className="text-gray-400">Geral</span>}</td>
               <td className="px-4 py-2">{a.accountNumber ?? '—'}</td>
               <td className="px-4 py-2">{formatCurrency(a.initialBalance)}</td>
               <td className="px-4 py-2"><Badge dot color={a.active ? 'green' : 'gray'}>{a.active ? 'Ativa' : 'Inativa'}</Badge></td>
@@ -78,6 +82,13 @@ export function BankAccountsTab() {
             <Field label="Conta"><Input value={form.accountNumber ?? ''} onChange={(e) => setForm({ ...form, accountNumber: e.target.value })} /></Field>
             <Field label="Saldo inicial"><Input type="number" step="0.01" value={form.initialBalance ?? 0} onChange={(e) => setForm({ ...form, initialBalance: Number(e.target.value) })} /></Field>
           </div>
+          <Field label="Empreendimento vinculado (opcional)">
+            <Select value={form.developmentId ?? ''} onChange={(e) => setForm({ ...form, developmentId: e.target.value || null })}>
+              <option value="">Geral (não vinculada a um empreendimento)</option>
+              {(developments.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </Select>
+          </Field>
+          <p className="text-xs text-gray-400">Vincular a um empreendimento direciona as sugestões de conciliação para os recebíveis/parcelas daquele empreendimento.</p>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>

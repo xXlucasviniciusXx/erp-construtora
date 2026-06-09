@@ -4,7 +4,9 @@ import com.construtora.financeiro.dto.bank.BankAccountRequest;
 import com.construtora.financeiro.dto.bank.BankAccountResponse;
 import com.construtora.financeiro.exception.ResourceNotFoundException;
 import com.construtora.financeiro.model.BankAccount;
+import com.construtora.financeiro.model.Development;
 import com.construtora.financeiro.repository.BankAccountRepository;
+import com.construtora.financeiro.repository.DevelopmentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,9 +19,11 @@ import java.util.UUID;
 public class BankAccountService {
 
     private final BankAccountRepository repository;
+    private final DevelopmentRepository developmentRepository;
 
-    public BankAccountService(BankAccountRepository repository) {
+    public BankAccountService(BankAccountRepository repository, DevelopmentRepository developmentRepository) {
         this.repository = repository;
+        this.developmentRepository = developmentRepository;
     }
 
     @Transactional(readOnly = true)
@@ -56,10 +60,19 @@ public class BankAccountService {
         a.setAccountNumber(r.accountNumber());
         a.setInitialBalance(r.initialBalance() != null ? r.initialBalance() : BigDecimal.ZERO);
         a.setActive(r.active() == null || r.active());
+        if (r.developmentId() != null) {
+            Development dev = developmentRepository.findById(r.developmentId())
+                    .orElseThrow(() -> ResourceNotFoundException.of("Empreendimento", r.developmentId()));
+            a.setDevelopment(dev);
+        } else {
+            a.setDevelopment(null);
+        }
     }
 
     private BankAccountResponse toResponse(BankAccount a) {
         return new BankAccountResponse(a.getId(), a.getName(), a.getBankCode(), a.getBankName(),
-                a.getAgency(), a.getAccountNumber(), a.getInitialBalance(), a.isActive());
+                a.getAgency(), a.getAccountNumber(), a.getInitialBalance(), a.isActive(),
+                a.getDevelopment() != null ? a.getDevelopment().getId() : null,
+                a.getDevelopment() != null ? a.getDevelopment().getName() : null);
     }
 }

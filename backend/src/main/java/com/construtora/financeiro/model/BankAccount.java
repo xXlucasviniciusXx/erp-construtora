@@ -34,6 +34,11 @@ public class BankAccount {
     @Column(name = "account_number")
     private String accountNumber;
 
+    /** Empreendimento vinculado (null = conta geral). Direciona o escopo da conciliação. */
+    @ManyToOne
+    @JoinColumn(name = "development_id")
+    private Development development;
+
     @Column(name = "initial_balance", nullable = false)
     private BigDecimal initialBalance = BigDecimal.ZERO;
 

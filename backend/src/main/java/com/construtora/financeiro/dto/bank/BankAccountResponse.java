@@ -11,5 +11,7 @@ public record BankAccountResponse(
         String agency,
         String accountNumber,
         BigDecimal initialBalance,
-        boolean active
+        boolean active,
+        UUID developmentId,
+        String developmentName
 ) {}
