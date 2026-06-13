@@ -113,6 +113,9 @@ export interface Installment {
   interestAmount: number
   updatedAmount: number
   bankCreditDate?: string | null   // data do crédito no extrato (capturada na conciliação)
+  paidPrincipal?: number | null    // composição do valor recebido na baixa
+  paidInterest?: number | null
+  paidPenalty?: number | null
 }
 
 export interface Sale {

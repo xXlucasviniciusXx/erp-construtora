@@ -22,5 +22,9 @@ public record InstallmentResponse(
         BigDecimal interestAmount,
         BigDecimal updatedAmount,
         // Data do crédito no extrato bancário, capturada na conciliação (informativo, uso futuro).
-        LocalDate bankCreditDate
+        LocalDate bankCreditDate,
+        // Composição do valor recebido na baixa (null enquanto não paga).
+        BigDecimal paidPrincipal,
+        BigDecimal paidInterest,
+        BigDecimal paidPenalty
 ) {}

@@ -69,6 +69,18 @@ public class LateFeeCalculator {
         return new LateFees(daysLate, penalty, interest, updated);
     }
 
+    /**
+     * Registra na parcela a composição do valor recebido (principal/juros/multa)
+     * na data da baixa. DEVE ser chamado ANTES de marcar a parcela como PAID
+     * (o cálculo de encargos é zerado para parcelas já pagas/canceladas).
+     */
+    public void recordPaymentSplit(Installment installment, LocalDate paymentDate) {
+        LateFees f = compute(installment, paymentDate);
+        installment.setPaidPrincipal(installment.getAmount());
+        installment.setPaidInterest(f.interestAmount());
+        installment.setPaidPenalty(f.penaltyAmount());
+    }
+
     private LateFees noFees(BigDecimal base) {
         return new LateFees(0L, BigDecimal.ZERO, BigDecimal.ZERO, base);
     }

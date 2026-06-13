@@ -296,7 +296,10 @@ export function SalesPage() {
             {' '}Saldo devedor: <span className="font-medium text-amber-600">{formatCurrency(view.openAmount ?? 0)}</span>
           </div>
           <Table headers={['Nº', 'Vencimento', 'Crédito (extrato)', 'Valor', 'Atraso', 'Total atualizado', 'Status']}>
-            {view.installments.map((i) => (
+            {view.installments.map((i) => {
+              const fin = (i.paidInterest ?? 0) + (i.paidPenalty ?? 0)   // receita financeira recebida
+              const totalPaid = (i.paidPrincipal ?? i.amount) + fin
+              return (
               <Tr key={i.id}>
                 <td className="px-4 py-2">#{i.number}</td>
                 <td className="px-4 py-2">{formatDate(i.dueDate)}</td>
@@ -304,9 +307,14 @@ export function SalesPage() {
                 <td className="px-4 py-2">{formatCurrency(i.amount)}</td>
                 <td className="px-4 py-2">{i.daysLate > 0 ? <span className="text-red-600">{i.daysLate}d</span> : '—'}</td>
                 <td className="px-4 py-2 font-medium">
-                  {i.daysLate > 0
-                    ? <span title={`Multa ${formatCurrency(i.penaltyAmount)} + juros ${formatCurrency(i.interestAmount)}`}>{formatCurrency(i.updatedAmount)}</span>
-                    : '—'}
+                  {i.status === 'PAID'
+                    ? <span title={fin > 0 ? `Principal ${formatCurrency(i.paidPrincipal ?? i.amount)} + receita financeira ${formatCurrency(fin)}` : 'Recebido'}>
+                        {formatCurrency(totalPaid)}
+                        {fin > 0 && <span className="ml-1 text-[10px] text-green-600">(+{formatCurrency(fin)} fin.)</span>}
+                      </span>
+                    : i.daysLate > 0
+                      ? <span title={`Multa ${formatCurrency(i.penaltyAmount)} + juros ${formatCurrency(i.interestAmount)}`}>{formatCurrency(i.updatedAmount)}</span>
+                      : '—'}
                 </td>
                 <td className="px-4 py-2">
                   <Badge dot color={INSTALLMENT_STATUS[i.status]?.color ?? 'gray'}>
@@ -314,7 +322,8 @@ export function SalesPage() {
                   </Badge>
                 </td>
               </Tr>
-            ))}
+              )
+            })}
           </Table>
         </Modal>
       )}

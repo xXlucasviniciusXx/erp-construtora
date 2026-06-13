@@ -31,7 +31,8 @@ public class SaleMapper {
                 i.getId(), i.getSale().getId(), i.getNumber(), i.getAmount(), i.getDueDate(),
                 i.getPaymentDate(), i.getStatus(), i.getPaymentMethod(), i.getReceiptUrl(), i.getNotes(),
                 f.daysLate(), f.penaltyAmount(), f.interestAmount(), f.updatedAmount(),
-                i.getBankCreditDate());
+                i.getBankCreditDate(),
+                i.getPaidPrincipal(), i.getPaidInterest(), i.getPaidPenalty());
     }
 
     public InstallmentDetailResponse toDetailResponse(Installment i) {

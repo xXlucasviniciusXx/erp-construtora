@@ -103,10 +103,14 @@ Itens deixados como `TODO` propositalmente para continuação futura.
 - [x] **DRE (Demonstração do Resultado)** em base caixa: tela própria com
       receitas − despesas = resultado, filtros de período/empreendimento, margem
       e export CSV (`/dre`, `/dre/export`).
-- [ ] DRE em **competência** (faturado − incorrido) como visão alternativa.
-- [ ] Categorias de **receita** (FK em Contas a Receber) para detalhar "Outras Receitas".
-- [ ] Separar **Receitas Financeiras** (juros/multas recebidos) — requer gravar
-      principal/juros/multa na baixa da parcela.
+- [x] DRE em **competência** (faturado − incorrido) como visão alternativa
+      (base `COMPETENCIA` por vencimento, ao lado da base `CAIXA`).
+- [x] Categorias de **receita** (FK em Contas a Receber) para detalhar "Outras Receitas"
+      (FK `category_id`, DRE agrupa por categoria, seletor no form de conta avulsa).
+- [x] Separar **Receitas Financeiras** (juros/multas recebidos): grava
+      `paid_principal`/`paid_interest`/`paid_penalty` na baixa da parcela (manual e por
+      conciliação, V31); DRE lê os valores reais e corrige o cálculo (faltava o pro
+      rata die /30 nos juros).
 - [ ] Mapa no Dashboard (cards empreendimento → quadra → lotes) — em avaliação pelo cliente.
 
 ## Cadastros de referência

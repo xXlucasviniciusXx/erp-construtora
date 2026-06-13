@@ -203,6 +203,8 @@ public class ReconciliationService {
             case INSTALLMENT -> {
                 Installment i = installmentRepository.findById(id)
                         .orElseThrow(() -> ResourceNotFoundException.of("Parcela", id));
+                // Composição principal/juros/multa ANTES de marcar como paga.
+                lateFeeCalculator.recordPaymentSplit(i, date);
                 i.setStatus(InstallmentStatus.PAID);
                 i.setPaymentDate(date);
                 // Registro informativo da data do crédito no extrato (uso futuro).
@@ -230,6 +232,9 @@ public class ReconciliationService {
                 i.setStatus(InstallmentStatus.OPEN);
                 i.setPaymentDate(null);
                 i.setBankCreditDate(null);
+                i.setPaidPrincipal(null);
+                i.setPaidInterest(null);
+                i.setPaidPenalty(null);
                 installmentRepository.save(i);
             });
         }
