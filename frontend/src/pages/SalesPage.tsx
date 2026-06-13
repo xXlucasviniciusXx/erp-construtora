@@ -304,7 +304,15 @@ export function SalesPage() {
                 <td className="px-4 py-2">#{i.number}</td>
                 <td className="px-4 py-2">{formatDate(i.dueDate)}</td>
                 <td className="px-4 py-2 text-gray-500">{i.bankCreditDate ? formatDate(i.bankCreditDate) : '—'}</td>
-                <td className="px-4 py-2">{formatCurrency(i.amount)}</td>
+                <td className="px-4 py-2">
+                  {formatCurrency(i.amount)}
+                  {i.correctionAvailable && (i.monetaryCorrection ?? 0) > 0.005 && (
+                    <div className="text-[10px] text-indigo-600 dark:text-indigo-400"
+                      title={`Corrigido por ${i.correctionIndex} (aniversário anual): +${formatCurrency(i.monetaryCorrection)}`}>
+                      corrigido {formatCurrency(i.correctedAmount)}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-2">{i.daysLate > 0 ? <span className="text-red-600">{i.daysLate}d</span> : '—'}</td>
                 <td className="px-4 py-2 font-medium">
                   {i.status === 'PAID'

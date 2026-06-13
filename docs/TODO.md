@@ -94,7 +94,13 @@ Itens deixados como `TODO` propositalmente para continuação futura.
 ## Financeiro
 
 - [x] Aplicar juros/multa automaticamente no atraso (taxas por venda, cálculo em tempo real).
-- [ ] Correção monetária por índice (INCC/IGPM) nas parcelas — hoje é apenas informativo.
+- [~] Correção monetária por índice (INCC/IGPM) nas parcelas — **v1 (cálculo + visibilidade)**:
+      regra de **aniversário anual** (saldo das parcelas em aberto corrigido a cada 12
+      meses do contrato pelo índice oficial do BCB/SGS acumulado no período). `CorrectionService`
+      + `BcbIndexService.accumulatedFactorBetween`; `InstallmentResponse` expõe
+      `correctedAmount`/`monetaryCorrection`; tela de Vendas mostra o saldo corrigido.
+      *Follow-up*: aplicar a correção no **encargo cobrado na baixa** + linha "Correção
+      Monetária" na DRE (decisão de política financeira a confirmar).
 - [ ] Relatório de DRE simplificado (receitas − despesas por centro de custo).
 - [x] Plano de contas estruturado: entidade **Categoria** (grupo → item) e
       **Centro de Custo** com grupo, ambos FK em Contas a Pagar (V11) — com

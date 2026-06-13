@@ -116,6 +116,10 @@ export interface Installment {
   paidPrincipal?: number | null    // composição do valor recebido na baixa
   paidInterest?: number | null
   paidPenalty?: number | null
+  correctedAmount?: number | null  // saldo corrigido (aniversário anual) das parcelas em aberto
+  monetaryCorrection?: number | null
+  correctionIndex?: string | null
+  correctionAvailable?: boolean
 }
 
 export interface Sale {

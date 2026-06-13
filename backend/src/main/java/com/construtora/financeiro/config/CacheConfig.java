@@ -24,6 +24,8 @@ public class CacheConfig {
     public static final String DASHBOARD_ANALYTICS = "dashboardAnalytics";
     public static final String DASHBOARD_SUMMARY = "dashboardSummary";
     public static final String BCB_INDEX = "bcbIndex";
+    public static final String BCB_INDEX_FACTOR = "bcbIndexFactor";
+    public static final String CORRECTION_SGS = "correctionSgs";
     public static final String PUBLIC_SETTINGS = "publicSettings";
 
     @Bean
@@ -38,6 +40,16 @@ public class CacheConfig {
         // Índices do BCB mudam mensalmente — cache longo (6h)
         manager.registerCustomCache(BCB_INDEX, Caffeine.newBuilder()
                 .expireAfterWrite(6, TimeUnit.HOURS)
+                .maximumSize(50)
+                .build());
+        // Fator de correção acumulado por (sgs, período) — mesma natureza mensal (6h)
+        manager.registerCustomCache(BCB_INDEX_FACTOR, Caffeine.newBuilder()
+                .expireAfterWrite(6, TimeUnit.HOURS)
+                .maximumSize(500)
+                .build());
+        // Mapa nome do índice → código SGS (muda raramente) — 1h
+        manager.registerCustomCache(CORRECTION_SGS, Caffeine.newBuilder()
+                .expireAfterWrite(1, TimeUnit.HOURS)
                 .maximumSize(50)
                 .build());
         // Settings públicos: lidos em todo carregamento de página (branding),
