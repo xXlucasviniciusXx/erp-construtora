@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDownCircle } from 'lucide-react'
 import { api, apiErrorMessage, getToken } from '@/lib/api'
-import type { Client, InstallmentDetail, Page } from '@/lib/types'
+import type { Category, Client, InstallmentDetail, Page } from '@/lib/types'
 import { useAuth } from '@/auth/AuthContext'
 import { ActionsMenu } from '@/components/Menu'
 import { useToast } from '@/components/Toast'
@@ -135,6 +135,8 @@ interface Receivable {
   status: 'OPEN' | 'RECEIVED' | 'OVERDUE' | 'CANCELLED'
   paymentMethod?: string
   notes?: string
+  categoryId?: string
+  categoryName?: string
   approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED'
   approvedBy?: string
   approvedAt?: string
@@ -173,6 +175,11 @@ function StandaloneTab() {
     queryKey: ['clients-all'],
     queryFn: async () => (await api.get<Page<Client>>('/clients', { params: { size: 200 } })).data.content,
   })
+  const categories = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => (await api.get<Category[]>('/categories')).data,
+  })
+  const activeCategories = (categories.data ?? []).filter((c) => c.active || c.id === form.categoryId)
 
   const save = useMutation({
     mutationFn: async (p: Partial<Receivable>) => p.id ? api.put(`/accounts-receivable/${p.id}`, p) : api.post('/accounts-receivable', p),
@@ -307,7 +314,15 @@ function StandaloneTab() {
               {clients.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </Field>
-          <Field label="Descrição"><Input value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Descrição"><Input value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
+            <Field label="Categoria (receita)">
+              <Select value={form.categoryId ?? ''} onChange={(e) => setForm({ ...form, categoryId: e.target.value || undefined })}>
+                <option value="">— sem categoria —</option>
+                {activeCategories.map((c) => <option key={c.id} value={c.id}>{c.grupo} / {c.name}</option>)}
+              </Select>
+            </Field>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Valor"><Input type="number" step="0.01" value={form.amount ?? ''} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} required /></Field>
             <Field label="Vencimento"><Input type="date" value={form.dueDate ?? ''} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} required /></Field>

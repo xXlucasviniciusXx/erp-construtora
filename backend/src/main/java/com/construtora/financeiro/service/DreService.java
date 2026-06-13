@@ -56,9 +56,9 @@ public class DreService {
             payDevF = " and ap.development_id = :devId";
         }
 
-        // Receita de Vendas (parcelas pagas)
+        // Receita de Vendas (principal das parcelas pagas no período)
         double salesRevenue = num("""
-                select coalesce(sum(i.amount),0)
+                select coalesce(sum(coalesce(i.paid_principal, i.amount)),0)
                 from installments i
                   join property_sales s on s.id = i.sale_id
                   join lots lt on lt.id = s.lot_id
@@ -66,15 +66,10 @@ public class DreService {
                 where i.status='PAID' and i.payment_date between :from and :to"""
                 + instDevF, p);
 
-        // Receitas Financeiras — juros e multas de parcelas pagas com atraso
+        // Receitas Financeiras — juros e multas efetivamente recebidos na baixa
+        // (valores registrados na parcela; mesmo encargo exibido ao cliente).
         double financialRevenue = num("""
-                select coalesce(sum(
-                    case when i.payment_date > i.due_date then
-                        i.amount * ps.penalty_rate  / 100.0
-                      + i.amount * ps.interest_rate / 100.0
-                        * (i.payment_date - i.due_date)
-                    else 0 end
-                ), 0)
+                select coalesce(sum(coalesce(i.paid_interest,0) + coalesce(i.paid_penalty,0)),0)
                 from installments i
                   join property_sales ps on ps.id = i.sale_id
                   join lots lt on lt.id = ps.lot_id

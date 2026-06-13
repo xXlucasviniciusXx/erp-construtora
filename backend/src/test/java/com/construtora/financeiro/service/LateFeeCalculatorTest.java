@@ -47,6 +47,31 @@ class LateFeeCalculatorTest {
     }
 
     @Test
+    void recordPaymentSplit_gravaPrincipalJurosMulta() {
+        // Parcela de 1000, paga com 45 dias de atraso (multa 2% + juros 1% a.m.).
+        LocalDate due = LocalDate.of(2026, 1, 1);
+        Installment i = installment(new BigDecimal("1000.00"), InstallmentStatus.OVERDUE, due, "2", "1");
+
+        calc.recordPaymentSplit(i, due.plusDays(45));
+
+        assertThat(i.getPaidPrincipal()).isEqualByComparingTo("1000.00");
+        assertThat(i.getPaidPenalty()).isEqualByComparingTo("20.00");
+        assertThat(i.getPaidInterest()).isEqualByComparingTo("15.00");
+    }
+
+    @Test
+    void recordPaymentSplit_noPrazo_semReceitaFinanceira() {
+        LocalDate due = LocalDate.of(2026, 1, 1);
+        Installment i = installment(new BigDecimal("800.00"), InstallmentStatus.OPEN, due, "2", "1");
+
+        calc.recordPaymentSplit(i, due);   // pago no vencimento
+
+        assertThat(i.getPaidPrincipal()).isEqualByComparingTo("800.00");
+        assertThat(i.getPaidPenalty()).isEqualByComparingTo("0");
+        assertThat(i.getPaidInterest()).isEqualByComparingTo("0");
+    }
+
+    @Test
     void parcelaPagaNaoGeraEncargo() {
         Installment i = installment(new BigDecimal("1000.00"), InstallmentStatus.PAID,
                 LocalDate.of(2026, 1, 1), "2", "1");

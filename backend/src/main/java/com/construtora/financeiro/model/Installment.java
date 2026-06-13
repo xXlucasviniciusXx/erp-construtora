@@ -50,6 +50,18 @@ public class Installment {
     @Column(nullable = false)
     private InstallmentStatus status = InstallmentStatus.OPEN;
 
+    /**
+     * Composição do valor recebido na baixa: principal (valor da parcela), juros
+     * de mora e multa por atraso. Preenchido na baixa (manual ou por conciliação);
+     * nulo enquanto não pago. Distingue receita de vendas de receita financeira.
+     */
+    @Column(name = "paid_principal")
+    private BigDecimal paidPrincipal;
+    @Column(name = "paid_interest")
+    private BigDecimal paidInterest;
+    @Column(name = "paid_penalty")
+    private BigDecimal paidPenalty;
+
     @Column(name = "payment_method")
     private String paymentMethod;
 

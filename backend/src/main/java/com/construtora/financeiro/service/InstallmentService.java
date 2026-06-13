@@ -23,14 +23,17 @@ public class InstallmentService {
     private final InstallmentRepository repository;
     private final NotificationService notificationService;
     private final com.construtora.financeiro.security.DevelopmentScopeService scope;
+    private final LateFeeCalculator lateFeeCalculator;
     private final SaleMapper mapper;
 
     public InstallmentService(InstallmentRepository repository,
                               NotificationService notificationService,
-                              com.construtora.financeiro.security.DevelopmentScopeService scope, SaleMapper mapper) {
+                              com.construtora.financeiro.security.DevelopmentScopeService scope,
+                              LateFeeCalculator lateFeeCalculator, SaleMapper mapper) {
         this.repository = repository;
         this.notificationService = notificationService;
         this.scope = scope;
+        this.lateFeeCalculator = lateFeeCalculator;
         this.mapper = mapper;
     }
 
@@ -68,6 +71,9 @@ public class InstallmentService {
         if (inst.getStatus() == InstallmentStatus.PAID) {
             throw new BusinessException("Parcela já está paga");
         }
+        // Registra principal/juros/multa ANTES de marcar como paga (o cálculo
+        // de encargos zera para parcelas já pagas).
+        lateFeeCalculator.recordPaymentSplit(inst, request.paymentDate());
         inst.setStatus(InstallmentStatus.PAID);
         inst.setPaymentDate(request.paymentDate());
         if (request.paymentMethod() != null) inst.setPaymentMethod(request.paymentMethod());
