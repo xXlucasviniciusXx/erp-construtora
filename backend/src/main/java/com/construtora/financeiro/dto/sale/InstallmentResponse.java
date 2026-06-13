@@ -26,5 +26,10 @@ public record InstallmentResponse(
         // Composição do valor recebido na baixa (null enquanto não paga).
         BigDecimal paidPrincipal,
         BigDecimal paidInterest,
-        BigDecimal paidPenalty
+        BigDecimal paidPenalty,
+        // Correção monetária (aniversário anual) — saldo corrigido das parcelas em aberto.
+        BigDecimal correctedAmount,
+        BigDecimal monetaryCorrection,
+        String correctionIndex,
+        boolean correctionAvailable
 ) {}

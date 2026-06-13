@@ -8,6 +8,7 @@ import com.construtora.financeiro.model.Installment;
 import com.construtora.financeiro.model.Lot;
 import com.construtora.financeiro.model.PropertySale;
 import com.construtora.financeiro.model.enums.InstallmentStatus;
+import com.construtora.financeiro.service.CorrectionService;
 import com.construtora.financeiro.service.LateFeeCalculator;
 import com.construtora.financeiro.service.LateFeeCalculator.LateFees;
 import org.springframework.stereotype.Component;
@@ -20,19 +21,27 @@ import java.util.stream.Collectors;
 public class SaleMapper {
 
     private final LateFeeCalculator lateFeeCalculator;
+    private final CorrectionService correctionService;
 
-    public SaleMapper(LateFeeCalculator lateFeeCalculator) {
+    public SaleMapper(LateFeeCalculator lateFeeCalculator, CorrectionService correctionService) {
         this.lateFeeCalculator = lateFeeCalculator;
+        this.correctionService = correctionService;
     }
 
     public InstallmentResponse toInstallmentResponse(Installment i) {
         LateFees f = lateFeeCalculator.compute(i);
+        // Correção monetária só faz sentido para parcelas ainda em aberto.
+        var corr = (i.getStatus() == InstallmentStatus.OPEN || i.getStatus() == InstallmentStatus.OVERDUE)
+                ? correctionService.correctedFor(i)
+                : new CorrectionService.CorrectionResult(i.getAmount(), BigDecimal.ZERO,
+                        i.getSale().getCorrectionIndex(), 0, false);
         return new InstallmentResponse(
                 i.getId(), i.getSale().getId(), i.getNumber(), i.getAmount(), i.getDueDate(),
                 i.getPaymentDate(), i.getStatus(), i.getPaymentMethod(), i.getReceiptUrl(), i.getNotes(),
                 f.daysLate(), f.penaltyAmount(), f.interestAmount(), f.updatedAmount(),
                 i.getBankCreditDate(),
-                i.getPaidPrincipal(), i.getPaidInterest(), i.getPaidPenalty());
+                i.getPaidPrincipal(), i.getPaidInterest(), i.getPaidPenalty(),
+                corr.correctedAmount(), corr.monetaryCorrection(), corr.index(), corr.available());
     }
 
     public InstallmentDetailResponse toDetailResponse(Installment i) {
